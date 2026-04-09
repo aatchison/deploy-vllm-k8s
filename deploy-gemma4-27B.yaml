@@ -1,0 +1,88 @@
+# Gemma 4 31B (31B params, BF16 full precision)
+# Deployed on the 4g.96gb MIG slice (GPU 1, 96GB VRAM)
+# ~54GB weights leave ~37GB for KV cache — supports 64K context
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: vllm
+  labels:
+    app: vllm
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 1800
+  selector:
+    matchLabels:
+      app: vllm
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: vllm
+        model: gemma-4-31B-it
+    spec:
+      containers:
+      - name: vllm
+        image: docker.io/library/vllm-gemma4:local
+        imagePullPolicy: Never
+        args:
+        - "--model"
+        - "google/gemma-4-31B-it"
+        - "--dtype"
+        - "bfloat16"
+        - "--port"
+        - "8000"
+        - "--max-model-len"
+        - "65536"
+        - "--gpu-memory-utilization"
+        - "0.95"
+        - "--enable-auto-tool-choice"
+        - "--tool-call-parser"
+        - "gemma4"
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: token
+        - name: HF_HOME
+          value: /models/huggingface
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        resources:
+          limits:
+            nvidia.com/mig-4g.96gb: "1"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        - name: shm
+          mountPath: /dev/shm
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 1200
+          periodSeconds: 30
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 15
+          failureThreshold: 40
+      tolerations:
+      - key: nvidia.com/mig-4g.96gb
+        operator: Exists
+        effect: NoSchedule
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: vllm-models-pvc
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Gi

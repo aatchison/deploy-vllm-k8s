@@ -19,6 +19,7 @@ usage() {
     echo "  26B-A4B  - Deploy Gemma 4 26B  (MoE, FP8 — see note in yaml, currently broken)"
     echo "  31B      - Deploy Gemma 4 31B  (31B params,  NVFP4, ~31GB weights, 2g.48gb MIG)"
     echo "  31B-96   - Deploy Gemma 4 31B  (31B params,  NVFP4, ~31GB weights, 4g.96gb MIG, 128K ctx)"
+    echo "  27B      - Deploy Gemma 4 31B  (31B params,  BF16,  ~62GB weights, 4g.96gb MIG,  64K ctx)"
     echo "  dual     - Deploy E2B + E4B simultaneously on the two mig-2g.48gb slices"
     echo "             E2B: NodePort 30801  |  E4B: NodePort 30802"
     echo "  triple   - Deploy E2B + E4B + 31B simultaneously across both GPUs"
