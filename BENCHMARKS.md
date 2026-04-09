@@ -40,7 +40,7 @@
 | **PCIe gen/width** | Gen 1 x16 | Gen 1 x16 |
 | **ECC** | Disabled | Disabled |
 | **MIG profile** | 2x `2g.48gb` | 1x `4g.96gb` |
-| **Workload** | vLLM (E2B + E4B simultaneously) | ollama (gemma4:31b) |
+| **Workload** | vLLM (E2B + E4B simultaneously) | vLLM (31B NVFP4, 128K ctx) |
 
 ### NFS Storage
 
@@ -124,7 +124,7 @@ GPU 0 (96 GB total)
 +-- MIG 2g.48gb [1]  ->  vllm-e4b  (gemma-4-E4B-it BF16,    port 30802)
 
 GPU 1 (96 GB total)
-+-- MIG 4g.96gb [0]  ->  vllm      (Gemma-4-31B-IT-NVFP4,   port 30800)
++-- MIG 4g.96gb [0]  ->  vllm-31b  (Gemma-4-31B-IT-NVFP4,   port 30803)
 ```
 
 ---
@@ -141,6 +141,7 @@ GPU 1 (96 GB total)
 | 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 2g.48gb | Working |
 | 31B-96 | `deploy.sh 31B-96` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | Working |
 | Dual | `deploy.sh dual` | E2B + E4B simultaneously | -- | both 2g.48gb | Working |
+| Triple | `deploy.sh triple` | E2B + E4B + 31B simultaneously | -- | all MIG slices | Working |
 
 #### Why 26B-A4B is broken
 
@@ -444,16 +445,14 @@ The `protoLabsAI/gemma-4-26B-A4B-it-FP8` checkpoint uses non-standard block size
 ### Run benchmarks
 
 ```bash
-bash loadtest-all.sh                                        # defaults (20x vLLM, 5x ollama)
-VLLM_ROUNDS=10 OLLAMA_ROUNDS=3 bash loadtest-all.sh         # custom counts
-OLLAMA_MODEL=devstral:latest bash loadtest-all.sh            # different ollama model
+bash loadtest-all.sh                             # defaults (20x E2B/E4B, 5x 31B)
+VLLM_ROUNDS=10 B31_ROUNDS=3 bash loadtest-all.sh # custom counts
 ```
 
 ### Tool use demo
 
 ```bash
-bash tooluse-demo.sh                    # default: gemma4:31b
-bash tooluse-demo.sh devstral:latest    # different ollama model
+bash tooluse-demo.sh    # tests all three vLLM endpoints (E2B, E4B, 31B)
 ```
 
 ### Check MIG state

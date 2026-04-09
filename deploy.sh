@@ -18,9 +18,11 @@ usage() {
     echo "  E4B      - Deploy Gemma 4 E4B  (~4B params,  BF16,  ~8GB  weights)"
     echo "  26B-A4B  - Deploy Gemma 4 26B  (MoE, FP8 — see note in yaml, currently broken)"
     echo "  31B      - Deploy Gemma 4 31B  (31B params,  NVFP4, ~31GB weights, 2g.48gb MIG)"
-  echo "  31B-96   - Deploy Gemma 4 31B  (31B params,  NVFP4, ~31GB weights, 4g.96gb MIG, 64K ctx)"
+    echo "  31B-96   - Deploy Gemma 4 31B  (31B params,  NVFP4, ~31GB weights, 4g.96gb MIG, 128K ctx)"
     echo "  dual     - Deploy E2B + E4B simultaneously on the two mig-2g.48gb slices"
     echo "             E2B: NodePort 30801  |  E4B: NodePort 30802"
+    echo "  triple   - Deploy E2B + E4B + 31B simultaneously across both GPUs"
+    echo "             E2B: NodePort 30801  |  E4B: NodePort 30802  |  31B: NodePort 30803"
     echo "  test     - Run a smoke test against the currently deployed model (single)"
     echo "  undeploy - Scale down to 0 replicas (releases GPU, model cache kept)"
     echo "  destroy  - Delete all vLLM resources including namespace and PV"
@@ -107,6 +109,52 @@ if [[ "$CMD" == "dual" ]]; then
         -H "Content-Type: application/json" \
         -d '{"model":"google/gemma-4-E4B-it","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
         | python3 -c 'import json,sys; print("  E4B response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
+    exit 0
+fi
+
+if [[ "$CMD" == "triple" ]]; then
+    echo "==> Applying base infrastructure"
+    microk8s kubectl apply -f "$SCRIPT_DIR/00-base.yaml"
+
+    echo "==> Tearing down single-model deployment if present"
+    microk8s kubectl delete deployment vllm -n vllm --ignore-not-found
+
+    echo "==> Deploying E2B + E4B + 31B simultaneously"
+    microk8s kubectl apply -f "$SCRIPT_DIR/deploy-triple.yaml"
+
+    echo "==> Waiting for E2B rollout"
+    microk8s kubectl rollout status deployment/vllm-e2b -n vllm --timeout=600s
+
+    echo "==> Waiting for E4B rollout"
+    microk8s kubectl rollout status deployment/vllm-e4b -n vllm --timeout=600s
+
+    echo "==> Waiting for 31B rollout (up to 30 min)"
+    microk8s kubectl rollout status deployment/vllm-31b -n vllm --timeout=1800s
+
+    NODE_IP="$(microk8s kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
+    echo ""
+    echo "============================================"
+    echo "  All three models ready"
+    echo "  E2B : http://${NODE_IP}:30801/v1  (bg-digitalservices/Gemma-4-E2B-it-NVFP4)"
+    echo "  E4B : http://${NODE_IP}:30802/v1  (google/gemma-4-E4B-it)"
+    echo "  31B : http://${NODE_IP}:30803/v1  (nvidia/Gemma-4-31B-IT-NVFP4)"
+    echo "============================================"
+    echo ""
+    echo "  Smoke test E2B:"
+    curl -sf "http://${NODE_IP}:30801/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"bg-digitalservices/Gemma-4-E2B-it-NVFP4","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
+        | python3 -c 'import json,sys; print("  E2B response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
+    echo "  Smoke test E4B:"
+    curl -sf "http://${NODE_IP}:30802/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"google/gemma-4-E4B-it","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
+        | python3 -c 'import json,sys; print("  E4B response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
+    echo "  Smoke test 31B:"
+    curl -sf "http://${NODE_IP}:30803/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"nvidia/Gemma-4-31B-IT-NVFP4","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
+        | python3 -c 'import json,sys; print("  31B response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
     exit 0
 fi
 

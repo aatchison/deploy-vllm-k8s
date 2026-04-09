@@ -119,14 +119,15 @@ This builds a custom vLLM image with Gemma 4 support and imports it into MicroK8
 ./deploy.sh 31B       # 31B NVFP4 on 2g.48gb slice, port 30800
 ./deploy.sh 31B-96    # 31B NVFP4 on 4g.96gb slice, port 30800 (128K context)
 ./deploy.sh dual      # E2B + E4B simultaneously on ports 30801/30802
+./deploy.sh triple    # E2B + E4B + 31B simultaneously on ports 30801/30802/30803
 ```
 
 ### 5. Test it
 
 ```bash
-./deploy.sh test      # quick smoke test
-bash tooluse-demo.sh  # verify function calling works
-bash loadtest-all.sh  # full load test against all endpoints
+./deploy.sh test      # quick smoke test (single-model deployments)
+bash tooluse-demo.sh  # verify function calling works across all three vLLM endpoints
+bash loadtest-all.sh  # concurrent load test across all three vLLM endpoints
 ```
 
 ### 6. Tear down
