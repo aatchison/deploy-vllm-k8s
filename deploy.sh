@@ -120,7 +120,7 @@ if [[ "$CMD" == "destroy" ]]; then
     echo "==> Deleting all vLLM resources"
     microk8s kubectl delete namespace vllm --ignore-not-found
     microk8s kubectl delete pv vllm-nfs-pv --ignore-not-found
-    echo "==> Done. NFS model cache at 10.0.0.61:/exports/vllm-models is untouched."
+    echo "==> Done. NFS model cache is untouched (see 00-base.yaml for NFS details)."
     exit 0
 fi
 

@@ -1,9 +1,19 @@
 #!/bin/bash
-# Tool-use demo: ask all three endpoints to call a "get_weather" tool.
+# Tool-use demo: ask all three endpoints to call a "get_weather" function.
 # vLLM: /v1/chat/completions with tools array (OpenAI format)
 # ollama: /api/chat with tools array
+#
+# Usage:
+#   bash tooluse-demo.sh                    # uses default ollama model (gemma4:31b)
+#   bash tooluse-demo.sh devstral:latest    # specify a different ollama model
 
-NODE_IP="192.168.122.78"
+# Auto-detect node IP from kubectl, or use NODE_IP env var
+NODE_IP="${NODE_IP:-$(microk8s kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null)}"
+if [ -z "$NODE_IP" ]; then
+    echo "ERROR: Could not detect node IP. Set NODE_IP env var or check kubectl." >&2
+    exit 1
+fi
+
 E2B_URL="http://${NODE_IP}:30801/v1/chat/completions"
 E4B_URL="http://${NODE_IP}:30802/v1/chat/completions"
 OLLAMA_URL="http://localhost:31434/api/chat"
@@ -98,7 +108,7 @@ else:
 echo ""
 
 # --- Ollama ---
-OLLAMA_MODEL="${1:-devstral:latest}"
+OLLAMA_MODEL="${1:-gemma4:31b}"
 echo "--- ollama [${OLLAMA_MODEL}] ---"
 RESP=$(curl -sf "${OLLAMA_URL}" \
   -H "Content-Type: application/json" \

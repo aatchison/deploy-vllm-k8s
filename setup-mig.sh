@@ -10,8 +10,10 @@
 set -euo pipefail
 
 NAMESPACE=gpu-operator-resources
-NODE=ubuntu-2025-11-12
+NODE=$(microk8s kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+echo "  Node: $NODE"
 
+echo ""
 echo "==> Step 1: Enable MIG mode on GPU 1 (if not already)"
 sudo nvidia-smi -i 1 -mig 1 || true
 

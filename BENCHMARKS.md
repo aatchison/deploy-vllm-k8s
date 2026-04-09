@@ -1,8 +1,6 @@
 # Gemma 4 on vLLM + MicroK8s: Full Deployment & Benchmark Report
 
-**Date:** April 2026  
-**Author:** aatchison  
-**Node:** `thegearyk8s` (ubuntu-2025-11-12, 192.168.122.78)
+**Date:** April 2026
 
 ---
 
@@ -21,48 +19,45 @@
 
 ## 1. Hardware Configuration
 
-### Compute Node (`thegearyk8s`)
+### Compute Node
 
 | Component | Spec |
 |-----------|------|
 | **CPU** | AMD Ryzen Threadripper PRO 9975WX (32 cores, 1 thread/core) |
 | **RAM** | 125 GiB |
 | **OS** | Ubuntu 24.04.4 LTS, kernel 6.8.0-107-generic |
-| **Root disk** | 490 GB (168 GB used) |
+| **Root disk** | 490 GB |
 | **Container runtime** | containerd 1.6.36 |
 | **K8s** | MicroK8s v1.32.13 |
-| **Network IP** | 192.168.122.78 (accessible via ProxyJump `thebastion` → `geary`) |
 
 ### GPUs
 
 | | GPU 0 | GPU 1 |
 |--|-------|-------|
 | **Model** | NVIDIA RTX PRO 6000 Blackwell Workstation | NVIDIA RTX PRO 6000 Blackwell Workstation |
-| **PCIe** | 00000000:07:00.0 | 00000000:08:00.0 |
 | **VRAM** | 97,887 MiB (~96 GB) | 97,887 MiB (~96 GB) |
 | **TDP** | 600 W | 600 W |
-| **PCIe gen/width** | Gen 1 ×16 | Gen 1 ×16 |
-| **ECC** | Disabled (required reboot) | Disabled (pre-existing) |
-| **MIG profile** | 2× `2g.48gb` | 1× `4g.96gb` |
+| **PCIe gen/width** | Gen 1 x16 | Gen 1 x16 |
+| **ECC** | Disabled | Disabled |
+| **MIG profile** | 2x `2g.48gb` | 1x `4g.96gb` |
 | **Workload** | vLLM (E2B + E4B simultaneously) | ollama (gemma4:31b) |
 
-### NFS Storage Server (`thegearynfs`)
+### NFS Storage
 
 | Item | Value |
 |------|-------|
-| **Host** | 10.0.0.61 |
-| **Export** | `/vllm-models` |
-| **Mount on node** | `/mnt/vllm-models` |
+| **Export** | Configured in `00-base.yaml` |
+| **Mount on node** | `/models` inside each pod |
 | **Usage** | HuggingFace model cache shared across all pods |
 
-Model cache contents (NFS):
+Model cache contents:
 
 | Model directory | Checkpoint |
 |-----------------|------------|
 | `models--bg-digitalservices--Gemma-4-E2B-it-NVFP4` | NVFP4 ~2B params |
 | `models--google--gemma-4-E4B-it` | BF16 ~4B params |
 | `models--nvidia--Gemma-4-31B-IT-NVFP4` | NVFP4 ~31B params |
-| `models--protoLabsAI--gemma-4-26B-A4B-it-FP8` | FP8 MoE (broken — see §4) |
+| `models--protoLabsAI--gemma-4-26B-A4B-it-FP8` | FP8 MoE (broken -- see section 4) |
 
 ---
 
@@ -99,18 +94,18 @@ mig-configs:
     - devices: [0]
       mig-enabled: true
       mig-devices:
-        "2g.48gb": 2      # Two 48 GB slices — run two models simultaneously
+        "2g.48gb": 2      # Two 48 GB slices -- run two models simultaneously
     - devices: [1]
       mig-enabled: true
       mig-devices:
-        "4g.96gb": 1      # One full 96 GB slice — large model headroom
+        "4g.96gb": 1      # One full 96 GB slice -- large model headroom
 ```
 
 The node is labelled `nvidia.com/mig.config=custom-mig`, which triggers `mig-manager` to apply this config on boot.
 
 ### MIG Persistence After Reboot
 
-GPU 0's two `2g.48gb` slices are fully managed by mig-manager via the ConfigMap.  
+GPU 0's two `2g.48gb` slices are fully managed by mig-manager via the ConfigMap.
 GPU 1's `4g.96gb` slice must be created manually post-boot (mig-manager alone cannot provision it from the ConfigMap for this profile). `setup-mig.sh` handles this:
 
 ```
@@ -119,7 +114,7 @@ deploy.sh setup
 
 Steps performed by `setup-mig.sh`:
 1. Enable MIG on GPU 1: `nvidia-smi -i 1 -mig 1`
-2. Apply `nvidia.com/mig.config=custom-mig` label → triggers mig-manager
+2. Apply `nvidia.com/mig.config=custom-mig` label -- triggers mig-manager
 3. Wait for mig-manager state = `success`
 4. Create `4g.96gb` instance on GPU 1 if absent
 5. Restart device-plugin pod, wait for Ready
@@ -129,11 +124,11 @@ Steps performed by `setup-mig.sh`:
 
 ```
 GPU 0 (96 GB total)
-├── MIG 2g.48gb [0]  →  vllm-e2b  (Gemma-4-E2B-it-NVFP4,  port 30801)
-└── MIG 2g.48gb [1]  →  vllm-e4b  (gemma-4-E4B-it BF16,    port 30802)
++-- MIG 2g.48gb [0]  ->  vllm-e2b  (Gemma-4-E2B-it-NVFP4,  port 30801)
++-- MIG 2g.48gb [1]  ->  vllm-e4b  (gemma-4-E4B-it BF16,    port 30802)
 
 GPU 1 (96 GB total)
-└── MIG 4g.96gb [0]  →  ollama    (gemma4:31b,              port 31434)
++-- MIG 4g.96gb [0]  ->  ollama    (gemma4:31b,              port 31434)
 ```
 
 ---
@@ -144,11 +139,11 @@ GPU 1 (96 GB total)
 
 | Model | Command | Checkpoint | Quantization | MIG slice | Status |
 |-------|---------|------------|-------------|-----------|--------|
-| E2B | `deploy.sh E2B` | `bg-digitalservices/Gemma-4-E2B-it-NVFP4` | NVFP4 | 2g.48gb | ✅ Working |
-| E4B | `deploy.sh E4B` | `google/gemma-4-E4B-it` | BF16 | 2g.48gb | ✅ Working |
-| 26B-A4B | `deploy.sh 26B-A4B` | `protoLabsAI/gemma-4-26B-A4B-it-FP8` | FP8 | 2g.48gb | ❌ Broken |
-| 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | ✅ Working |
-| Dual | `deploy.sh dual` | E2B + E4B simultaneously | — | both 2g.48gb | ✅ Working |
+| E2B | `deploy.sh E2B` | `bg-digitalservices/Gemma-4-E2B-it-NVFP4` | NVFP4 | 2g.48gb | Working |
+| E4B | `deploy.sh E4B` | `google/gemma-4-E4B-it` | BF16 | 2g.48gb | Working |
+| 26B-A4B | `deploy.sh 26B-A4B` | `protoLabsAI/gemma-4-26B-A4B-it-FP8` | FP8 | 2g.48gb | Broken |
+| 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | Working |
+| Dual | `deploy.sh dual` | E2B + E4B simultaneously | -- | both 2g.48gb | Working |
 
 #### Why 26B-A4B is broken
 
@@ -166,8 +161,8 @@ ValueError: The output_size of gate's and up's weight = 704 is not divisible
 Two independent k8s Deployments each request one `nvidia.com/mig-2g.48gb` slice. Each gets its own Service/NodePort:
 
 ```
-http://<node>:30801/v1  →  E2B (Gemma-4-E2B-it-NVFP4)
-http://<node>:30802/v1  →  E4B (gemma-4-E4B-it BF16)
+http://<node>:30801/v1  ->  E2B (Gemma-4-E2B-it-NVFP4)
+http://<node>:30802/v1  ->  E4B (gemma-4-E4B-it BF16)
 ```
 
 ---
@@ -180,14 +175,14 @@ http://<node>:30802/v1  →  E4B (gemma-4-E4B-it BF16)
 |------|-------|--------|
 | `--max-model-len` | `32768` | Cap context to avoid OOM on 48 GB slices |
 | `--gpu-memory-utilization` | `0.90` (E2B/E4B), `0.95` (31B) | Leave headroom for KV cache growth |
-| `--enable-auto-tool-choice` | — | Enable OpenAI-compatible tool use |
+| `--enable-auto-tool-choice` | -- | Enable OpenAI-compatible tool use |
 | `--tool-call-parser` | `gemma4` | Use vLLM's built-in Gemma 4 function-calling parser |
-| `--quantization` | `nvfp4` (E2B, 31B) | Blackwell-native 4-bit float — fastest on B-series GPUs |
+| `--quantization` | `nvfp4` (E2B, 31B) | Blackwell-native 4-bit float -- fastest on B-series GPUs |
 | `--dtype` | `bfloat16` (E4B) | Full precision for the BF16 checkpoint |
 
 ### Why NVFP4?
 
-NVFP4 is a Blackwell-native quantization format that runs on dedicated tensor cores unavailable on older architectures. It delivers ~2.3× higher throughput than BF16 for the same model size on RTX PRO 6000 Blackwell, as confirmed by our benchmarks (155 tok/s vs 66 tok/s on comparable model sizes).
+NVFP4 is a Blackwell-native quantization format that runs on dedicated tensor cores unavailable on older architectures. It delivers ~2.3x higher throughput than BF16 for the same model size on RTX PRO 6000 Blackwell, as confirmed by our benchmarks (155 tok/s vs 66 tok/s on comparable model sizes).
 
 ### Container Image
 
@@ -205,7 +200,9 @@ docker save vllm-gemma4:local | microk8s ctr image import -
 
 ### NFS PersistentVolume
 
-All pods share a single NFS PV backed by `thegearynfs:/vllm-models`, mounted at `/models` inside each container. HuggingFace Hub caches models at `/models/huggingface/hub/`. This means model weights are downloaded once and reused across deployments and pod restarts with no re-download.
+All pods share a single NFS PV mounted at `/models` inside each container. HuggingFace Hub caches models at `/models/huggingface/hub/`. This means model weights are downloaded once and reused across deployments and pod restarts with no re-download.
+
+Set the NFS server and export path in `00-base.yaml` before deploying.
 
 ---
 
@@ -223,26 +220,26 @@ All benchmarks use this prompt unless noted:
 
 | Model | Serving | TTFT | tok/s per req | Total time (5 reqs) | Aggregate tok/s |
 |-------|---------|------|--------------|---------------------|----------------|
-| **Gemma-4-E2B NVFP4** | vLLM | 55–60 ms | **155** | 26.5 s | **775** |
-| **Gemma-4-E4B BF16** | vLLM | 107–114 ms | **66** | 61.9 s | **330** |
-| **gemma4:31b** | ollama | ~1 ms¹ | **62** | serial queue | **62** |
-| **devstral:latest** | ollama | ~1 ms¹ | **97** | serial queue | **97** |
+| **Gemma-4-E2B NVFP4** | vLLM | 55-60 ms | **155** | 26.5 s | **775** |
+| **Gemma-4-E4B BF16** | vLLM | 107-114 ms | **66** | 61.9 s | **330** |
+| **gemma4:31b** | ollama | ~1 ms | **62** | serial queue | **62** |
+| **devstral:latest** | ollama | ~1 ms | **97** | serial queue | **97** |
 
-¹ *ollama TTFT reflects HTTP response start; requests queue serially — each waits for the prior to complete.*
+*ollama TTFT reflects HTTP response start; requests queue serially -- each waits for the prior to complete.*
 
 #### TTFT comparison (5 concurrent, vLLM vs ollama)
 
 ```
-E2B  vLLM  |████░░░░░░░░░░░░░░░░░|  55 ms
-E4B  vLLM  |████████████░░░░░░░░░|  110 ms
-ollama      |█░░░░░░░░░░░░░░░░░░░░|  ~1 ms (queue wait hidden)
+E2B  vLLM   |####                 |  55 ms
+E4B  vLLM   |############         |  110 ms
+ollama       |#                    |  ~1 ms (queue wait hidden)
 ```
 
 ---
 
 ### 6.2 vLLM Continuous Batching: Scaling Concurrent Requests
 
-vLLM processes all concurrent requests in a single batch — every request starts generating at (nearly) the same time regardless of concurrency level. Aggregate throughput scales linearly.
+vLLM processes all concurrent requests in a single batch -- every request starts generating at (nearly) the same time regardless of concurrency level. Aggregate throughput scales linearly.
 
 #### E2B (Gemma-4-E2B-it-NVFP4, mig-2g.48gb)
 
@@ -266,14 +263,13 @@ vLLM processes all concurrent requests in a single batch — every request start
 
 ```
             Aggregate tok/s
-E2B 50 req  |██████████████████████████████████████████████████| 5,350
-E2B 20 req  |█████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░| 2,500
-E4B 50 req  |█████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░| 2,150
-E4B 20 req  |███████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░| 1,100
-E2B  5 req  |███████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░|   775
-E4B  5 req  |███░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░|   330
-ollama       |░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░|    62–97
-                                                          (per 50 units)
+E2B 50 req  |##################################################| 5,350
+E2B 20 req  |#########################                         | 2,500
+E4B 50 req  |#####################                             | 2,150
+E4B 20 req  |###########                                       | 1,100
+E2B  5 req  |#######                                           |   775
+E4B  5 req  |###                                               |   330
+ollama       |#                                                 |    62-97
 ```
 
 ---
@@ -290,7 +286,7 @@ ollama processes requests one at a time. With 5 concurrent requests, queue wait 
 | req 4 | ~203 s | ~68 s | 270 s |
 | req 5 | ~270 s | ~68 s | 338 s |
 
-**Throughput: 62 tok/s regardless of concurrency.** vLLM at 50 concurrent delivers 86× more aggregate throughput on the same GPU class.
+**Throughput: 62 tok/s regardless of concurrency.** vLLM at 50 concurrent delivers 86x more aggregate throughput on the same GPU class.
 
 ---
 
@@ -300,43 +296,43 @@ Both GPUs sustained near-TDP operation with no throttle events across all tests.
 
 | Test scenario | GPU 0 temp | GPU 0 power | GPU 1 temp | GPU 1 power | Throttle |
 |---------------|-----------|-------------|-----------|-------------|---------|
-| 5 concurrent (E2B+E4B+ollama) | 85°C | 357 W | 91°C | 600 W | None |
-| 20 concurrent vLLM | 85°C | 435 W | 91°C | 600 W | None |
-| 50 concurrent vLLM | **93°C** | **572 W** | 90°C | 600 W | None |
-| Idle (post-run) | 63–65°C | 26–30 W | 57–62°C | 16–17 W | N/A |
+| 5 concurrent (E2B+E4B+ollama) | 85 C | 357 W | 91 C | 600 W | None |
+| 20 concurrent vLLM | 85 C | 435 W | 91 C | 600 W | None |
+| 50 concurrent vLLM | **93 C** | **572 W** | 90 C | 600 W | None |
+| Idle (post-run) | 63-65 C | 26-30 W | 57-62 C | 16-17 W | N/A |
 
 #### Power draw by scenario
 
 ```
 GPU 0 power (W)
- 600 |                                        ████
- 572 |                               ████████████
- 435 |                    ████████████████████████
- 357 |         ████████████████████████████████████
-  30 | ████████████████████████████████████████████ (idle)
+ 600 |                                        ####
+ 572 |                               ############
+ 435 |                    ########################
+ 357 |         ####################################
+  30 | ############################################ (idle)
      +---------------------------------------------
        idle    5-concurrent  20-concurrent  50-concurrent
 
-GPU 1 power (W) — pegged at 600 W whenever ollama is active
- 600 | ░░░░░████████████████████████████████████████
-  17 | ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+GPU 1 power (W) -- pegged at 600 W whenever ollama is active
+ 600 |     ########################################
+  17 | ####
      +---------------------------------------------
        idle    any-load
 ```
 
-> **Thermal note:** GPU 0 reached 93°C at 50 concurrent, 21°C below typical Blackwell shutdown threshold (~114°C). No `sw_thermal_slowdown`, `hw_thermal_slowdown`, `sw_power_cap`, or `hw_slowdown` throttle reasons activated in any test.
+> **Thermal note:** GPU 0 reached 93 C at 50 concurrent, roughly 20 C below typical Blackwell shutdown threshold. No `sw_thermal_slowdown`, `hw_thermal_slowdown`, `sw_power_cap`, or `hw_slowdown` throttle reasons activated in any test.
 
 ---
 
 ### 6.5 NVFP4 vs BF16 Performance Summary
 
-On identical hardware (same `2g.48gb` MIG slice), NVFP4 delivers **2.3× higher tok/s** than BF16:
+On identical hardware (same `2g.48gb` MIG slice), NVFP4 delivers **2.3x higher tok/s** than BF16:
 
 ```
 Quantization  Model size  tok/s   Relative
-───────────────────────────────────────────
-NVFP4         ~2B params   155    ██████████████████████  1.0×
-BF16          ~4B params    66    █████████               0.43×  (larger model + no NVFP4)
+--------------------------------------------
+NVFP4         ~2B params   155    ######################  1.0x
+BF16          ~4B params    66    #########               0.43x  (larger model + no NVFP4)
 ```
 
 NVFP4 benefits from Blackwell's dedicated FP4 tensor cores, unavailable on Ampere/Hopper. This makes it the default choice for Gemma 4 on B-series GPUs.
@@ -359,7 +355,7 @@ Two flags must be set in the vLLM container args:
 
 The `gemma4` parser is registered in vLLM's `tool_parsers/__init__.py` and handles Gemma 4's native function-calling format via `Gemma4ToolParser`.
 
-### Request Format (vLLM — OpenAI API)
+### Request Format (vLLM -- OpenAI API)
 
 ```json
 POST /v1/chat/completions
@@ -392,7 +388,7 @@ POST /api/chat
 {
   "model": "gemma4:31b",
   "messages": [{"role": "user", "content": "What is the weather in Tokyo?"}],
-  "tools": [ /* same tools array */ ],
+  "tools": [ ... ],
   "stream": false
 }
 ```
@@ -403,9 +399,9 @@ All three endpoints correctly called `get_weather({"location": "Tokyo, Japan"})`
 
 | Endpoint | Model | Tool call result |
 |----------|-------|-----------------|
-| E2B (vLLM) | Gemma-4-E2B-it-NVFP4 | `get_weather({"location": "Tokyo, Japan"})` ✅ |
-| E4B (vLLM) | gemma-4-E4B-it BF16 | `get_weather({"location": "Tokyo, Japan"})` ✅ |
-| ollama | gemma4:31b | `get_weather({"location": "Tokyo, Japan"})` ✅ |
+| E2B (vLLM) | Gemma-4-E2B-it-NVFP4 | `get_weather({"location": "Tokyo, Japan"})` |
+| E4B (vLLM) | gemma-4-E4B-it BF16 | `get_weather({"location": "Tokyo, Japan"})` |
+| ollama | gemma4:31b | `get_weather({"location": "Tokyo, Japan"})` |
 
 ---
 
@@ -413,19 +409,19 @@ All three endpoints correctly called `get_weather({"location": "Tokyo, Japan"})`
 
 ### vLLM Continuous Batching is a Game-Changer
 
-vLLM's continuous batching means that adding concurrent users does **not** increase latency proportionally — all requests in a batch share the decode step. At 50 concurrent requests, E2B delivers **5,350 aggregate tok/s** from a single 48 GB MIG slice. ollama's serial model delivers a flat 62 tok/s regardless of how many clients are waiting.
+vLLM's continuous batching means that adding concurrent users does **not** increase latency proportionally -- all requests in a batch share the decode step. At 50 concurrent requests, E2B delivers **5,350 aggregate tok/s** from a single 48 GB MIG slice. ollama's serial model delivers a flat 62 tok/s regardless of how many clients are waiting.
 
 ### NVFP4 is the Right Default for Blackwell
 
-NVFP4 delivers 2.3× throughput over BF16 for Gemma 4 on RTX PRO 6000 Blackwell. Use it wherever the checkpoint is available.
+NVFP4 delivers 2.3x throughput over BF16 for Gemma 4 on RTX PRO 6000 Blackwell. Use it wherever the checkpoint is available.
 
 ### MIG Makes Multi-Tenancy Practical
 
 Splitting each 96 GB GPU into MIG slices allows full hardware isolation between workloads with zero interference. GPU 0's two `2g.48gb` slices independently serve two different Gemma 4 models at full utilization. GPU 1's `4g.96gb` slice independently runs a 31B parameter model.
 
-### Thermal headroom remains
+### Thermal Headroom Remains
 
-Even at 50 concurrent requests with GPU 0 pushing 572 W / 93°C, no throttle events occurred. The Blackwell architecture handles sustained near-TDP operation well. Both GPUs have ~20°C of headroom before thermal throttling would engage.
+Even at 50 concurrent requests with GPU 0 pushing 572 W / 93 C, no throttle events occurred. The Blackwell architecture handles sustained near-TDP operation well. Both GPUs have roughly 20 C of headroom before thermal throttling would engage.
 
 ### FP8 Community Checkpoints: Caveat Emptor
 
@@ -451,14 +447,16 @@ The `protoLabsAI/gemma-4-26B-A4B-it-FP8` checkpoint uses non-standard block size
 ### Run benchmarks
 
 ```bash
-bash loadtest-all.sh                    # 50× E2B + 50× E4B + 5× ollama (defaults)
-VLLM_ROUNDS=10 OLLAMA_ROUNDS=3 bash loadtest-all.sh  # custom counts
+bash loadtest-all.sh                                        # defaults (20x vLLM, 5x ollama)
+VLLM_ROUNDS=10 OLLAMA_ROUNDS=3 bash loadtest-all.sh         # custom counts
+OLLAMA_MODEL=devstral:latest bash loadtest-all.sh            # different ollama model
 ```
 
 ### Tool use demo
 
 ```bash
-bash tooluse-demo.sh [ollama-model]    # default: gemma4:31b
+bash tooluse-demo.sh                    # default: gemma4:31b
+bash tooluse-demo.sh devstral:latest    # different ollama model
 ```
 
 ### Check MIG state

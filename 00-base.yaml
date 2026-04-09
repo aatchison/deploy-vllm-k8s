@@ -12,6 +12,9 @@ metadata:
   namespace: vllm
 type: Opaque
 stringData:
+  # ── CHANGE ME ──────────────────────────────────────────────────
+  # Replace with your HuggingFace access token.
+  # Get one at: https://huggingface.co/settings/tokens
   token: "YOUR_HUGGINGFACE_TOKEN_HERE"
 
 ---
@@ -26,8 +29,12 @@ spec:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: 10.0.0.61
-    path: /vllm-models
+    # ── CHANGE ME ────────────────────────────────────────────────
+    # Set these to your NFS server's IP (or hostname) and export path.
+    # This volume stores the HuggingFace model cache so weights are
+    # downloaded once and shared across all pods.
+    server: "YOUR_NFS_SERVER_IP"
+    path: "/your/nfs/export/path"
   mountOptions:
     - nfsvers=4.1
     - rsize=262144

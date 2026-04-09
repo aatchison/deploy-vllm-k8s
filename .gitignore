@@ -18,3 +18,4 @@ secrets/
 .vscode/
 .idea/
 *.swp
+.claude/
