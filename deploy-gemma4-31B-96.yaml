@@ -1,6 +1,6 @@
 # Gemma 4 31B (31B params, NVFP4 pre-quantized by NVIDIA)
 # Deployed on the 4g.96gb MIG slice (GPU 1, 96GB VRAM)
-# Doubled VRAM vs 2g.48gb allows 64K context window
+# Doubled VRAM vs 2g.48gb allows 128K context window
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,7 +34,7 @@ spec:
         - "--port"
         - "8000"
         - "--max-model-len"
-        - "65536"
+        - "131072"
         - "--gpu-memory-utilization"
         - "0.95"
         - "--enable-auto-tool-choice"
