@@ -57,13 +57,13 @@ Three models, two GPUs, all running simultaneously without interfering with each
 ## The Software
 
 - **[vLLM](https://github.com/vllm-project/vllm):** Serves the E2B and E4B models. vLLM's "continuous batching" means it processes all incoming requests simultaneously in one pass rather than queuing them — 50 users get responses in roughly the same time as 1 user.
-- **[ollama](https://ollama.com/):** Serves the 31B model. Simpler setup, but processes requests one at a time.
+- **[ollama](https://ollama.com/):** Serves the 31B model on the second GPU. Used here as a comparison point against vLLM — ollama is simpler to set up but processes requests one at a time, which makes the performance difference dramatic under concurrent load.
 - **[MicroK8s](https://microk8s.io/):** Lightweight Kubernetes that manages the containers, GPU access, and networking.
 - **NVIDIA GPU Operator:** Kubernetes extension that handles MIG configuration and makes GPU slices available to containers.
 
 ## Performance Highlights
 
-With 50 simultaneous users sending a long coding prompt to the E2B model, vLLM delivered **5,350 tokens per second** in aggregate — all 50 responses generating in parallel, completing in 38 seconds total. The equivalent scenario on ollama would take over 50 minutes.
+With 50 simultaneous users sending a long coding prompt to the E2B model, vLLM delivered **5,350 tokens per second** in aggregate — all 50 responses generating in parallel, completing in 38 seconds total. The same 50 requests sent to ollama (running on equal hardware) would take over 50 minutes, since ollama queues them one at a time.
 
 Both GPUs ran near their 600W thermal design power for sustained periods during load testing, reaching up to 93 C, with **no thermal throttling** in any test.
 
