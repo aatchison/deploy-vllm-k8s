@@ -68,7 +68,7 @@ Model cache contents:
 | **vLLM** | `vllm/vllm-openai:nightly` (custom image `vllm-gemma4:local`, 24.2 GB) |
 | **Custom image additions** | `transformers>=4.51.0` (required for Gemma 4 support) |
 | **NVIDIA GPU Operator** | MicroK8s addon, manages device plugin + mig-manager |
-| **ollama** | Deployed as k8s workload in `ollama` namespace |
+| **ollama** | Used as comparison baseline during benchmarking; removed after testing |
 | **MicroK8s addons** | `gpu`, `dns`, `storage`, `helm3` |
 
 ### K8s Namespaces
@@ -76,7 +76,6 @@ Model cache contents:
 | Namespace | Purpose |
 |-----------|---------|
 | `vllm` | vLLM model serving (ports 30800/30801/30802) |
-| `ollama` | ollama model serving (port 31434) |
 | `gpu-operator-resources` | NVIDIA GPU Operator, device plugin, mig-manager |
 
 ---
@@ -105,20 +104,17 @@ The node is labelled `nvidia.com/mig.config=custom-mig`, which triggers `mig-man
 
 ### MIG Persistence After Reboot
 
-GPU 0's two `2g.48gb` slices are fully managed by mig-manager via the ConfigMap.
-GPU 1's `4g.96gb` slice must be created manually post-boot (mig-manager alone cannot provision it from the ConfigMap for this profile). `setup-mig.sh` handles this:
+Both GPUs are fully managed by mig-manager via the `custom-mig` ConfigMap. Applying the node label is sufficient to restore the full MIG layout on any reboot. `setup-mig.sh` handles this:
 
 ```
 deploy.sh setup
 ```
 
 Steps performed by `setup-mig.sh`:
-1. Enable MIG on GPU 1: `nvidia-smi -i 1 -mig 1`
-2. Apply `nvidia.com/mig.config=custom-mig` label -- triggers mig-manager
-3. Wait for mig-manager state = `success`
-4. Create `4g.96gb` instance on GPU 1 if absent
-5. Restart device-plugin pod, wait for Ready
-6. Verify allocatable resources show correct MIG slices
+1. Apply `nvidia.com/mig.config=custom-mig` label -- triggers mig-manager for both GPUs
+2. Wait for mig-manager state = `success`
+3. Restart device-plugin pod, wait for Ready
+4. Verify allocatable resources show correct MIG slices
 
 ### Resulting MIG Layout
 
@@ -128,7 +124,7 @@ GPU 0 (96 GB total)
 +-- MIG 2g.48gb [1]  ->  vllm-e4b  (gemma-4-E4B-it BF16,    port 30802)
 
 GPU 1 (96 GB total)
-+-- MIG 4g.96gb [0]  ->  ollama    (gemma4:31b,              port 31434)
++-- MIG 4g.96gb [0]  ->  vllm      (Gemma-4-31B-IT-NVFP4,   port 30800)
 ```
 
 ---
@@ -142,7 +138,8 @@ GPU 1 (96 GB total)
 | E2B | `deploy.sh E2B` | `bg-digitalservices/Gemma-4-E2B-it-NVFP4` | NVFP4 | 2g.48gb | Working |
 | E4B | `deploy.sh E4B` | `google/gemma-4-E4B-it` | BF16 | 2g.48gb | Working |
 | 26B-A4B | `deploy.sh 26B-A4B` | `protoLabsAI/gemma-4-26B-A4B-it-FP8` | FP8 | 2g.48gb | Broken |
-| 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | Working |
+| 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 2g.48gb | Working |
+| 31B-96 | `deploy.sh 31B-96` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | Working |
 | Dual | `deploy.sh dual` | E2B + E4B simultaneously | -- | both 2g.48gb | Working |
 
 #### Why 26B-A4B is broken

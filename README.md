@@ -36,7 +36,7 @@ GPU 0 (96 GB total)
 +-- Slice 2 (48 GB)  -->  Gemma 4 E4B  — a slightly larger model
 
 GPU 1 (96 GB total)
-+-- Full slice (96 GB)  -->  Gemma 4 31B  — a large, capable model via ollama
++-- Full slice (96 GB)  -->  Gemma 4 31B  — a large, capable model via vLLM (NVFP4, 64K context)
 ```
 
 Three models, two GPUs, all running simultaneously without interfering with each other.
@@ -49,7 +49,7 @@ Three models, two GPUs, all running simultaneously without interfering with each
 |-------|------|--------|-------|-------|
 | **E2B** | ~2B params | NVFP4 | 155 tok/s | Fastest — Blackwell-optimized 4-bit format |
 | **E4B** | ~4B params | BF16 | 66 tok/s | Standard full-precision |
-| **31B** | 31B params | GGUF (ollama) | 62 tok/s | Largest, most capable |
+| **31B** | 31B params | NVFP4 (vLLM) | — | Largest, most capable; 64K ctx on 4g.96gb |
 | **26B-A4B** | 26B MoE | FP8 | broken | Community checkpoint incompatible with vLLM |
 
 **NVFP4** deserves a callout: it's a quantization format native to Blackwell GPUs that uses dedicated tensor cores not available on older GPU generations. It delivers more than 2x the throughput of standard BF16 — effectively getting the performance of a much more expensive setup.
@@ -57,7 +57,7 @@ Three models, two GPUs, all running simultaneously without interfering with each
 ## The Software
 
 - **[vLLM](https://github.com/vllm-project/vllm):** Serves the E2B and E4B models. vLLM's "continuous batching" means it processes all incoming requests simultaneously in one pass rather than queuing them — 50 users get responses in roughly the same time as 1 user.
-- **[ollama](https://ollama.com/):** Serves the 31B model on the second GPU. Used here as a comparison point against vLLM — ollama is simpler to set up but processes requests one at a time, which makes the performance difference dramatic under concurrent load.
+- **[ollama](https://ollama.com/):** Used as a comparison baseline during benchmarking. ollama is simpler to set up but processes requests one at a time, which makes the performance difference dramatic under concurrent load. See [BENCHMARKS.md](BENCHMARKS.md) for the head-to-head results.
 - **[MicroK8s](https://microk8s.io/):** Lightweight Kubernetes that manages the containers, GPU access, and networking.
 - **NVIDIA GPU Operator:** Kubernetes extension that handles MIG configuration and makes GPU slices available to containers.
 
@@ -116,7 +116,8 @@ This builds a custom vLLM image with Gemma 4 support and imports it into MicroK8
 
 ```bash
 ./deploy.sh E2B       # small fast model on port 30800
-./deploy.sh 31B       # large model on port 30800
+./deploy.sh 31B       # 31B NVFP4 on 2g.48gb slice, port 30800
+./deploy.sh 31B-96    # 31B NVFP4 on 4g.96gb slice, port 30800 (64K context)
 ./deploy.sh dual      # E2B + E4B simultaneously on ports 30801/30802
 ```
 
