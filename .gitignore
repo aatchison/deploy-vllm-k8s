@@ -1,0 +1,20 @@
+# Never commit secrets
+*.env
+.env*
+secrets/
+*secret*
+*token*
+*credential*
+
+# Kubernetes secrets (generated at runtime)
+*-secret.yaml
+
+# Temporary files
+*.tmp
+*.log
+/tmp/
+
+# Editor
+.vscode/
+.idea/
+*.swp

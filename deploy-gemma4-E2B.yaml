@@ -1,0 +1,86 @@
+# Gemma 4 E2B (~2B params, NVFP4 pre-quantized)
+# Uses Blackwell-native NVFP4 format for best throughput on MIG
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: vllm
+  labels:
+    app: vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: vllm
+        model: gemma-4-E2B-it
+    spec:
+      containers:
+      - name: vllm
+        image: docker.io/library/vllm-gemma4:local
+        imagePullPolicy: Never
+        args:
+        - "--model"
+        - "bg-digitalservices/Gemma-4-E2B-it-NVFP4"
+        - "--quantization"
+        - "nvfp4"
+        - "--port"
+        - "8000"
+        - "--max-model-len"
+        - "32768"
+        - "--gpu-memory-utilization"
+        - "0.90"
+        - "--enable-auto-tool-choice"
+        - "--tool-call-parser"
+        - "gemma4"
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: token
+        - name: HF_HOME
+          value: /models/huggingface
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        resources:
+          limits:
+            nvidia.com/mig-2g.48gb: "1"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        - name: shm
+          mountPath: /dev/shm
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 30
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 30
+      tolerations:
+      - key: nvidia.com/mig-2g.48gb
+        operator: Exists
+        effect: NoSchedule
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: vllm-models-pvc
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
