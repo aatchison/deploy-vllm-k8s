@@ -133,7 +133,7 @@ Steps performed by `setup-mig.sh`:
 
 ### Resulting MIG Layouts
 
-**Multi-model (triple deployment):**
+**Multi-model/small (triple deployment — 2g.48gb layout):**
 ```
 GPU 0 (96 GB total)
 +-- MIG 2g.48gb [0]  ->  vllm-e2b  (Gemma-4-E2B-it-NVFP4,  port 30801)
@@ -141,6 +141,15 @@ GPU 0 (96 GB total)
 
 GPU 1 (96 GB total)
 +-- MIG 4g.96gb [0]  ->  vllm-31b  (Gemma-4-31B-IT-NVFP4,   port 30803)
+```
+
+**Dual 96 GB (dual-moe deployment — current):**
+```
+GPU 0 (96 GB total)
++-- MIG 4g.96gb [0]  ->  vllm-moe  (gemma-4-26B-A4B-it BF16,  port 30801, 128K ctx)
+
+GPU 1 (96 GB total)
++-- MIG 4g.96gb [0]  ->  vllm-31b  (Gemma-4-31B-IT-NVFP4,     port 30802, 128K ctx)
 ```
 
 **TP=2 single model:**
@@ -158,28 +167,32 @@ GPU 1 (96 GB total)                          |
 
 ### Models Tested
 
-| Model | Command | Checkpoint | Quantization | MIG slice | Status |
-|-------|---------|------------|-------------|-----------|--------|
-| E2B | `deploy.sh E2B` | `bg-digitalservices/Gemma-4-E2B-it-NVFP4` | NVFP4 | 2g.48gb | Working |
-| E4B | `deploy.sh E4B` | `google/gemma-4-E4B-it` | BF16 | 2g.48gb | Working |
-| 26B-A4B | `deploy.sh 26B-A4B` | `protoLabsAI/gemma-4-26B-A4B-it-FP8` | FP8 | 2g.48gb | Broken |
-| 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 2g.48gb | Working |
-| 31B-96 | `deploy.sh 31B-96` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | Working |
-| 31B-bf16 | `deploy.sh 31B-bf16` | `google/gemma-4-31B-it` | BF16 | 4g.96gb | Working |
-| **31B-bf16-tp2** | **`deploy.sh 31B-bf16-tp2`** | **`google/gemma-4-31B-it`** | **BF16** | **2x 4g.96gb (TP=2)** | **Working** |
-| Dual | `deploy.sh dual` | E2B + E4B simultaneously | -- | both 2g.48gb | Working |
-| Triple | `deploy.sh triple` | E2B + E4B + 31B simultaneously | -- | all MIG slices | Working |
+| Model | Command | Checkpoint | Quantization | MIG slice | Context | Status |
+|-------|---------|------------|-------------|-----------|---------|--------|
+| E2B | `deploy.sh E2B` | `bg-digitalservices/Gemma-4-E2B-it-NVFP4` | NVFP4 | 2g.48gb | 32K | Working |
+| E4B | `deploy.sh E4B` | `google/gemma-4-E4B-it` | BF16 | 2g.48gb | 32K | Working |
+| 26B-A4B (FP8) | ~~`deploy.sh 26B-A4B`~~ | `protoLabsAI/gemma-4-26B-A4B-it-FP8` | FP8 | 2g.48gb | -- | Broken† |
+| **26B-A4B** | **`deploy.sh 26B-A4B`** | **`google/gemma-4-26B-A4B-it`** | **BF16** | **4g.96gb** | **128K** | **Working** |
+| 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 2g.48gb | 32K | Working |
+| 31B-96 | `deploy.sh 31B-96` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | 128K | Working |
+| 31B-bf16 | `deploy.sh 31B-bf16` | `google/gemma-4-31B-it` | BF16 | 4g.96gb | 65K | Working |
+| 31B-bf16-tp2 | `deploy.sh 31B-bf16-tp2` | `google/gemma-4-31B-it` | BF16 | 2x 4g.96gb (TP=2) | 256K | Working |
+| Dual | `deploy.sh dual` | E2B + E4B simultaneously | -- | both 2g.48gb | 32K | Working |
+| **Dual-MoE** | **`deploy.sh dual-moe`** | **26B-A4B + 31B NVFP4 simultaneously** | **--** | **both 4g.96gb** | **128K** | **Working** |
+| Triple | `deploy.sh triple` | E2B + E4B + 31B simultaneously | -- | all MIG slices | 32K | Working |
 
-#### Why 26B-A4B is broken
+†Community FP8 checkpoint uses incompatible block sizes. Use official BF16 (`deploy.sh 26B-A4B`) instead.
 
-The community FP8 checkpoint (`protoLabsAI/gemma-4-26B-A4B-it-FP8`) uses a quantization block size of 704, which is not divisible by vLLM's FP8 kernel requirement of 128. Error at launch:
+#### Why the community 26B-A4B FP8 checkpoint is broken
+
+The community checkpoint (`protoLabsAI/gemma-4-26B-A4B-it-FP8`) uses a quantization block size of 704, which is not divisible by vLLM's FP8 kernel requirement of 128. Error at launch:
 
 ```
 ValueError: The output_size of gate's and up's weight = 704 is not divisible
             by weight quantization block_n = 128
 ```
 
-**Alternative:** use `google/gemma-4-27b-it` (BF16) on the `4g.96gb` slice.
+**Fix:** use the official Google BF16 checkpoint (`google/gemma-4-26B-A4B-it`) via `deploy.sh 26B-A4B`. vLLM correctly identifies and loads this as a MoE model using the TRITON Unquantized MoE backend.
 
 ### Dual Deployment (E2B + E4B simultaneously)
 
@@ -402,6 +415,47 @@ E4B  20 req  |###########                                       | 1,100
 
 ---
 
+### 6.7 MoE 26B-A4B BF16 Throughput (Single 4g.96gb Slice)
+
+**Configuration:** `google/gemma-4-26B-A4B-it`, BF16, single `4g.96gb` MIG slice, `--max-model-len 131072` (128K). MoE architecture: 25.2B total params, 4B active per token (8 of 128 experts).
+
+| Concurrent reqs | TTFT | tok/s per req | Aggregate tok/s |
+|----------------|------|--------------|-----------------|
+| 1 | 107–158 ms | **113–132** | 113–132 |
+| 10 | ~3.7 s | 60–62 | **575–600** |
+| 20 | ~3.7 s | 59–62 | **575** |
+
+**Key insight:** At single-user throughput (113–132 tok/s), the MoE significantly outpaces E4B BF16 (66 tok/s) and approaches E2B NVFP4 (155 tok/s), despite having 26B total parameters — because only 4B parameters are active during decode.
+
+---
+
+### 6.8 Dual-MoE: MoE 26B-A4B + 31B NVFP4 Running Simultaneously
+
+**Configuration:** Both GPUs in `1x 4g.96gb` MIG layout. MoE on port 30801, 31B NVFP4 on port 30802. 10 concurrent requests fired at each endpoint simultaneously.
+
+| Endpoint | Model | Concurrent | TTFT | tok/s per req | Aggregate |
+|----------|-------|-----------|------|--------------|-----------|
+| MoE (30801) | `google/gemma-4-26B-A4B-it` | 1 | 107 ms | **113** tok/s | 113 |
+| 31B (30802) | `nvidia/Gemma-4-31B-IT-NVFP4` | 1 | 157 ms | **31** tok/s | 31 |
+| MoE (30801) | `google/gemma-4-26B-A4B-it` | 10 | ~4.1 s | 59–60 | **270** |
+| 31B (30802) | `nvidia/Gemma-4-31B-IT-NVFP4` | 10 | ~4.1 s | 27–29 | **260** |
+| **Both combined** | -- | **10+10** | -- | -- | **530** |
+
+Both models run fully concurrently with no interference — each has its own isolated MIG slice. Combined throughput of 530 tok/s across two 31B-class models simultaneously.
+
+#### 26B-A4B MoE vs other models (single-user throughput)
+
+```
+            tok/s (single request, same 4096-token coding prompt)
+E2B NVFP4   |##################################################| 155  (2g.48gb)
+MoE 26B BF16|#####################################             | 113  (4g.96gb)
+E4B BF16    |#####################                             |  66  (2g.48gb)
+31B NVFP4   |##########                                        |  31  (4g.96gb)
+31B BF16 TP2|#############                                     |  41  (2x4g.96gb)
+```
+
+---
+
 ## 7. Tool Use
 
 All three endpoints support OpenAI-compatible function calling with no extra application-level configuration.
@@ -501,14 +555,21 @@ The `protoLabsAI/gemma-4-26B-A4B-it-FP8` checkpoint uses non-standard block size
 ### Deploy a model
 
 ```bash
-./deploy.sh E2B            # Gemma 4 E2B NVFP4 (single, port 30800)
-./deploy.sh E4B            # Gemma 4 E4B BF16  (single, port 30800)
-./deploy.sh 31B            # Gemma 4 31B NVFP4 (2g.48gb, port 30800)
-./deploy.sh 31B-96         # Gemma 4 31B NVFP4 (4g.96gb, 128K ctx, port 30800)
-./deploy.sh 31B-bf16       # Gemma 4 31B BF16  (4g.96gb, 65K ctx, port 30800)
-./deploy.sh 31B-bf16-tp2   # Gemma 4 31B BF16  (TP=2, 2x4g.96gb, 256K ctx, port 30800)
-./deploy.sh dual           # E2B + E4B simultaneously (ports 30801/30802)
-./deploy.sh triple         # E2B + E4B + 31B simultaneously (ports 30801/30802/30803)
+# Single-model deployments (port 30800)
+./deploy.sh E2B            # Gemma 4 E2B NVFP4  (2g.48gb, 32K ctx)
+./deploy.sh E4B            # Gemma 4 E4B BF16   (2g.48gb, 32K ctx)
+./deploy.sh 31B            # Gemma 4 31B NVFP4  (2g.48gb, 32K ctx)
+./deploy.sh 31B-96         # Gemma 4 31B NVFP4  (4g.96gb, 128K ctx)
+./deploy.sh 31B-bf16       # Gemma 4 31B BF16   (4g.96gb, 65K ctx)
+./deploy.sh 31B-bf16-tp2   # Gemma 4 31B BF16   (TP=2, 2x4g.96gb, 256K ctx)
+./deploy.sh 26B-A4B        # Gemma 4 26B MoE BF16 (4g.96gb, 128K ctx)
+
+# Multi-model deployments
+./deploy.sh dual           # E2B (30801) + E4B (30802)         — 2g.48gb layout
+./deploy.sh dual-moe       # MoE 26B (30801) + 31B (30802)    — 4g.96gb layout ← current
+./deploy.sh triple         # E2B + E4B + 31B (30801/30802/30803)
+
+# Operations
 ./deploy.sh setup          # Restore MIG config after reboot
 ./deploy.sh test           # Smoke test current single deployment
 ./deploy.sh undeploy       # Scale to 0 (release GPU, keep NFS cache)

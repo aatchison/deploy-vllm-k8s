@@ -30,16 +30,31 @@ Rather than dedicating an entire GPU to one model, NVIDIA's MIG technology lets 
 
 We split the hardware like this:
 
+**Dual-MoE layout (current):**
 ```
 GPU 0 (96 GB total)
-+-- Slice 1 (48 GB)  -->  Gemma 4 E2B  — a fast, small model
-+-- Slice 2 (48 GB)  -->  Gemma 4 E4B  — a slightly larger model
++-- Full slice (96 GB)  -->  Gemma 4 26B MoE  — fast MoE model (BF16, 128K context)
 
 GPU 1 (96 GB total)
-+-- Full slice (96 GB)  -->  Gemma 4 31B  — a large, capable model via vLLM (NVFP4, 128K context)
++-- Full slice (96 GB)  -->  Gemma 4 31B NVFP4 — large capable model (128K context)
 ```
 
-Three models, two GPUs, all running simultaneously without interfering with each other.
+**Triple layout (2g.48gb on GPU 0):**
+```
+GPU 0 (96 GB total)
++-- Slice 1 (48 GB)  -->  Gemma 4 E2B  — fastest small model
++-- Slice 2 (48 GB)  -->  Gemma 4 E4B  — slightly larger
+
+GPU 1 (96 GB total)
++-- Full slice (96 GB)  -->  Gemma 4 31B NVFP4
+```
+
+**TP=2 layout (single model, max context):**
+```
+GPU 0 + GPU 1 (192 GB combined)  -->  Gemma 4 31B BF16  — full 256K native context
+```
+
+The MIG layout is a single ConfigMap edit — switch between configurations with `deploy.sh setup`.
 
 ## The Models
 
@@ -49,8 +64,9 @@ Three models, two GPUs, all running simultaneously without interfering with each
 |-------|------|--------|-------|-------|
 | **E2B** | ~2B params | NVFP4 | 155 tok/s | Fastest — Blackwell-optimized 4-bit format |
 | **E4B** | ~4B params | BF16 | 66 tok/s | Standard full-precision |
-| **31B** | 31B params | NVFP4 (vLLM) | — | Largest, most capable; 128K ctx on 4g.96gb |
-| **26B-A4B** | 26B MoE | FP8 | broken | Community checkpoint incompatible with vLLM |
+| **26B-A4B** | 26B MoE, 4B active | BF16 | 113 tok/s | MoE: fast decode despite 26B total params; 128K ctx |
+| **31B** | 31B params | NVFP4 | 31 tok/s | 128K ctx on 4g.96gb |
+| **31B BF16 TP=2** | 31B params | BF16 | 41 tok/s | Full 256K native context; spans both GPUs via TP=2 |
 
 **NVFP4** deserves a callout: it's a quantization format native to Blackwell GPUs that uses dedicated tensor cores not available on older GPU generations. It delivers more than 2x the throughput of standard BF16 — effectively getting the performance of a much more expensive setup.
 
@@ -63,7 +79,9 @@ Three models, two GPUs, all running simultaneously without interfering with each
 
 ## Performance Highlights
 
-With 50 simultaneous users sending a long coding prompt to the E2B model, vLLM delivered **5,350 tokens per second** in aggregate — all 50 responses generating in parallel, completing in 38 seconds total. The same 50 requests sent to ollama (running on equal hardware) would take over 50 minutes, since ollama queues them one at a time.
+With 50 simultaneous users sending a long coding prompt to the E2B model, vLLM delivered **5,350 tokens per second** in aggregate. The MoE 26B-A4B model delivers **113 tok/s single-user** despite having 26B total parameters, because only 4B parameters are active during inference — nearly matching E2B NVFP4 speed with far greater capability.
+
+Running the MoE and 31B NVFP4 simultaneously on two isolated GPU slices produces **530 tok/s combined** with no interference between models. The 31B BF16 model spans both GPUs via tensor parallelism to serve the model's full native **256K context window**.
 
 Both GPUs ran near their 600W thermal design power for sustained periods during load testing, reaching up to 93 C, with **no thermal throttling** in any test.
 
@@ -115,13 +133,17 @@ This builds a custom vLLM image with Gemma 4 support and imports it into MicroK8
 ### 4. Deploy a model
 
 ```bash
-./deploy.sh E2B           # small fast model on port 30800
-./deploy.sh 31B           # 31B NVFP4 on 2g.48gb slice, port 30800
-./deploy.sh 31B-96        # 31B NVFP4 on 4g.96gb slice, port 30800 (128K context)
-./deploy.sh 31B-bf16      # 31B BF16 on 4g.96gb slice, port 30800 (65K context)
-./deploy.sh 31B-bf16-tp2  # 31B BF16 TP=2 across 2g.48gb+4g.96gb, port 30800 (65K context)
-./deploy.sh dual          # E2B + E4B simultaneously on ports 30801/30802
-./deploy.sh triple        # E2B + E4B + 31B simultaneously on ports 30801/30802/30803
+# Single-model (port 30800)
+./deploy.sh E2B            # E2B NVFP4  — 2g.48gb, 32K ctx
+./deploy.sh E4B            # E4B BF16   — 2g.48gb, 32K ctx
+./deploy.sh 26B-A4B        # MoE BF16   — 4g.96gb, 128K ctx, 113 tok/s
+./deploy.sh 31B-96         # 31B NVFP4  — 4g.96gb, 128K ctx
+./deploy.sh 31B-bf16-tp2   # 31B BF16   — TP=2 across both GPUs, 256K ctx
+
+# Multi-model
+./deploy.sh dual-moe       # MoE 26B (30801) + 31B NVFP4 (30802) — current best layout
+./deploy.sh dual           # E2B (30801) + E4B (30802)
+./deploy.sh triple         # E2B + E4B + 31B on ports 30801/30802/30803
 ```
 
 ### 5. Test it

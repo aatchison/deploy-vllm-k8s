@@ -1,6 +1,7 @@
-# Gemma 4 26B-A4B (26B MoE, 4B active params)
-# Uses pre-quantized NVFP4 variant (W4A4) — bitsandbytes does not support MoE models in vLLM.
-# FP8 weights ~26GB — bitsandbytes and NVFP4 community checkpoints both fail for this MoE model.
+# Gemma 4 26B-A4B (MoE: 25.2B total params, 4B active at inference)
+# Official Google BF16 checkpoint — the community FP8 checkpoint is broken (incompatible block sizes).
+# All expert weights (~50GB) must reside in VRAM; uses 4g.96gb slice for headroom.
+# ~50GB weights leave ~40GB for KV cache on 0.95 utilization → ~128K context.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,15 +29,18 @@ spec:
         imagePullPolicy: Never
         args:
         - "--model"
-        - "protoLabsAI/gemma-4-26B-A4B-it-FP8"
-        - "--quantization"
-        - "fp8"
+        - "google/gemma-4-26B-A4B-it"
+        - "--dtype"
+        - "bfloat16"
         - "--port"
         - "8000"
         - "--max-model-len"
-        - "32768"
+        - "131072"
         - "--gpu-memory-utilization"
-        - "0.92"
+        - "0.95"
+        - "--enable-auto-tool-choice"
+        - "--tool-call-parser"
+        - "gemma4"
         env:
         - name: HF_TOKEN
           valueFrom:
@@ -51,7 +55,7 @@ spec:
           protocol: TCP
         resources:
           limits:
-            nvidia.com/mig-2g.48gb: "1"
+            nvidia.com/mig-4g.96gb: "1"
         volumeMounts:
         - name: model-storage
           mountPath: /models
@@ -61,18 +65,18 @@ spec:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 900
+          initialDelaySeconds: 1200
           periodSeconds: 30
           failureThreshold: 10
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 120
+          initialDelaySeconds: 180
           periodSeconds: 15
           failureThreshold: 40
       tolerations:
-      - key: nvidia.com/mig-2g.48gb
+      - key: nvidia.com/mig-4g.96gb
         operator: Exists
         effect: NoSchedule
       volumes:
@@ -82,4 +86,4 @@ spec:
       - name: shm
         emptyDir:
           medium: Memory
-          sizeLimit: 8Gi
+          sizeLimit: 16Gi

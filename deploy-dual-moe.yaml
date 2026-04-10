@@ -1,0 +1,213 @@
+# Run MoE 26B-A4B and 31B NVFP4 simultaneously, one on each mig-4g.96gb slice.
+# Requires TP=2 MIG layout: both GPUs configured as 1x 4g.96gb.
+#
+#   MoE endpoint: http://<node>:30801/v1  (google/gemma-4-26B-A4B-it, 128K ctx)
+#   31B endpoint: http://<node>:30802/v1  (nvidia/Gemma-4-31B-IT-NVFP4, 128K ctx)
+
+---
+# --- MoE 26B-A4B ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-moe
+  namespace: vllm
+  labels:
+    app: vllm-moe
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 1800
+  selector:
+    matchLabels:
+      app: vllm-moe
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: vllm-moe
+        model: gemma-4-26B-A4B-it
+    spec:
+      containers:
+      - name: vllm
+        image: docker.io/library/vllm-gemma4:local
+        imagePullPolicy: Never
+        args:
+        - "--model"
+        - "google/gemma-4-26B-A4B-it"
+        - "--dtype"
+        - "bfloat16"
+        - "--port"
+        - "8000"
+        - "--max-model-len"
+        - "131072"
+        - "--gpu-memory-utilization"
+        - "0.95"
+        - "--enable-auto-tool-choice"
+        - "--tool-call-parser"
+        - "gemma4"
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: token
+        - name: HF_HOME
+          value: /models/huggingface
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        resources:
+          limits:
+            nvidia.com/mig-4g.96gb: "1"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        - name: shm
+          mountPath: /dev/shm
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 1200
+          periodSeconds: 30
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 15
+          failureThreshold: 40
+      tolerations:
+      - key: nvidia.com/mig-4g.96gb
+        operator: Exists
+        effect: NoSchedule
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: vllm-models-pvc
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-moe-svc
+  namespace: vllm
+spec:
+  selector:
+    app: vllm-moe
+  type: NodePort
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    nodePort: 30801
+
+---
+# --- 31B NVFP4 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-31b
+  namespace: vllm
+  labels:
+    app: vllm-31b
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 1800
+  selector:
+    matchLabels:
+      app: vllm-31b
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: vllm-31b
+        model: gemma-4-31B-it
+    spec:
+      containers:
+      - name: vllm
+        image: docker.io/library/vllm-gemma4:local
+        imagePullPolicy: Never
+        args:
+        - "--model"
+        - "nvidia/Gemma-4-31B-IT-NVFP4"
+        - "--quantization"
+        - "nvfp4"
+        - "--port"
+        - "8000"
+        - "--max-model-len"
+        - "131072"
+        - "--gpu-memory-utilization"
+        - "0.95"
+        - "--enable-auto-tool-choice"
+        - "--tool-call-parser"
+        - "gemma4"
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: token
+        - name: HF_HOME
+          value: /models/huggingface
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        resources:
+          limits:
+            nvidia.com/mig-4g.96gb: "1"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        - name: shm
+          mountPath: /dev/shm
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 1200
+          periodSeconds: 30
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 15
+          failureThreshold: 40
+      tolerations:
+      - key: nvidia.com/mig-4g.96gb
+        operator: Exists
+        effect: NoSchedule
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: vllm-models-pvc
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-31b-svc
+  namespace: vllm
+spec:
+  selector:
+    app: vllm-31b
+  type: NodePort
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    nodePort: 30802

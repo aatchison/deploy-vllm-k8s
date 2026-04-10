@@ -16,13 +16,15 @@ usage() {
     echo "  setup    - Configure MIG on both GPUs via mig-manager (run after first boot or reboot)"
     echo "  E2B      - Deploy Gemma 4 E2B  (~2B params,  NVFP4, ~4GB  weights)"
     echo "  E4B      - Deploy Gemma 4 E4B  (~4B params,  BF16,  ~8GB  weights)"
-    echo "  26B-A4B  - Deploy Gemma 4 26B  (MoE, FP8 — see note in yaml, currently broken)"
+    echo "  26B-A4B  - Deploy Gemma 4 26B  (MoE, BF16, 4B active params, ~113 tok/s, 128K ctx)"
     echo "  31B      - Deploy Gemma 4 31B  (31B params,  NVFP4, ~31GB weights, 2g.48gb MIG)"
     echo "  31B-96   - Deploy Gemma 4 31B  (31B params,  NVFP4, ~31GB weights, 4g.96gb MIG, 128K ctx)"
     echo "  31B-bf16     - Deploy Gemma 4 31B  (31B params,  BF16,  ~62GB weights, 4g.96gb MIG,  65K ctx)"
   echo "  31B-bf16-tp2 - Deploy Gemma 4 31B  (31B params,  BF16,  TP=2 across 2x 4g.96gb, 128K ctx)"
     echo "  dual     - Deploy E2B + E4B simultaneously on the two mig-2g.48gb slices"
     echo "             E2B: NodePort 30801  |  E4B: NodePort 30802"
+    echo "  dual-moe - Deploy MoE 26B-A4B + 31B NVFP4 on the two mig-4g.96gb slices"
+    echo "             MoE: NodePort 30801  |  31B: NodePort 30802"
     echo "  triple   - Deploy E2B + E4B + 31B simultaneously across both GPUs"
     echo "             E2B: NodePort 30801  |  E4B: NodePort 30802  |  31B: NodePort 30803"
     echo "  test     - Run a smoke test against the currently deployed model (single)"
@@ -111,6 +113,43 @@ if [[ "$CMD" == "dual" ]]; then
         -H "Content-Type: application/json" \
         -d '{"model":"google/gemma-4-E4B-it","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
         | python3 -c 'import json,sys; print("  E4B response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
+    exit 0
+fi
+
+if [[ "$CMD" == "dual-moe" ]]; then
+    echo "==> Applying base infrastructure"
+    microk8s kubectl apply -f "$SCRIPT_DIR/00-base.yaml"
+
+    echo "==> Tearing down single-model deployment if present"
+    microk8s kubectl delete deployment vllm -n vllm --ignore-not-found
+
+    echo "==> Deploying MoE 26B-A4B + 31B NVFP4 simultaneously"
+    microk8s kubectl apply -f "$SCRIPT_DIR/deploy-dual-moe.yaml"
+
+    echo "==> Waiting for MoE rollout"
+    microk8s kubectl rollout status deployment/vllm-moe -n vllm --timeout=1800s
+
+    echo "==> Waiting for 31B rollout"
+    microk8s kubectl rollout status deployment/vllm-31b -n vllm --timeout=1800s
+
+    NODE_IP="$(microk8s kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
+    echo ""
+    echo "============================================"
+    echo "  Both models ready"
+    echo "  MoE : http://${NODE_IP}:30801/v1  (google/gemma-4-26B-A4B-it)"
+    echo "  31B : http://${NODE_IP}:30802/v1  (nvidia/Gemma-4-31B-IT-NVFP4)"
+    echo "============================================"
+    echo ""
+    echo "  Smoke test MoE:"
+    curl -sf "http://${NODE_IP}:30801/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"google/gemma-4-26B-A4B-it","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
+        | python3 -c 'import json,sys; print("  MoE response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
+    echo "  Smoke test 31B:"
+    curl -sf "http://${NODE_IP}:30802/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"nvidia/Gemma-4-31B-IT-NVFP4","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
+        | python3 -c 'import json,sys; print("  31B response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
     exit 0
 fi
 
