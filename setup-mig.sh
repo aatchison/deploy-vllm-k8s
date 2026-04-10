@@ -2,7 +2,7 @@
 # Configure MIG on both GPUs and verify allocatable resources.
 #
 # Both GPUs are managed by mig-manager via the custom-mig ConfigMap:
-#   GPU 0: 2x mig-2g.48gb
+#   GPU 0: 1x mig-4g.96gb
 #   GPU 1: 1x mig-4g.96gb
 #
 # Run this after first boot or if MIG config is lost.
@@ -60,5 +60,4 @@ for k, v in sorted(alloc.items()):
 "
 echo ""
 echo "Done. Expected:"
-echo "  nvidia.com/mig-2g.48gb = 2   (GPU 0)"
-echo "  nvidia.com/mig-4g.96gb = 1   (GPU 1)"
+echo "  nvidia.com/mig-4g.96gb = 2   (GPU 0 + GPU 1)"

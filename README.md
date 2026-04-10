@@ -115,11 +115,13 @@ This builds a custom vLLM image with Gemma 4 support and imports it into MicroK8
 ### 4. Deploy a model
 
 ```bash
-./deploy.sh E2B       # small fast model on port 30800
-./deploy.sh 31B       # 31B NVFP4 on 2g.48gb slice, port 30800
-./deploy.sh 31B-96    # 31B NVFP4 on 4g.96gb slice, port 30800 (128K context)
-./deploy.sh dual      # E2B + E4B simultaneously on ports 30801/30802
-./deploy.sh triple    # E2B + E4B + 31B simultaneously on ports 30801/30802/30803
+./deploy.sh E2B           # small fast model on port 30800
+./deploy.sh 31B           # 31B NVFP4 on 2g.48gb slice, port 30800
+./deploy.sh 31B-96        # 31B NVFP4 on 4g.96gb slice, port 30800 (128K context)
+./deploy.sh 31B-bf16      # 31B BF16 on 4g.96gb slice, port 30800 (65K context)
+./deploy.sh 31B-bf16-tp2  # 31B BF16 TP=2 across 2g.48gb+4g.96gb, port 30800 (65K context)
+./deploy.sh dual          # E2B + E4B simultaneously on ports 30801/30802
+./deploy.sh triple        # E2B + E4B + 31B simultaneously on ports 30801/30802/30803
 ```
 
 ### 5. Test it

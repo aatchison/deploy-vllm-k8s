@@ -39,8 +39,9 @@
 | **TDP** | 600 W | 600 W |
 | **PCIe gen/width** | Gen 1 x16 | Gen 1 x16 |
 | **ECC** | Disabled | Disabled |
-| **MIG profile** | 2x `2g.48gb` | 1x `4g.96gb` |
-| **Workload** | vLLM (E2B + E4B simultaneously) | vLLM (31B NVFP4, 128K ctx) |
+| **MIG profile (initial)** | 2x `2g.48gb` | 1x `4g.96gb` |
+| **MIG profile (TP=2 config)** | 1x `4g.96gb` | 1x `4g.96gb` |
+| **Workload** | vLLM (E2B + E4B simultaneously, or half of TP=2 pair) | vLLM (31B NVFP4 128K ctx, or half of TP=2 pair) |
 
 ### NFS Storage
 
@@ -86,18 +87,32 @@ Both GPUs use NVIDIA Multi-Instance GPU (MIG) to partition VRAM into isolated sl
 
 ### ConfigMap (`custom-mig-config` in `gpu-operator-resources`)
 
+Two configurations are used depending on deployment mode:
+
+**Multi-model layout** (E2B + E4B + 31B triple deployment):
 ```yaml
-version: v1
-mig-configs:
-  custom-mig:
-    - devices: [0]
-      mig-enabled: true
-      mig-devices:
-        "2g.48gb": 2      # Two 48 GB slices -- run two models simultaneously
-    - devices: [1]
-      mig-enabled: true
-      mig-devices:
-        "4g.96gb": 1      # One full 96 GB slice -- large model headroom
+custom-mig:
+  - devices: [0]
+    mig-enabled: true
+    mig-devices:
+      "2g.48gb": 2      # Two 48 GB slices -- E2B (30801) + E4B (30802)
+  - devices: [1]
+    mig-enabled: true
+    mig-devices:
+      "4g.96gb": 1      # One full 96 GB slice -- 31B NVFP4 (30803)
+```
+
+**TP=2 layout** (single 31B BF16 model across both GPUs):
+```yaml
+custom-mig:
+  - devices: [0]
+    mig-enabled: true
+    mig-devices:
+      "4g.96gb": 1      # Full 96 GB slice -- TP rank 0
+  - devices: [1]
+    mig-enabled: true
+    mig-devices:
+      "4g.96gb": 1      # Full 96 GB slice -- TP rank 1
 ```
 
 The node is labelled `nvidia.com/mig.config=custom-mig`, which triggers `mig-manager` to apply this config on boot.
@@ -116,8 +131,9 @@ Steps performed by `setup-mig.sh`:
 3. Restart device-plugin pod, wait for Ready
 4. Verify allocatable resources show correct MIG slices
 
-### Resulting MIG Layout
+### Resulting MIG Layouts
 
+**Multi-model (triple deployment):**
 ```
 GPU 0 (96 GB total)
 +-- MIG 2g.48gb [0]  ->  vllm-e2b  (Gemma-4-E2B-it-NVFP4,  port 30801)
@@ -125,6 +141,15 @@ GPU 0 (96 GB total)
 
 GPU 1 (96 GB total)
 +-- MIG 4g.96gb [0]  ->  vllm-31b  (Gemma-4-31B-IT-NVFP4,   port 30803)
+```
+
+**TP=2 single model:**
+```
+GPU 0 (96 GB total)
++-- MIG 4g.96gb [0]  ->  vllm (TP rank 0)  \
+                                              >  gemma-4-31B-it BF16, port 30800, 256K ctx
+GPU 1 (96 GB total)                          |
++-- MIG 4g.96gb [0]  ->  vllm (TP rank 1)  /
 ```
 
 ---
@@ -140,6 +165,8 @@ GPU 1 (96 GB total)
 | 26B-A4B | `deploy.sh 26B-A4B` | `protoLabsAI/gemma-4-26B-A4B-it-FP8` | FP8 | 2g.48gb | Broken |
 | 31B | `deploy.sh 31B` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 2g.48gb | Working |
 | 31B-96 | `deploy.sh 31B-96` | `nvidia/Gemma-4-31B-IT-NVFP4` | NVFP4 | 4g.96gb | Working |
+| 31B-bf16 | `deploy.sh 31B-bf16` | `google/gemma-4-31B-it` | BF16 | 4g.96gb | Working |
+| **31B-bf16-tp2** | **`deploy.sh 31B-bf16-tp2`** | **`google/gemma-4-31B-it`** | **BF16** | **2x 4g.96gb (TP=2)** | **Working** |
 | Dual | `deploy.sh dual` | E2B + E4B simultaneously | -- | both 2g.48gb | Working |
 | Triple | `deploy.sh triple` | E2B + E4B + 31B simultaneously | -- | all MIG slices | Working |
 
@@ -337,6 +364,44 @@ NVFP4 benefits from Blackwell's dedicated FP4 tensor cores, unavailable on Amper
 
 ---
 
+### 6.6 Gemma 4 31B BF16 with Tensor Parallelism (TP=2, 256K context)
+
+**Configuration:** `google/gemma-4-31B-it`, BF16, `--tensor-parallel-size 2`, two `4g.96gb` MIG slices (one per GPU), `--max-model-len 262144` (256K). Combined VRAM: 192 GB.
+
+**How it works:** vLLM splits weight tensors across both MIG instances — each GPU holds half the model's layers. KV cache is similarly partitioned across ranks, so each GPU handles 4 of the 8 KV heads per layer. This enables the full 256K native context window of Gemma 4 31B.
+
+#### Throughput at varying concurrency
+
+| Concurrent reqs | TTFT | tok/s per req | Total time | **Aggregate tok/s** |
+|----------------|------|--------------|------------|---------------------|
+| 1 | **53 ms** | **41.3** | 85.6 s | 41 |
+| 10 | 107–4,153 ms | 32.5–33.0 | 125 s | **310** |
+| 20 | 106–212 ms | 28.9–29.4 | 139 s | **552** |
+
+> TTFT at 10 concurrent was elevated for 8/10 requests (~4.1 s) due to prompt prefill time for the long coding prompt under load; 2 requests that hit the scheduler ahead of the batch show normal 105 ms TTFT. At 20 concurrent, steady-state TTFT is ~210 ms.
+
+#### Aggregate throughput comparison
+
+```
+            Aggregate tok/s (same Rust coding prompt, max_tokens=4096)
+E2B  50 req  |##################################################| 5,350  (NVFP4, 48 GB)
+E2B  20 req  |#########################                         | 2,500
+E4B  50 req  |#####################                             | 2,150  (BF16,  48 GB)
+E4B  20 req  |###########                                       | 1,100
+31B  20 req  |#####                                             |   552  (BF16 TP=2, 192 GB)
+31B  10 req  |###                                               |   310
+31B   1 req  |                                                  |    41
+```
+
+#### Notes
+
+- **Single-request throughput (41 tok/s)** is the highest observed for a 31B BF16 model in this setup, thanks to TP=2 parallelizing the decode step across 192 GB.
+- Aggregate throughput scales well up to 20 concurrent: 310 → 552 tok/s (1.78x for 2x requests).
+- Context window verified at 256K (`--max-model-len 262144`). The full native context of Gemma 4 31B fits comfortably in the TP=2 KV cache budget.
+- **MIG requirement:** TP=2 only works with two equal-sized MIG slices of the **same resource type** (`nvidia.com/mig-4g.96gb: "2"`). Mixed types (`2g.48gb` + `4g.96gb`) fail because Kubernetes exposes only one CUDA device to the pod.
+
+---
+
 ## 7. Tool Use
 
 All three endpoints support OpenAI-compatible function calling with no extra application-level configuration.
@@ -413,9 +478,13 @@ vLLM's continuous batching means that adding concurrent users does **not** incre
 
 NVFP4 delivers 2.3x throughput over BF16 for Gemma 4 on RTX PRO 6000 Blackwell. Use it wherever the checkpoint is available.
 
-### MIG Makes Multi-Tenancy Practical
+### MIG Makes Multi-Tenancy and Tensor Parallelism Both Practical
 
-Splitting each 96 GB GPU into MIG slices allows full hardware isolation between workloads with zero interference. GPU 0's two `2g.48gb` slices independently serve two different Gemma 4 models at full utilization. GPU 1's `4g.96gb` slice independently runs a 31B parameter model.
+MIG gives you two deployment modes from the same hardware. Partition each GPU into `2x 2g.48gb` to run three models simultaneously (E2B + E4B + 31B NVFP4). Or consolidate both GPUs into `2x 4g.96gb` and use TP=2 to run a single 31B BF16 model with 256K context and 41 tok/s at single-user throughput. Switching between modes is a ConfigMap edit + `deploy.sh setup`.
+
+### Tensor Parallelism Unlocks the Full Context Window
+
+With a single 4g.96gb slice (96 GB), the 31B BF16 model fits at 65K context — the KV cache headroom is the bottleneck (~29 GB). TP=2 across two slices (192 GB combined) removes that bottleneck, enabling the model's native 256K context. The same architecture insight applies to any large BF16 model: TP is the right lever when context window matters more than multi-model serving.
 
 ### Thermal Headroom Remains
 
@@ -432,14 +501,18 @@ The `protoLabsAI/gemma-4-26B-A4B-it-FP8` checkpoint uses non-standard block size
 ### Deploy a model
 
 ```bash
-./deploy.sh E2B        # Gemma 4 E2B NVFP4 (single, port 30800)
-./deploy.sh E4B        # Gemma 4 E4B BF16  (single, port 30800)
-./deploy.sh 31B        # Gemma 4 31B NVFP4 (single, port 30800)
-./deploy.sh dual       # E2B + E4B simultaneously (ports 30801/30802)
-./deploy.sh setup      # Restore MIG config after reboot
-./deploy.sh test       # Smoke test current single deployment
-./deploy.sh undeploy   # Scale to 0 (release GPU, keep NFS cache)
-./deploy.sh destroy    # Delete all vLLM k8s resources
+./deploy.sh E2B            # Gemma 4 E2B NVFP4 (single, port 30800)
+./deploy.sh E4B            # Gemma 4 E4B BF16  (single, port 30800)
+./deploy.sh 31B            # Gemma 4 31B NVFP4 (2g.48gb, port 30800)
+./deploy.sh 31B-96         # Gemma 4 31B NVFP4 (4g.96gb, 128K ctx, port 30800)
+./deploy.sh 31B-bf16       # Gemma 4 31B BF16  (4g.96gb, 65K ctx, port 30800)
+./deploy.sh 31B-bf16-tp2   # Gemma 4 31B BF16  (TP=2, 2x4g.96gb, 256K ctx, port 30800)
+./deploy.sh dual           # E2B + E4B simultaneously (ports 30801/30802)
+./deploy.sh triple         # E2B + E4B + 31B simultaneously (ports 30801/30802/30803)
+./deploy.sh setup          # Restore MIG config after reboot
+./deploy.sh test           # Smoke test current single deployment
+./deploy.sh undeploy       # Scale to 0 (release GPU, keep NFS cache)
+./deploy.sh destroy        # Delete all vLLM k8s resources
 ```
 
 ### Run benchmarks
