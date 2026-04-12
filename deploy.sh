@@ -25,6 +25,8 @@ usage() {
     echo "             E2B: NodePort 30801  |  E4B: NodePort 30802"
     echo "  dual-moe - Deploy MoE 26B-A4B + 31B NVFP4 on the two mig-4g.96gb slices"
     echo "             MoE: NodePort 30801  |  31B: NodePort 30802"
+    echo "  dual-31b - Deploy 31B BF16 on both mig-4g.96gb slices simultaneously"
+    echo "             31B-A: NodePort 30801  |  31B-B: NodePort 30802"
     echo "  triple   - Deploy E2B + E4B + 31B simultaneously across both GPUs"
     echo "             E2B: NodePort 30801  |  E4B: NodePort 30802  |  31B: NodePort 30803"
     echo "  test     - Run a smoke test against the currently deployed model (single)"
@@ -151,6 +153,10 @@ if [[ "$CMD" == "dual-moe" ]]; then
         -d '{"model":"nvidia/Gemma-4-31B-IT-NVFP4","messages":[{"role":"user","content":"Reply with one word: ready"}],"max_tokens":10}' \
         | python3 -c 'import json,sys; print("  31B response:", json.load(sys.stdin)["choices"][0]["message"]["content"].strip())'
     exit 0
+fi
+
+if [[ "$CMD" == "dual-31b" ]]; then
+    exec bash "$SCRIPT_DIR/deploy-dual-31b-bf16.sh"
 fi
 
 if [[ "$CMD" == "triple" ]]; then
