@@ -17,11 +17,21 @@ all: build
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
+# If controller-gen is already on PATH (e.g. inside the devcontainer), create a
+# symlink so the $(CONTROLLER_GEN) prerequisite resolves without re-downloading.
 $(CONTROLLER_GEN): | $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+	@if command -v controller-gen >/dev/null 2>&1; then \
+	  ln -sf "$$(command -v controller-gen)" $(CONTROLLER_GEN); \
+	else \
+	  GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION); \
+	fi
 
 $(KUSTOMIZE): | $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/kustomize/kustomize/v5@$(KUSTOMIZE_VERSION)
+	@if command -v kustomize >/dev/null 2>&1; then \
+	  ln -sf "$$(command -v kustomize)" $(KUSTOMIZE); \
+	else \
+	  GOBIN=$(LOCALBIN) go install sigs.k8s.io/kustomize/kustomize/v5@$(KUSTOMIZE_VERSION); \
+	fi
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN)
@@ -40,6 +50,13 @@ fmt:
 .PHONY: vet
 vet:
 	go vet ./...
+
+.PHONY: lint
+lint:
+	golangci-lint run ./...
+
+.PHONY: ci
+ci: generate fmt vet lint test
 
 .PHONY: build
 build: generate fmt vet
