@@ -36,13 +36,19 @@ microk8s kubectl wait -n vllm vllminstance/e2b --for=condition=Ready --timeout=6
 
 ## Makefile targets
 
+CI publishes the operator image to `ghcr.io/aatchison/vllm-operator` on every push to `master` that touches `operator/`. Tags: short SHA + `latest`.
+
+## Makefile targets
+
 | Target | What it does |
 |---|---|
 | `generate` | runs `controller-gen` to regenerate `zz_generated.deepcopy.go` |
 | `manifests` | runs `controller-gen` to emit CRDs + RBAC into `config/` |
 | `build` | `go build` the manager binary |
 | `test` | `go test ./...` |
-| `docker-build` | build operator image (`docker.io/library/vllm-operator:local`) |
+| `lint` | runs `golangci-lint` |
+| `ci` | generate + fmt + vet + lint + test (full local CI) |
+| `docker-build` | build operator image (`IMG` var, default `docker.io/library/vllm-operator:local`) |
 | `image-load` | build + `microk8s ctr image import` |
 | `install` | apply CRDs |
 | `deploy` | apply RBAC + manager Deployment |

@@ -1,5 +1,7 @@
 # vLLM operator build + deploy
 
+# Local image tag (used for microk8s image-load).
+# Override to publish: IMG=ghcr.io/aatchison/vllm-operator:latest make docker-build
 IMG ?= docker.io/library/vllm-operator:local
 KUBECTL ?= microk8s kubectl
 NAMESPACE ?= vllm-system
