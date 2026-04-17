@@ -281,8 +281,8 @@ func ptrBool(b bool) *bool { return &b }
 // the field index + preset watch.
 func (r *VLLMInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &vllmv1alpha1.VLLMInstance{}, presetRefIndexKey, func(obj client.Object) []string {
-		inst := obj.(*vllmv1alpha1.VLLMInstance)
-		if inst.Spec.PresetRef == nil {
+		inst, ok := obj.(*vllmv1alpha1.VLLMInstance)
+		if !ok || inst.Spec.PresetRef == nil {
 			return nil
 		}
 		return []string{inst.Spec.PresetRef.Name}
