@@ -1,0 +1,111 @@
+name: PR validation
+
+on:
+  pull_request:
+
+jobs:
+  # ── Determine which areas changed ─────────────────────────────────────────
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      operator: ${{ steps.filter.outputs.operator }}
+      manifests: ${{ steps.filter.outputs.manifests }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            operator:
+              - "operator/**"
+            manifests:
+              - "operator/config/**"
+              - "operator/api/**"
+              - ".github/workflows/pr-validate.yaml"
+
+  # ── Go: generated files are up-to-date ────────────────────────────────────
+  generated:
+    name: Generated code is up-to-date
+    needs: changes
+    if: needs.changes.outputs.operator == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: operator
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: operator/go.mod
+          cache-dependency-path: operator/go.sum
+
+      - name: Install controller-gen
+        run: GOBIN=/usr/local/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+
+      - name: Check go mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum \
+            || { echo "::error::go.mod/go.sum are not tidy — run 'go mod tidy' and commit the result"; exit 1; }
+
+      - name: Check deepcopy is current
+        run: |
+          make generate
+          git diff --exit-code \
+            || { echo "::error::Generated deepcopy is stale — run 'make generate' and commit the result"; exit 1; }
+
+      - name: Check CRD/RBAC manifests are current
+        run: |
+          make manifests
+          git diff --exit-code \
+            || { echo "::error::Generated CRD/RBAC manifests are stale — run 'make manifests' and commit the result"; exit 1; }
+
+  # ── YAML: Kubernetes manifests are valid ──────────────────────────────────
+  yaml-validate:
+    name: Kubernetes manifests are valid
+    needs: changes
+    if: needs.changes.outputs.manifests == 'true'
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFORM_VERSION: v0.6.4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSfL \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz -C /usr/local/bin kubeconform
+
+      - name: Validate sample manifests
+        run: |
+          kubeconform \
+            -kubernetes-version 1.29.0 \
+            -strict \
+            -summary \
+            -ignore-missing-schemas \
+            operator/config/samples/presets/*.yaml \
+            operator/config/samples/instances/*.yaml \
+            operator/config/storage/*.yaml \
+            operator/config/mig-setup/serviceaccount.yaml \
+            operator/config/mig-setup/clusterrole.yaml \
+            operator/config/mig-setup/clusterrolebinding.yaml \
+            operator/config/mig-setup/configmap.yaml \
+            operator/config/manager/manager.yaml \
+            operator/config/rbac/role.yaml
+
+      - name: Validate CRD bases (if generated)
+        run: |
+          if ls operator/config/crd/bases/*.yaml 2>/dev/null | grep -q .; then
+            kubeconform \
+              -kubernetes-version 1.29.0 \
+              -strict \
+              -summary \
+              -schema-location default \
+              -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+              operator/config/crd/bases/*.yaml
+          else
+            echo "No generated CRDs yet (run make manifests); skipping."
+          fi

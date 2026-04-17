@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mig-setup
+  namespace: kube-system
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: vllm-mig-setup
+      containers:
+        - name: mig-setup
+          image: bitnami/kubectl:1.29
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: vllm-mig-setup
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              : "${configName:?configName must be set in ConfigMap vllm-mig-setup}"
+              : "${devicePluginLabelSelector:=app=nvidia-device-plugin-daemonset}"
+              : "${devicePluginNamespace:=gpu-operator-resources}"
+              : "${timeoutSeconds:=240}"
+
+              if [ -z "${nodeName:-}" ]; then
+                nodeName=$(kubectl get nodes -l nvidia.com/mig.capable=true -o jsonpath='{.items[0].metadata.name}')
+              fi
+              if [ -z "$nodeName" ]; then
+                echo "ERROR: no node with label nvidia.com/mig.capable=true found"
+                exit 1
+              fi
+              echo "Target node: $nodeName"
+
+              mig_manager=$(kubectl get node "$nodeName" -o jsonpath='{.metadata.labels.nvidia\.com/gpu\.deploy\.mig-manager}')
+              if [ "$mig_manager" != "true" ]; then
+                echo "ERROR: node $nodeName is missing nvidia.com/gpu.deploy.mig-manager=true (GPU Operator mig-manager not running?)"
+                kubectl describe node "$nodeName" | grep -E 'nvidia\.com|mig' || true
+                exit 1
+              fi
+
+              echo "Patching $nodeName with nvidia.com/mig.config=$configName"
+              kubectl label node "$nodeName" nvidia.com/mig.config="$configName" --overwrite
+
+              echo "Waiting up to ${timeoutSeconds}s for mig-manager to report success..."
+              deadline=$(( $(date +%s) + timeoutSeconds ))
+              while [ $(date +%s) -lt $deadline ]; do
+                state=$(kubectl get node "$nodeName" -o jsonpath='{.metadata.labels.nvidia\.com/mig\.config\.state}' 2>/dev/null || true)
+                echo "  state=${state:-unknown}"
+                case "$state" in
+                  success) echo "MIG configuration succeeded."; break ;;
+                  failed) echo "ERROR: mig-manager reports failed."; kubectl describe node "$nodeName" | grep -E 'mig\.config'; exit 1 ;;
+                esac
+                sleep 5
+              done
+              if [ "$state" != "success" ]; then
+                echo "ERROR: mig-manager did not report success within ${timeoutSeconds}s"
+                kubectl describe node "$nodeName" | grep -E 'mig\.config'
+                exit 1
+              fi
+
+              echo "Restarting device-plugin pods ($devicePluginLabelSelector in $devicePluginNamespace)"
+              kubectl delete pod -n "$devicePluginNamespace" -l "$devicePluginLabelSelector" --ignore-not-found
+              echo "Done."

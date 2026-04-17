@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vllm-system
+  labels:
+    control-plane: vllm-operator
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vllm-operator
+  namespace: vllm-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-operator
+  namespace: vllm-system
+  labels:
+    control-plane: vllm-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: vllm-operator
+  template:
+    metadata:
+      labels:
+        control-plane: vllm-operator
+    spec:
+      serviceAccountName: vllm-operator
+      containers:
+        - name: manager
+          image: docker.io/library/vllm-operator:local
+          imagePullPolicy: Never
+          args:
+            - --leader-elect=false
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            runAsNonRoot: true
+      terminationGracePeriodSeconds: 10

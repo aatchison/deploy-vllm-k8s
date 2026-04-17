@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-mig-setup
+  namespace: kube-system
+data:
+  # Leave nodeName empty to auto-discover (first node with nvidia.com/mig.capable=true)
+  nodeName: ""
+  # Mig profile to apply. Must match a key in the nvidia-mig-manager ConfigMap
+  # (cluster-wide default name is "default-mig-parted-config" on the GPU Operator).
+  # Example: "all-2g.48gb", "all-4g.96gb", or a custom profile bundled in mig-parted-config.
+  configName: "all-2g.48gb"
+  # Device plugin pods to restart after MIG reconfiguration.
+  devicePluginLabelSelector: "app=nvidia-device-plugin-daemonset"
+  devicePluginNamespace: "gpu-operator-resources"
+  timeoutSeconds: "240"

@@ -1,0 +1,15 @@
+---
+# Local (non-NFS) PVC. Uses microk8s' default hostpath-storage class.
+# Enable with: microk8s enable hostpath-storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-models-pvc
+  namespace: vllm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Ti
+  storageClassName: microk8s-hostpath
