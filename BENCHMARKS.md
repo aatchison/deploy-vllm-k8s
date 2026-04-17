@@ -456,6 +456,130 @@ E4B BF16    |#####################                             |  66  (2g.48gb)
 
 ---
 
+### 6.9 Operator MIG Profile Combination Sweep
+
+All tests use the Kubernetes operator (`VLLMInstance` CRs), the Rust web-app prompt, `max_tokens=4096`, and 3 rounds/instance. Configs are ordered from most MIG slices (most parallelism) to fewest. MIG reconfiguration is a one-liner: `kubectl label node <node> nvidia.com/mig.config=<profile> --overwrite`.
+
+#### all-1g.24gb — 8 slices, 8×E2B-1g
+
+```
+GPU 0: 4×1g.24gb   GPU 1: 4×1g.24gb
+```
+
+| Instance | Model | TTFT | tok/s |
+|----------|-------|------|-------|
+| e2b-{a,b,c,d} (GPU0) | E2B NVFP4 | ~315 ms | 107–114 |
+| e2b-{e,f,g,h} (GPU1) | E2B NVFP4 | ~1100 ms | 107–114 |
+
+- **Wall time:** 38 s for 24 requests (8 instances × 3 rounds)
+- GPU1 TTFT is ~3.5× higher — the second GPU has higher PCIe-to-host latency on this node
+
+#### all-2g.48gb — 4 slices, 2×E2B + 2×E4B
+
+```
+GPU 0: 2×2g.48gb   GPU 1: 2×2g.48gb
+```
+
+| Instance | Model | TTFT | tok/s |
+|----------|-------|------|-------|
+| e2b-{a,b} | E2B NVFP4 | ~262–314 ms | 149–150 |
+| e4b-{a,b} | E4B BF16 | ~314–1091 ms | 65–66 |
+
+- **Wall time:** 63 s for 12 requests (4 × 3 rounds)
+- E2B gets a ~2.3× throughput advantage from NVFP4 vs E4B BF16, as expected
+
+#### mixed-2g-1g — 6 slices, 2×31B-NVFP4 + 4×E2B-1g
+
+```
+GPU 0: 2×2g.48gb   GPU 1: 4×1g.24gb
+```
+
+| Instance | Model | TTFT | tok/s |
+|----------|-------|------|-------|
+| 31b-{a,b} | 31B NVFP4 | ~1300–1356 ms | 21.5–21.6 |
+| e2b-{a,b,c,d} | E2B NVFP4 | ~280–1146 ms | 105–115 |
+
+- **Wall time:** 181 s for 18 requests
+- 31B on a 2g slice (32K context) is memory-constrained; throughput is ~10× lower than E2B on the same 2g slice
+
+#### asym-4g-1g — 5 slices, 1×31B-BF16 + 4×E2B-1g
+
+```
+GPU 0: 1×4g.96gb   GPU 1: 4×1g.24gb
+```
+
+| Instance | Model | TTFT | tok/s |
+|----------|-------|------|-------|
+| 31b-bf16 | 31B BF16 | ~1249–1250 ms | 23.1 |
+| e2b-{a,b,c,d} | E2B NVFP4 | ~267–320 ms | 108–109 |
+
+- **Wall time:** 178 s for 15 requests
+- Good balance: one high-quality 31B model + four fast low-latency E2B endpoints on the same node
+
+#### asym-4g-2g — 3 slices, 1×31B-BF16 + 2×31B-NVFP4
+
+```
+GPU 0: 1×4g.96gb   GPU 1: 2×2g.48gb
+```
+
+| Instance | Model | TTFT | tok/s |
+|----------|-------|------|-------|
+| 31b-bf16 | 31B BF16 (4g) | ~418–419 ms | 23.1 |
+| 31b-nvfp4-{a,b} | 31B NVFP4 (2g) | ~1197–1356 ms | 21.4–21.5 |
+
+- **Wall time:** 191 s for 9 requests
+- BF16 on the full 4g slice has 4× lower TTFT than NVFP4 on the 2g slice (better KV cache room)
+- Throughput nearly identical (23 vs 21 tok/s) despite different precision — memory bandwidth is the shared bottleneck for decode
+
+#### custom-mig — 2 slices, 1×31B-BF16 + 1×26B-MoE
+
+```
+GPU 0: 1×4g.96gb   GPU 1: 1×4g.96gb
+```
+
+| Instance | Model | TTFT | tok/s |
+|----------|-------|------|-------|
+| 31b-bf16 | 31B BF16 | ~417–418 ms | 23.0 |
+| moe-26b | 26B-A4B MoE BF16 | ~365–366 ms | 79–83 |
+
+- **Wall time:** 177 s for 6 requests
+- MoE's 4B active params deliver **3.5× faster decode** than the 31B dense model despite both using the same 4g.96gb slice
+- Best config when you need both quality (31B) and throughput (MoE) simultaneously
+
+#### TP=2 — 1 logical instance, both 4g.96gb slices
+
+```
+GPU 0: 1×4g.96gb (TP rank 0) + GPU 1: 1×4g.96gb (TP rank 1)
+```
+
+| Instance | Model | TTFT | tok/s | Context |
+|----------|-------|------|-------|---------|
+| 31b-tp2 | 31B BF16 (TP=2) | ~573 ms | 39.3–39.4 | 256K |
+
+- **Wall time:** 104 s for 3 requests
+- TP=2 gives **1.7× throughput vs single-4g** (39 vs 23 tok/s) and unlocks 256K context
+- Trades multi-model serving for maximum single-model performance and context window
+
+#### Summary Table
+
+| MIG config | Slices | Instances | Models | tok/s range | Wall time (3 rounds) |
+|------------|--------|-----------|--------|------------|---------------------|
+| all-1g.24gb | 8 | 8×E2B | E2B NVFP4 | 107–114 | 38 s |
+| all-2g.48gb | 4 | 2×E2B + 2×E4B | E2B NVFP4, E4B BF16 | 65–150 | 63 s |
+| mixed-2g-1g | 6 | 2×31B + 4×E2B | 31B NVFP4, E2B NVFP4 | 22–115 | 181 s |
+| asym-4g-1g | 5 | 1×31B-BF16 + 4×E2B | 31B BF16, E2B NVFP4 | 23–109 | 178 s |
+| asym-4g-2g | 3 | 1×31B-BF16 + 2×31B-NVFP4 | 31B BF16/NVFP4 | 21–23 | 191 s |
+| custom-mig | 2 | 1×31B-BF16 + 1×26B-MoE | 31B BF16, MoE BF16 | 23–83 | 177 s |
+| TP=2 | 2 (1 instance) | 1×31B-TP2 | 31B BF16 TP=2 | 39 | 104 s |
+
+**Key takeaways:**
+- **E2B NVFP4 on 1g is the highest-density config**: 8 concurrent endpoints, each delivering 107–114 tok/s, from two GPUs
+- **MoE is the throughput surprise**: 26B-A4B at 79–83 tok/s on a 4g slice — comparable to E2B on a 2g slice, with far greater model capability
+- **TP=2 is the right choice when context > concurrency**: 256K window + 39 tok/s; everything else tops out at 65K or lower
+- **31B on 2g is functional but memory-constrained**: 21–22 tok/s with no context beyond 32K — use 4g or TP=2 for serious 31B workloads
+
+---
+
 ## 7. Tool Use
 
 All three endpoints support OpenAI-compatible function calling with no extra application-level configuration.
