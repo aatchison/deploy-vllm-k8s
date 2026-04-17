@@ -187,7 +187,9 @@ func buildReadinessProbe(cfg vllmv1alpha1.ProbeConfig) *corev1.Probe {
 	}
 }
 
-// ServiceName returns the Service name convention.
+// ServiceName returns the Service name for an instance.
+// Uses svc-<name> prefix so the result is always a valid DNS-1035 label
+// even when the instance name starts with a digit (e.g. "31b-96").
 func ServiceName(instanceName string) string {
-	return fmt.Sprintf("%s-svc", instanceName)
+	return fmt.Sprintf("svc-%s", instanceName)
 }
