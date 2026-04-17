@@ -5,16 +5,17 @@ set -euo pipefail
 
 INSTANCE="${1:?Usage: $0 <instance-name> [namespace] [kubectl]}"
 NAMESPACE="${2:-vllm}"
-KUBECTL="${3:-kubectl}"
+# Split KUBECTL into an array so "microk8s kubectl" works as well as plain "kubectl".
+read -ra KUBECTL <<< "${3:-kubectl}"
 
 # ── 1. Resolve endpoint from VLLMInstance status ─────────────────────────────
 echo "==> Fetching endpoint for VLLMInstance '$INSTANCE' in namespace '$NAMESPACE'..."
-ENDPOINT=$("$KUBECTL" get vllminstance "$INSTANCE" -n "$NAMESPACE" \
+ENDPOINT=$("${KUBECTL[@]}" get vllminstance "$INSTANCE" -n "$NAMESPACE" \
     -o jsonpath='{.status.endpoint}' 2>/dev/null)
 
 if [[ -z "$ENDPOINT" ]]; then
     echo "ERROR: status.endpoint is empty — instance not Ready yet?" >&2
-    "$KUBECTL" get vllminstance "$INSTANCE" -n "$NAMESPACE" \
+    "${KUBECTL[@]}" get vllminstance "$INSTANCE" -n "$NAMESPACE" \
         -o jsonpath='{range .status.conditions[*]}{.type}={.status}: {.message}{"\n"}{end}' 2>/dev/null || true
     exit 1
 fi
