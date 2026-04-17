@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: vllm-nfs-pv
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    # ── CHANGE ME ────────────────────────────────────────────────
+    server: "YOUR_NFS_SERVER_IP"
+    path: "/your/nfs/export/path"
+  mountOptions:
+    - nfsvers=4.1
+    - rsize=262144
+    - wsize=262144
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-models-pvc
+  namespace: vllm
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Ti
+  volumeName: vllm-nfs-pv

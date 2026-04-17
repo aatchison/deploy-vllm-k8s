@@ -1,0 +1,10 @@
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: VLLMInstance
+metadata:
+  name: 31b-bf16-tp2
+  namespace: vllm
+spec:
+  presetRef: {name: gemma-4-31b-bf16-tp2}
+  pvcName: vllm-models-pvc
+  hfToken: {name: hf-token, key: token}
+  nodePort: 30800

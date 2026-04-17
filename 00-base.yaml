@@ -17,55 +17,5 @@ stringData:
   # Get one at: https://huggingface.co/settings/tokens
   token: "YOUR_HUGGINGFACE_TOKEN_HERE"
 
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: vllm-nfs-pv
-spec:
-  capacity:
-    storage: 2Ti
-  accessModes:
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  nfs:
-    # ── CHANGE ME ────────────────────────────────────────────────
-    # Set these to your NFS server's IP (or hostname) and export path.
-    # This volume stores the HuggingFace model cache so weights are
-    # downloaded once and shared across all pods.
-    server: "YOUR_NFS_SERVER_IP"
-    path: "/your/nfs/export/path"
-  mountOptions:
-    - nfsvers=4.1
-    - rsize=262144
-    - wsize=262144
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: vllm-models-pvc
-  namespace: vllm
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 2Ti
-  volumeName: vllm-nfs-pv
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: vllm-svc
-  namespace: vllm
-spec:
-  selector:
-    app: vllm
-  type: NodePort
-  ports:
-  - name: http
-    port: 8000
-    targetPort: 8000
-    nodePort: 30800
+# Storage (PV+PVC) and Services are now owned by the vLLM operator.
+# See operator/config/storage/{pv-nfs,pvc-local}.yaml for PVC samples.

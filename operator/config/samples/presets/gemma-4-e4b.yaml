@@ -1,0 +1,19 @@
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: ModelPreset
+metadata:
+  name: gemma-4-e4b
+  namespace: vllm
+spec:
+  modelID: google/gemma-4-E4B-it
+  migResource: nvidia.com/mig-2g.48gb
+  migResourceCount: 1
+  dtype: bfloat16
+  maxModelLen: 32768
+  gpuMemoryUtilization: "0.90"
+  tensorParallelSize: 1
+  enableAutoToolChoice: true
+  toolCallParser: gemma4
+  shmSizeLimit: 8Gi
+  progressDeadlineSeconds: 600
+  livenessProbe: {initialDelaySeconds: 480, periodSeconds: 30, failureThreshold: 10}
+  readinessProbe: {initialDelaySeconds: 90, periodSeconds: 10, failureThreshold: 30}
