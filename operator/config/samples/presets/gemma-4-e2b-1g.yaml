@@ -1,0 +1,19 @@
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: ModelPreset
+metadata:
+  name: gemma-4-e2b-1g
+  namespace: vllm
+spec:
+  modelID: bg-digitalservices/Gemma-4-E2B-it-NVFP4
+  migResource: nvidia.com/mig-1g.24gb
+  migResourceCount: 1
+  quantization: nvfp4
+  maxModelLen: 32768
+  gpuMemoryUtilization: "0.90"
+  tensorParallelSize: 1
+  enableAutoToolChoice: true
+  toolCallParser: gemma4
+  shmSizeLimit: 4Gi
+  progressDeadlineSeconds: 600
+  livenessProbe: {initialDelaySeconds: 300, periodSeconds: 30, failureThreshold: 10}
+  readinessProbe: {initialDelaySeconds: 60, periodSeconds: 10, failureThreshold: 30}
