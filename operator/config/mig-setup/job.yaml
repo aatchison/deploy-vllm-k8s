@@ -12,7 +12,7 @@ spec:
       serviceAccountName: vllm-mig-setup
       containers:
         - name: mig-setup
-          image: bitnami/kubectl:1.29
+          image: bitnami/kubectl:1.29.3
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

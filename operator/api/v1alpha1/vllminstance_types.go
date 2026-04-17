@@ -44,9 +44,11 @@ type VLLMInstanceSpec struct {
 
 	HFToken corev1.SecretKeySelector `json:"hfToken"`
 
+	// NodePort to expose on every cluster node. Must be in 30000-32767.
+	// If omitted, Kubernetes auto-assigns a free port from the NodePort range.
 	// +kubebuilder:validation:Minimum=30000
 	// +kubebuilder:validation:Maximum=32767
-	NodePort int32 `json:"nodePort"`
+	NodePort *int32 `json:"nodePort,omitempty"`
 
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1

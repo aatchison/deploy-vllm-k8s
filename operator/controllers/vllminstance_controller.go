@@ -125,6 +125,16 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	instance.Status.ServiceName = svc.Name
 
+	// Re-read the Service to get the actual NodePort (may have been auto-assigned by Kubernetes).
+	var actualSvc corev1.Service
+	if err := r.Get(ctx, client.ObjectKey{Namespace: svc.Namespace, Name: svc.Name}, &actualSvc); err != nil {
+		return ctrl.Result{}, fmt.Errorf("get service: %w", err)
+	}
+	var actualNodePort int32
+	if len(actualSvc.Spec.Ports) > 0 {
+		actualNodePort = actualSvc.Spec.Ports[0].NodePort
+	}
+
 	// 6. Mirror Deployment conditions.
 	var observed appsv1.Deployment
 	if err := r.Get(ctx, client.ObjectKey{Namespace: dep.Namespace, Name: dep.Name}, &observed); err != nil {
@@ -144,8 +154,8 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.setCondition(&instance, vllmv1alpha1.ConditionProgressing, metav1.ConditionStatus(prog.Status), prog.Reason, prog.Message)
 	}
 
-	// 7. Endpoint.
-	endpoint := r.resolveEndpoint(ctx, instance.Namespace, svc.Name, instance.Spec.NodePort)
+	// 7. Endpoint — use the actual assigned NodePort.
+	endpoint := r.resolveEndpoint(ctx, instance.Namespace, svc.Name, actualNodePort)
 	instance.Status.Endpoint = endpoint
 
 	// 8. Ready condition.

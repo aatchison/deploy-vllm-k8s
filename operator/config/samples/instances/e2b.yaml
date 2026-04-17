@@ -7,4 +7,3 @@ spec:
   presetRef: {name: gemma-4-e2b}
   pvcName: vllm-models-pvc
   hfToken: {name: hf-token, key: token}
-  nodePort: 30801

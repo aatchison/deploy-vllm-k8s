@@ -8,7 +8,6 @@ spec:
   presetRef: {name: gemma-4-26b-a4b}
   pvcName: vllm-models-pvc
   hfToken: {name: hf-token, key: token}
-  nodePort: 30801
 ---
 apiVersion: vllm.aatchison.io/v1alpha1
 kind: VLLMInstance
@@ -19,4 +18,3 @@ spec:
   presetRef: {name: gemma-4-31b-nvfp4}
   pvcName: vllm-models-pvc
   hfToken: {name: hf-token, key: token}
-  nodePort: 30802

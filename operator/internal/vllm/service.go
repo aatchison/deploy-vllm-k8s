@@ -7,11 +7,22 @@ import (
 )
 
 // BuildService renders the NodePort Service fronting the vLLM Deployment.
+// If nodePort is nil, the NodePort field is omitted so Kubernetes auto-assigns
+// a port from the cluster's NodePort range.
 func BuildService(
 	instanceName, namespace string,
-	nodePort int32,
+	nodePort *int32,
 	ownerRef metav1.OwnerReference,
 ) *corev1.Service {
+	port := corev1.ServicePort{
+		Name:       "http",
+		Port:       HTTPPort,
+		TargetPort: intstr.FromInt(HTTPPort),
+		Protocol:   corev1.ProtocolTCP,
+	}
+	if nodePort != nil {
+		port.NodePort = *nodePort
+	}
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -26,13 +37,7 @@ func BuildService(
 		Spec: corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeNodePort,
 			Selector: map[string]string{"app": instanceName},
-			Ports: []corev1.ServicePort{{
-				Name:       "http",
-				Port:       HTTPPort,
-				TargetPort: intstr.FromInt(HTTPPort),
-				NodePort:   nodePort,
-				Protocol:   corev1.ProtocolTCP,
-			}},
+			Ports:    []corev1.ServicePort{port},
 		},
 	}
 }

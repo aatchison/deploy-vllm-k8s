@@ -78,6 +78,9 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               nodePort:
+                description: |-
+                  NodePort to expose on every cluster node. Must be in 30000-32767.
+                  If omitted, Kubernetes auto-assigns a free port from the NodePort range.
                 format: int32
                 maximum: 32767
                 minimum: 30000
@@ -181,7 +184,6 @@ spec:
                 type: integer
             required:
             - hfToken
-            - nodePort
             - pvcName
             type: object
             x-kubernetes-validations:
