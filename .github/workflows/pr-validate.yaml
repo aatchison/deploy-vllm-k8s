@@ -42,7 +42,7 @@ jobs:
           cache-dependency-path: operator/go.sum
 
       - name: Install controller-gen
-        run: GOBIN=/usr/local/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+        run: GOBIN=/usr/local/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
 
       - name: Check go mod tidy
         run: |

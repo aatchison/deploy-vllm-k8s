@@ -35,7 +35,7 @@ type ModelConfigOverrides struct {
 //
 // +kubebuilder:validation:XValidation:rule="has(self.presetRef) || (has(self.overrides) && has(self.overrides.modelID) && has(self.overrides.migResource) && has(self.overrides.maxModelLen))",message="presetRef or (overrides.modelID, overrides.migResource, overrides.maxModelLen) must be set"
 // +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1 || (has(self.overrides.migResourceCount) && self.overrides.migResourceCount == self.overrides.tensorParallelSize)",message="overrides.tensorParallelSize > 1 requires overrides.migResourceCount == tensorParallelSize"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf) || self.pvcName == oldSelf.pvcName",message="pvcName is immutable",reason="FieldImmutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf) || self.pvcName == oldSelf.pvcName",message="pvcName is immutable",reason="FieldValueInvalid"
 // +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 1",message="replicas must be 0 or 1 (MIG slice cannot host multiple pods)"
 type VLLMInstanceSpec struct {
 	PresetRef *PresetReference      `json:"presetRef,omitempty"`

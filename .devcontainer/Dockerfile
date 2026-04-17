@@ -17,7 +17,7 @@ RUN curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kub
     && chmod +x /usr/local/bin/kubectl
 
 # controller-gen — pinned to match operator/Makefile
-ARG CONTROLLER_GEN_VERSION=v0.14.0
+ARG CONTROLLER_GEN_VERSION=v0.20.1
 RUN GOBIN=/usr/local/bin go install \
         sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_GEN_VERSION}
 

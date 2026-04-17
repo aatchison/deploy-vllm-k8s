@@ -1,45 +1,80 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: vllm-operator-role
 rules:
-  - apiGroups: ["vllm.aatchison.io"]
-    resources: ["modelpresets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["vllm.aatchison.io"]
-    resources: ["vllminstances"]
-    verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: ["vllm.aatchison.io"]
-    resources: ["vllminstances/status"]
-    verbs: ["get", "update", "patch"]
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["services"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["persistentvolumeclaims"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["create", "patch"]
-  - apiGroups: ["discovery.k8s.io"]
-    resources: ["endpointslices"]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: vllm-operator-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: vllm-operator-role
-subjects:
-  - kind: ServiceAccount
-    name: vllm-operator
-    namespace: vllm-system
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - vllm.aatchison.io
+  resources:
+  - modelpresets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - vllm.aatchison.io
+  resources:
+  - vllminstances
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - vllm.aatchison.io
+  resources:
+  - vllminstances/status
+  verbs:
+  - get
+  - patch
+  - update
