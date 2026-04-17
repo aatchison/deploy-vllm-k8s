@@ -195,8 +195,9 @@ spec:
                 || self.overrides.tensorParallelSize <= 1 || (has(self.overrides.migResourceCount)
                 && self.overrides.migResourceCount == self.overrides.tensorParallelSize)'
             - message: pvcName is immutable
+              optionalOldSelf: true
               reason: FieldValueInvalid
-              rule: '!has(oldSelf) || self.pvcName == oldSelf.pvcName'
+              rule: self.pvcName == oldSelf.pvcName
             - message: replicas must be 0 or 1 (MIG slice cannot host multiple pods)
               rule: '!has(self.replicas) || self.replicas <= 1'
           status:
