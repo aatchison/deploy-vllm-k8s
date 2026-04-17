@@ -5,6 +5,8 @@
 IMG ?= docker.io/library/vllm-operator:local
 KUBECTL ?= microk8s kubectl
 NAMESPACE ?= vllm-system
+INSTANCE ?= 31b-96
+MODEL_NAMESPACE ?= vllm
 
 LOCALBIN := $(CURDIR)/bin
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
@@ -109,3 +111,9 @@ mig-setup:
 apply-samples:
 	$(KUBECTL) apply -f config/samples/presets/
 	$(KUBECTL) apply -f config/samples/instances/
+
+# Run a quick health-check against a live VLLMInstance.
+# Override defaults: make smoke-test INSTANCE=e2b MODEL_NAMESPACE=vllm
+.PHONY: smoke-test
+smoke-test:
+	bash hack/smoke-test.sh $(INSTANCE) $(MODEL_NAMESPACE) "$(KUBECTL)"
