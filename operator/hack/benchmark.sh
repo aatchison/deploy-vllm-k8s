@@ -18,7 +18,9 @@ read -ra KCL <<< "$KUBECTL"
 PROMPT="Build a complete Rust web application using Actix-web with: a REST API with CRUD endpoints for a todo list, a SQLite database layer using sqlx, JWT-based authentication middleware, full error handling with custom error types, and a comprehensive test suite covering unit tests and integration tests. Provide all source files including Cargo.toml, src/main.rs, src/auth.rs, src/db.rs, src/models.rs, src/handlers.rs, src/errors.rs, and tests/integration_test.rs with complete implementations."
 
 # ── Discover all Ready instances ─────────────────────────────────────────────
-declare -a NAMES ENDPOINTS MODELS
+NAMES=()
+ENDPOINTS=()
+MODELS=()
 
 while IFS=$'\t' read -r name endpoint; do
     [[ -z "$endpoint" ]] && continue
