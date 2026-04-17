@@ -31,8 +31,8 @@ spec:
       serviceAccountName: vllm-operator
       containers:
         - name: manager
-          image: docker.io/library/vllm-operator:local
-          imagePullPolicy: Never
+          image: ghcr.io/aatchison/vllm-operator:latest
+          imagePullPolicy: Always
           args:
             - --leader-elect=false
           livenessProbe:
