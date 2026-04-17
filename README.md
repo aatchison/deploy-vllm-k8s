@@ -235,3 +235,37 @@ microk8s kubectl wait -n vllm vllminstance/e2b --for=condition=Ready --timeout=6
 ```
 
 Multi-model layouts (dual, triple, dual-moe) have ready-made instance manifests in `operator/config/samples/instances/`. See `operator/README.md` for full details and all `make` targets.
+
+## MIG Profile Combinations
+
+Each RTX PRO 6000 Blackwell has 4 compute slices that can be divided as `4g`, `2g`, or `1g`. Slices on a single GPU must sum to 4 or fewer. Memory scales with compute: `4g` = 96 GB, `2g` = 48 GB, `1g` = 24 GB.
+
+The named profiles below are defined in `operator/config/mig-setup/configmap.yaml` under the `custom-mig-config` key in the `gpu-operator-resources` namespace.
+
+| Config name | GPU 0 | GPU 1 | Total instances | Notes |
+|---|---|---|---|---|
+| `custom-mig` | 1×4g.96gb | 1×4g.96gb | 2 | Default; large models or TP=2 |
+| `all-2g.48gb` | 2×2g.48gb | 2×2g.48gb | 4 | Mid-size concurrent |
+| `all-1g.24gb` | 4×1g.24gb | 4×1g.24gb | 8 | Max concurrency, small models |
+| `mixed-2g-1g` | 1×2g.48gb + 2×1g.24gb | 1×2g.48gb + 2×1g.24gb | 6 | 31B + E2B/E4B mix |
+| `asym-4g-2g` | 1×4g.96gb | 2×2g.48gb | 3 | BF16 big + two 31B NVFP4 |
+| `asym-4g-1g` | 1×4g.96gb | 4×1g.24gb | 5 | BF16 big + four small |
+| `asym-4g-2g-1g` | 1×4g.96gb | 1×2g.48gb + 2×1g.24gb | 4 | Full spectrum |
+
+### Switching profiles
+
+```bash
+# Label the node to trigger reconfiguration (run on the cluster node)
+microk8s kubectl label node <node> nvidia.com/mig.config=<config-name> --overwrite
+
+# Wait for mig.config.state=success, then restart the device plugin
+microk8s kubectl delete pod -n gpu-operator-resources -l app=nvidia-device-plugin-daemonset
+```
+
+### Preset-to-slice mapping
+
+| Slice size | VRAM | Presets |
+|---|---|---|
+| `1g.24gb` | 24 GB | `gemma-4-e2b-1g` |
+| `2g.48gb` | 48 GB | `gemma-4-e2b`, `gemma-4-e4b`, `gemma-4-26b-a4b`, `gemma-4-31b-nvfp4` |
+| `4g.96gb` | 96 GB | `gemma-4-31b-nvfp4-96`, `gemma-4-31b-bf16`, `gemma-4-31b-bf16-tp2` (TP=2 uses both GPUs' 4g slices) |
