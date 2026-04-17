@@ -54,7 +54,7 @@ GPU 1 (96 GB total)
 GPU 0 + GPU 1 (192 GB combined)  -->  Gemma 4 31B BF16  — full 256K native context
 ```
 
-The MIG layout is a single ConfigMap edit — switch between configurations with `deploy.sh setup`.
+The MIG layout is a single ConfigMap edit — apply it with `cd operator && make mig-setup`.
 
 ## The Models
 
@@ -127,29 +127,25 @@ This builds a custom vLLM image with Gemma 4 support and imports it into MicroK8
 ### 3. Set up MIG (after every reboot)
 
 ```bash
-./deploy.sh setup
+cd operator && make mig-setup
+microk8s kubectl wait --for=condition=complete job/mig-setup -n kube-system --timeout=300s
 ```
 
-### 4. Deploy a model
+### 4. Install the operator and deploy a model
 
 ```bash
-# Single-model (port 30800)
-./deploy.sh E2B            # E2B NVFP4  — 2g.48gb, 32K ctx
-./deploy.sh E4B            # E4B BF16   — 2g.48gb, 32K ctx
-./deploy.sh 26B-A4B        # MoE BF16   — 4g.96gb, 128K ctx, 113 tok/s
-./deploy.sh 31B-96         # 31B NVFP4  — 4g.96gb, 128K ctx
-./deploy.sh 31B-bf16-tp2   # 31B BF16   — TP=2 across both GPUs, 256K ctx
-
-# Multi-model
-./deploy.sh dual-moe       # MoE 26B (30801) + 31B NVFP4 (30802) — current best layout
-./deploy.sh dual           # E2B (30801) + E4B (30802)
-./deploy.sh triple         # E2B + E4B + 31B on ports 30801/30802/30803
+cd operator && make install && make deploy
+# Apply a preset + instance (e.g. E2B on port 30801):
+microk8s kubectl apply -f operator/config/samples/presets/gemma-4-e2b.yaml
+microk8s kubectl apply -f operator/config/samples/instances/e2b.yaml
+microk8s kubectl wait -n vllm vllminstance/e2b --for=condition=Ready --timeout=600s
 ```
+
+Multi-model layouts: apply the corresponding files from `operator/config/samples/instances/` (e.g. `dual-moe.yaml`, `triple.yaml`).
 
 ### 5. Test it
 
 ```bash
-./deploy.sh test      # quick smoke test (single-model deployments)
 bash tooluse-demo.sh  # verify function calling works across all three vLLM endpoints
 bash loadtest-all.sh  # concurrent load test across all three vLLM endpoints
 ```
@@ -157,21 +153,85 @@ bash loadtest-all.sh  # concurrent load test across all three vLLM endpoints
 ### 6. Tear down
 
 ```bash
-./deploy.sh undeploy  # stop serving, keep model cache on NFS
-./deploy.sh destroy   # remove everything (model cache on NFS is untouched)
+microk8s kubectl delete vllminstance --all -n vllm  # stop serving, keep model cache on NFS
+microk8s kubectl delete namespace vllm              # remove everything
 ```
 
 ## Repository Layout
 
 ```
-deploy.sh              main entry point for all operations
-setup-mig.sh           restores GPU partitioning after reboot
-build.sh               builds the custom vLLM container image
+operator/              Kubernetes operator — the current way to deploy (see below)
+build.sh               builds the custom vLLM container image (used by the operator)
 Dockerfile             extends vllm/vllm-openai:nightly with Gemma 4 support
 00-base.yaml           namespace, HF token secret, NFS PV/PVC, service
-deploy-dual.yaml       run E2B + E4B simultaneously
-deploy-gemma4-*.yaml   per-model deployment configs
-loadtest-all.sh        concurrent load test (vLLM + ollama)
-tooluse-demo.sh        function calling demo across all endpoints
+loadtest-all.sh        concurrent load test across vLLM endpoints
+tooluse-demo.sh        function calling demo across endpoints
 BENCHMARKS.md          full benchmark report with tables and data
+legacy/                pre-operator shell scripts and static YAMLs (reference only)
 ```
+
+## Kubernetes Operator
+
+A full Kubernetes operator now manages vLLM deployments declaratively, replacing the manual shell scripts and static YAML manifests. The operator lives in `operator/` and introduces two CRDs in the `vllm.aatchison.io/v1alpha1` API group.
+
+### CRDs
+
+**`ModelPreset`** — a reusable vLLM configuration template. It captures the model ID, MIG resource type and count, quantization, context length, GPU memory utilization, tensor parallel size, tool-calling settings, and health probe timeouts. Seven presets ship in `operator/config/samples/presets/` covering the full Gemma 4 model range.
+
+**`VLLMInstance`** — one running model endpoint. It references a `ModelPreset` by name and adds the deployment-specific details: which PVC holds the model cache, which Secret has the HuggingFace token, and which NodePort to expose. The operator creates a `Deployment` and a `NodePort Service` for each instance and tracks readiness in the instance's status.
+
+### Minimal example
+
+```yaml
+# 1. Define (or reuse) a preset
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: ModelPreset
+metadata:
+  name: gemma-4-e2b
+  namespace: vllm
+spec:
+  modelID: bg-digitalservices/Gemma-4-E2B-it-NVFP4
+  migResource: nvidia.com/mig-2g.48gb
+  migResourceCount: 1
+  quantization: nvfp4
+  maxModelLen: 32768
+  gpuMemoryUtilization: "0.90"
+  tensorParallelSize: 1
+  enableAutoToolChoice: true
+  toolCallParser: gemma4
+---
+# 2. Instantiate it
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: VLLMInstance
+metadata:
+  name: e2b
+  namespace: vllm
+spec:
+  presetRef: {name: gemma-4-e2b}
+  pvcName: vllm-models-pvc
+  hfToken: {name: hf-token, key: token}
+  nodePort: 30801
+```
+
+### Quick start
+
+```bash
+# 1. MIG setup (run once after boot)
+cd operator && make mig-setup
+microk8s kubectl wait --for=condition=complete job/mig-setup -n kube-system --timeout=300s
+
+# 2. Base infrastructure (namespace, HF token, PV/PVC)
+microk8s kubectl apply -f 00-base.yaml
+
+# 3. Build the vLLM image and load it into microk8s
+./build.sh
+
+# 4. Install CRDs and deploy the operator
+cd operator && make install && make deploy
+
+# 5. Apply presets and deploy a model instance
+make apply-samples
+microk8s kubectl wait -n vllm vllminstance/e2b --for=condition=Ready --timeout=600s
+```
+
+Multi-model layouts (dual, triple, dual-moe) have ready-made instance manifests in `operator/config/samples/instances/`. See `operator/README.md` for full details and all `make` targets.
