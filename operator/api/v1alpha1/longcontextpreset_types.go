@@ -29,6 +29,13 @@ type LongContextPresetSpec struct {
 	Quantization string `json:"quantization,omitempty"`
 	DType        string `json:"dtype,omitempty"`
 
+	// ServedModelName overrides the name vLLM advertises to clients (see
+	// the corresponding field on ModelPresetSpec for full docs). Useful for
+	// keeping a stable client-facing name (e.g. `google/gemma-4-31B-it`)
+	// regardless of whether the long-context preset's backend weights are
+	// NVFP4 or BF16.
+	ServedModelName string `json:"servedModelName,omitempty"`
+
 	// +kubebuilder:validation:Minimum=1024
 	MaxModelLen int32 `json:"maxModelLen"`
 

@@ -21,6 +21,7 @@ type LongContextOverrides struct {
 	MIGResourceCount        *int32       `json:"migResourceCount,omitempty"`
 	Quantization            *string      `json:"quantization,omitempty"`
 	DType                   *string      `json:"dtype,omitempty"`
+	ServedModelName         *string      `json:"servedModelName,omitempty"`
 	MaxModelLen             *int32       `json:"maxModelLen,omitempty"`
 	GPUMemoryUtilization    *string      `json:"gpuMemoryUtilization,omitempty"`
 	TensorParallelSize      *int32       `json:"tensorParallelSize,omitempty"`

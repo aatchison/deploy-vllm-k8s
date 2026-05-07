@@ -39,6 +39,14 @@ type ModelPresetSpec struct {
 	Quantization string `json:"quantization,omitempty"`
 	DType        string `json:"dtype,omitempty"`
 
+	// ServedModelName overrides the name vLLM advertises to clients
+	// (`/v1/models` and the `model:` field in chat-completion requests). Maps
+	// to vLLM's `--served-model-name`. When empty, vLLM serves under the same
+	// name as `modelID`. Useful for serving the same logical model under a
+	// stable name even when swapping checkpoints (e.g. `google/gemma-4-31B-it`
+	// regardless of whether the backend weights are BF16 or NVFP4).
+	ServedModelName string `json:"servedModelName,omitempty"`
+
 	// +kubebuilder:validation:Minimum=1024
 	MaxModelLen int32 `json:"maxModelLen"`
 

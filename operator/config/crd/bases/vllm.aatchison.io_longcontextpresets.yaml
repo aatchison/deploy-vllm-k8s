@@ -167,6 +167,14 @@ spec:
                 - initialDelaySeconds
                 - periodSeconds
                 type: object
+              servedModelName:
+                description: |-
+                  ServedModelName overrides the name vLLM advertises to clients (see
+                  the corresponding field on ModelPresetSpec for full docs). Useful for
+                  keeping a stable client-facing name (e.g. `google/gemma-4-31B-it`)
+                  regardless of whether the long-context preset's backend weights are
+                  NVFP4 or BF16.
+                type: string
               shmSizeLimit:
                 pattern: ^[0-9]+[KMGT]i?$
                 type: string

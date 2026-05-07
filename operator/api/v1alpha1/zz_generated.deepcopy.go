@@ -171,6 +171,11 @@ func (in *LongContextOverrides) DeepCopyInto(out *LongContextOverrides) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ServedModelName != nil {
+		in, out := &in.ServedModelName, &out.ServedModelName
+		*out = new(string)
+		**out = **in
+	}
 	if in.MaxModelLen != nil {
 		in, out := &in.MaxModelLen, &out.MaxModelLen
 		*out = new(int32)
@@ -363,6 +368,11 @@ func (in *ModelConfigOverrides) DeepCopyInto(out *ModelConfigOverrides) {
 	}
 	if in.DType != nil {
 		in, out := &in.DType, &out.DType
+		*out = new(string)
+		**out = **in
+	}
+	if in.ServedModelName != nil {
+		in, out := &in.ServedModelName, &out.ServedModelName
 		*out = new(string)
 		**out = **in
 	}
