@@ -250,6 +250,11 @@ spec:
                 && self.overrides.migResourceCount == self.overrides.tensorParallelSize)'
             - message: replicas must be 0 or 1 (MIG slice cannot host multiple pods)
               rule: '!has(self.replicas) || self.replicas <= 1'
+            - message: LMCache offload is single-slice only in the current implementation
+              rule: '!has(self.overrides) || !has(self.overrides.kvOffloadBackend)
+                || self.overrides.kvOffloadBackend != ''lmcache'' || ((!has(self.overrides.migResourceCount)
+                || self.overrides.migResourceCount <= 1) && (!has(self.overrides.tensorParallelSize)
+                || self.overrides.tensorParallelSize <= 1))'
           status:
             description: LongContextInstanceStatus reflects the observed state.
             properties:
