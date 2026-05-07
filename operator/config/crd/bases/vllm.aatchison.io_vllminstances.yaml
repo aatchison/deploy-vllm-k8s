@@ -94,6 +94,8 @@ spec:
                     type: string
                   enableAutoToolChoice:
                     type: boolean
+                  enableChunkedPrefill:
+                    type: boolean
                   gpuMemoryUtilization:
                     type: string
                   image:
@@ -124,6 +126,10 @@ spec:
                     type: object
                   maxModelLen:
                     format: int32
+                    type: integer
+                  maxNumBatchedTokens:
+                    format: int32
+                    minimum: 0
                     type: integer
                   migResource:
                     type: string

@@ -492,6 +492,191 @@ func TestResolveLongContextCPUOffloadOverride(t *testing.T) {
 	}
 }
 
+func TestBuildArgsMaxNumBatchedTokens(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          262144,
+		GPUMemoryUtilization: "0.92",
+		TensorParallelSize:   1,
+		MaxNumBatchedTokens:  4096,
+	}
+	args := buildArgs(e)
+	hasFlag := false
+	for i, a := range args {
+		if a == "--max-num-batched-tokens" && i+1 < len(args) && args[i+1] == "4096" {
+			hasFlag = true
+		}
+	}
+	if !hasFlag {
+		t.Errorf("expected --max-num-batched-tokens 4096 in args; got %v", args)
+	}
+}
+
+func TestBuildArgsMaxNumBatchedTokensOmittedWhenZero(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          32768,
+		GPUMemoryUtilization: "0.9",
+		TensorParallelSize:   1,
+		MaxNumBatchedTokens:  0,
+	}
+	args := buildArgs(e)
+	for _, a := range args {
+		if a == "--max-num-batched-tokens" {
+			t.Errorf("zero-valued MaxNumBatchedTokens leaked into args: %v", args)
+		}
+	}
+}
+
+func TestBuildArgsEnableChunkedPrefill(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          262144,
+		GPUMemoryUtilization: "0.92",
+		TensorParallelSize:   1,
+		EnableChunkedPrefill: true,
+	}
+	args := buildArgs(e)
+	hasFlag := false
+	for _, a := range args {
+		if a == "--enable-chunked-prefill" {
+			hasFlag = true
+		}
+	}
+	if !hasFlag {
+		t.Errorf("expected --enable-chunked-prefill in args; got %v", args)
+	}
+}
+
+func TestBuildArgsEnableChunkedPrefillOmittedWhenFalse(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          32768,
+		GPUMemoryUtilization: "0.9",
+		TensorParallelSize:   1,
+		EnableChunkedPrefill: false,
+	}
+	args := buildArgs(e)
+	for _, a := range args {
+		if a == "--enable-chunked-prefill" {
+			t.Errorf("false EnableChunkedPrefill leaked into args: %v", args)
+		}
+	}
+}
+
+// TestResolveMaxNumBatchedTokensOverride verifies pointer override for Resolve (standard path).
+func TestResolveMaxNumBatchedTokensOverride(t *testing.T) {
+	p := basePreset()
+	p.MaxNumBatchedTokens = 2048
+
+	o := &vllmv1alpha1.ModelConfigOverrides{
+		MaxNumBatchedTokens: int32Ptr(4096),
+	}
+	e, _, err := Resolve(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.MaxNumBatchedTokens != 4096 {
+		t.Errorf("MaxNumBatchedTokens override not applied: got %d, want 4096", e.MaxNumBatchedTokens)
+	}
+
+	// No override: preset value carried through.
+	e2, _, err := Resolve(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e2.MaxNumBatchedTokens != 2048 {
+		t.Errorf("MaxNumBatchedTokens preset not carried: got %d, want 2048", e2.MaxNumBatchedTokens)
+	}
+}
+
+// TestResolveEnableChunkedPrefillOverride verifies pointer override for Resolve (standard path).
+func TestResolveEnableChunkedPrefillOverride(t *testing.T) {
+	p := basePreset()
+	p.EnableChunkedPrefill = false
+
+	o := &vllmv1alpha1.ModelConfigOverrides{
+		EnableChunkedPrefill: boolPtr(true),
+	}
+	e, _, err := Resolve(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !e.EnableChunkedPrefill {
+		t.Errorf("EnableChunkedPrefill override not applied: got false, want true")
+	}
+}
+
+// TestResolveLongContextMaxNumBatchedTokensOverride verifies pointer override for ResolveLongContext.
+func TestResolveLongContextMaxNumBatchedTokensOverride(t *testing.T) {
+	p := baseLongContextPreset()
+	p.MaxNumBatchedTokens = 4096
+
+	// Override replaces preset value.
+	o := &vllmv1alpha1.LongContextOverrides{
+		MaxNumBatchedTokens: int32Ptr(8192),
+	}
+	e, _, err := ResolveLongContext(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.MaxNumBatchedTokens != 8192 {
+		t.Errorf("MaxNumBatchedTokens override not applied: got %d, want 8192", e.MaxNumBatchedTokens)
+	}
+
+	// No override: preset value carried through.
+	e2, _, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e2.MaxNumBatchedTokens != 4096 {
+		t.Errorf("MaxNumBatchedTokens preset not carried: got %d, want 4096", e2.MaxNumBatchedTokens)
+	}
+}
+
+// TestResolveLongContextEnableChunkedPrefillOverride verifies pointer override for ResolveLongContext.
+func TestResolveLongContextEnableChunkedPrefillOverride(t *testing.T) {
+	p := baseLongContextPreset()
+	p.EnableChunkedPrefill = false
+
+	o := &vllmv1alpha1.LongContextOverrides{
+		EnableChunkedPrefill: boolPtr(true),
+	}
+	e, _, err := ResolveLongContext(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !e.EnableChunkedPrefill {
+		t.Errorf("EnableChunkedPrefill override not applied: got false, want true")
+	}
+
+	// No override: false stays false.
+	e2, _, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e2.EnableChunkedPrefill {
+		t.Errorf("EnableChunkedPrefill should remain false when not overridden; got true")
+	}
+}
+
+// TestResolveStandardHashUnchangedByNewFields verifies that the standard (non-long-context)
+// resolve path still serializes with MaxNumBatchedTokens=0 and EnableChunkedPrefill=false
+// as omitempty — no hash pollution for existing VLLMInstance objects.
+func TestResolveStandardHashUnchangedByNewFields(t *testing.T) {
+	p := basePreset()
+	e, _, err := Resolve(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.MaxNumBatchedTokens != 0 {
+		t.Errorf("standard path leaked MaxNumBatchedTokens=%d (want 0)", e.MaxNumBatchedTokens)
+	}
+	if e.EnableChunkedPrefill {
+		t.Errorf("standard path leaked EnableChunkedPrefill=true (want false)")
+	}
+}
+
 func TestSanitizeLabel(t *testing.T) {
 	cases := map[string]string{
 		"google/gemma-4-E2B-it":  "google-gemma-4-E2B-it",

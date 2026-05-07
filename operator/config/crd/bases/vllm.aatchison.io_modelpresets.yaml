@@ -61,6 +61,12 @@ spec:
                 type: string
               enableAutoToolChoice:
                 type: boolean
+              enableChunkedPrefill:
+                description: |-
+                  EnableChunkedPrefill toggles vLLM's chunked-prefill scheduler. Sidesteps
+                  the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
+                  at default. Useful for long-context throughput too.
+                type: boolean
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$
                 type: string
@@ -99,6 +105,14 @@ spec:
               maxModelLen:
                 format: int32
                 minimum: 1024
+                type: integer
+              maxNumBatchedTokens:
+                description: |-
+                  MaxNumBatchedTokens caps tokens per scheduling iteration.
+                  Required >= max_tokens_per_mm_item for multimodal models on vLLM v0.20+
+                  (Gemma 4: 2496). Empty/0 = vLLM default (2048 on v0.20).
+                format: int32
+                minimum: 0
                 type: integer
               migResource:
                 pattern: ^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$

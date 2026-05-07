@@ -23,9 +23,11 @@ const (
 // preset + overrides. Kept flat (no maps) so json.Marshal is byte-stable
 // and sha256 of the output is a useful drift indicator.
 //
-// Long-context fields (KVCacheDtype, EnablePrefixCaching) carry omitempty so
-// the existing ModelPreset → EffectiveConfig path serializes byte-identically
-// to before they were added.
+// Optional fields added after the initial schema (KVCacheDtype,
+// EnablePrefixCaching, ServedModelName, CPUOffloadGiB,
+// MaxNumBatchedTokens, EnableChunkedPrefill, StartupProbe) carry omitempty
+// so any path that doesn't set them produces JSON identical to the pre-field
+// shape — keeping the resolved-config-hash stable for existing instances.
 type EffectiveConfig struct {
 	ModelID                 string                   `json:"modelID"`
 	Image                   string                   `json:"image"`
@@ -48,6 +50,8 @@ type EffectiveConfig struct {
 	KVCacheDtype            string                   `json:"kvCacheDtype,omitempty"`
 	EnablePrefixCaching     *bool                    `json:"enablePrefixCaching,omitempty"`
 	CPUOffloadGiB           int32                    `json:"cpuOffloadGiB,omitempty"`
+	MaxNumBatchedTokens     int32                    `json:"maxNumBatchedTokens,omitempty"`
+	EnableChunkedPrefill    bool                     `json:"enableChunkedPrefill,omitempty"`
 }
 
 // Resolve merges overrides onto a preset (may be nil if overrides are complete)
@@ -76,6 +80,8 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			LivenessProbe:           preset.LivenessProbe,
 			ReadinessProbe:          preset.ReadinessProbe,
 			StartupProbe:            preset.StartupProbe,
+			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
+			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
 		}
 	}
 
@@ -134,6 +140,12 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		if overrides.StartupProbe != nil {
 			e.StartupProbe = overrides.StartupProbe
 		}
+		if overrides.MaxNumBatchedTokens != nil {
+			e.MaxNumBatchedTokens = *overrides.MaxNumBatchedTokens
+		}
+		if overrides.EnableChunkedPrefill != nil {
+			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
+		}
 	}
 
 	if e.Image == "" {
@@ -188,6 +200,8 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			StartupProbe:            preset.StartupProbe,
 			KVCacheDtype:            preset.KVCacheDtype,
 			CPUOffloadGiB:           preset.CPUOffloadGiB,
+			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
+			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
 		}
 		if preset.EnablePrefixCaching != nil {
 			v := *preset.EnablePrefixCaching
@@ -259,6 +273,12 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.CPUOffloadGiB != nil {
 			e.CPUOffloadGiB = *overrides.CPUOffloadGiB
+		}
+		if overrides.MaxNumBatchedTokens != nil {
+			e.MaxNumBatchedTokens = *overrides.MaxNumBatchedTokens
+		}
+		if overrides.EnableChunkedPrefill != nil {
+			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
 		}
 	}
 

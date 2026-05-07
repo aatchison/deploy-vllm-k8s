@@ -31,6 +31,9 @@ type ModelConfigOverrides struct {
 	LivenessProbe           *ProbeConfig `json:"livenessProbe,omitempty"`
 	ReadinessProbe          *ProbeConfig `json:"readinessProbe,omitempty"`
 	StartupProbe            *ProbeConfig `json:"startupProbe,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	MaxNumBatchedTokens     *int32       `json:"maxNumBatchedTokens,omitempty"`
+	EnableChunkedPrefill    *bool        `json:"enableChunkedPrefill,omitempty"`
 }
 
 // VLLMInstanceSpec is the desired state of a single vLLM deployment.
