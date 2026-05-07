@@ -161,7 +161,7 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.KVCacheDtype != "" {
 		args = append(args, "--kv-cache-dtype", e.KVCacheDtype)
 	}
-	if e.EnablePrefixCaching {
+	if e.EnablePrefixCaching != nil && *e.EnablePrefixCaching {
 		args = append(args, "--enable-prefix-caching")
 	}
 	if e.ServedModelName != "" {

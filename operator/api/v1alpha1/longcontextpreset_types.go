@@ -73,10 +73,15 @@ type LongContextPresetSpec struct {
 	KVCacheDtype string `json:"kvCacheDtype"`
 
 	// EnablePrefixCaching enables vLLM's RadixAttention-style automatic prefix
-	// caching. Defaults to true for this preset type — long-context workloads
-	// almost always benefit from KV prefix reuse across requests.
+	// caching. Tri-state pointer semantics:
+	//   - nil      → use kubebuilder default (true at admission time)
+	//   - &false   → explicitly disabled
+	//   - &true    → explicitly enabled
+	// The pointer type fixes the kubebuilder default+omitempty trap that
+	// previously made it impossible to disable the field once defaulted on.
 	// +kubebuilder:default=true
-	EnablePrefixCaching bool `json:"enablePrefixCaching,omitempty"`
+	// +nullable
+	EnablePrefixCaching *bool `json:"enablePrefixCaching,omitempty"`
 
 	// CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV
 	// blocks to host RAM instead of recomputing on the next prefix hit.
