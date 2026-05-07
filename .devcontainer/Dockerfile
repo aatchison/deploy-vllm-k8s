@@ -1,4 +1,7 @@
-FROM golang:1.22-bookworm
+# controller-tools v0.20.1 requires go >= 1.25; CI installs that via
+# actions/setup-go's auto-toolchain, so the devcontainer needs a matching
+# base to keep `make generate` reproducible locally.
+FROM golang:1.25-bookworm
 
 # System deps: kubectl + tools needed for make targets
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,7 +34,21 @@ ARG GOLANGCI_LINT_VERSION=v1.57.2
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
         | sh -s -- -b /usr/local/bin ${GOLANGCI_LINT_VERSION}
 
-# Non-root user matching distroless UID (avoids permission issues with bind-mounts)
-RUN useradd -u 65532 -m -s /bin/bash vscode 2>/dev/null || true
+# kubeconform — same binary the PR-validation workflow uses, so YAML/CRD
+# checks can be reproduced inside the devcontainer with the exact CI flags.
+ARG KUBECONFORM_VERSION=v0.6.4
+RUN curl -sSfL \
+        "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+        | tar -xz -C /usr/local/bin kubeconform \
+    && chmod +x /usr/local/bin/kubeconform
+
+# Non-root user matching distroless UID (avoids permission issues with bind-mounts).
+# /go is root-owned after the `go install` steps above. The
+# docker-outside-of-docker devcontainer feature overrides the in-image user
+# at runtime (typically UID 1000), so a chown to a specific UID isn't enough;
+# make /go writable for any UID so `go mod download` works regardless of the
+# remapped user.
+RUN useradd -u 65532 -m -s /bin/bash vscode 2>/dev/null || true \
+    && chmod -R a+rwX /go
 USER vscode
 WORKDIR /workspace

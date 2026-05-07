@@ -97,12 +97,18 @@ jobs:
             operator/config/rbac/role.yaml
 
       - name: Validate CRD bases (if generated)
+        # CRDs are themselves CustomResourceDefinition resources whose meta-schema
+        # isn't always in kubeconform's default catalog at every k8s version, so
+        # `-ignore-missing-schemas` is required (matches the sample-manifests step
+        # above). YAML structure / unknown-field strictness still apply for
+        # resources whose schemas DO load.
         run: |
           if ls operator/config/crd/bases/*.yaml 2>/dev/null | grep -q .; then
             kubeconform \
               -kubernetes-version 1.29.0 \
               -strict \
               -summary \
+              -ignore-missing-schemas \
               -schema-location default \
               -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
               operator/config/crd/bases/*.yaml
