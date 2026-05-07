@@ -293,6 +293,41 @@ func TestBuildArgsLongContextFlags(t *testing.T) {
 	}
 }
 
+func TestBuildArgsServedModelName(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "nvidia/Gemma-4-31B-IT-NVFP4",
+		ServedModelName:      "google/gemma-4-31B-it",
+		MaxModelLen:          262144,
+		GPUMemoryUtilization: "0.92",
+		TensorParallelSize:   1,
+	}
+	args := buildArgs(e)
+	hasFlag := false
+	for i, a := range args {
+		if a == "--served-model-name" && i+1 < len(args) && args[i+1] == "google/gemma-4-31B-it" {
+			hasFlag = true
+		}
+	}
+	if !hasFlag {
+		t.Errorf("expected --served-model-name google/gemma-4-31B-it in args; got %v", args)
+	}
+}
+
+func TestBuildArgsServedModelNameOmittedWhenEmpty(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          32768,
+		GPUMemoryUtilization: "0.9",
+		TensorParallelSize:   1,
+	}
+	args := buildArgs(e)
+	for _, a := range args {
+		if a == "--served-model-name" {
+			t.Errorf("zero-valued ServedModelName leaked: %v", args)
+		}
+	}
+}
+
 func TestBuildArgsLongContextOmittedWhenZero(t *testing.T) {
 	e := EffectiveConfig{
 		ModelID:              "m",

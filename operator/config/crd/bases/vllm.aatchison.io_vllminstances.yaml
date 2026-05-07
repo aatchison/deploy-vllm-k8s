@@ -159,6 +159,8 @@ spec:
                     - initialDelaySeconds
                     - periodSeconds
                     type: object
+                  servedModelName:
+                    type: string
                   shmSizeLimit:
                     type: string
                   tensorParallelSize:

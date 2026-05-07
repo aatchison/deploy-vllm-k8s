@@ -34,6 +34,7 @@ type EffectiveConfig struct {
 	MIGResourceCount        int32                    `json:"migResourceCount"`
 	Quantization            string                   `json:"quantization,omitempty"`
 	DType                   string                   `json:"dtype,omitempty"`
+	ServedModelName         string                   `json:"servedModelName,omitempty"`
 	MaxModelLen             int32                    `json:"maxModelLen"`
 	GPUMemoryUtilization    string                   `json:"gpuMemoryUtilization"`
 	TensorParallelSize      int32                    `json:"tensorParallelSize"`
@@ -62,6 +63,7 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			MIGResourceCount:        preset.MIGResourceCount,
 			Quantization:            preset.Quantization,
 			DType:                   preset.DType,
+			ServedModelName:         preset.ServedModelName,
 			MaxModelLen:             preset.MaxModelLen,
 			GPUMemoryUtilization:    preset.GPUMemoryUtilization,
 			TensorParallelSize:      preset.TensorParallelSize,
@@ -95,6 +97,9 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		}
 		if overrides.DType != nil {
 			e.DType = *overrides.DType
+		}
+		if overrides.ServedModelName != nil {
+			e.ServedModelName = *overrides.ServedModelName
 		}
 		if overrides.MaxModelLen != nil {
 			e.MaxModelLen = *overrides.MaxModelLen
@@ -164,6 +169,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			MIGResourceCount:        preset.MIGResourceCount,
 			Quantization:            preset.Quantization,
 			DType:                   preset.DType,
+			ServedModelName:         preset.ServedModelName,
 			MaxModelLen:             preset.MaxModelLen,
 			GPUMemoryUtilization:    preset.GPUMemoryUtilization,
 			TensorParallelSize:      preset.TensorParallelSize,
@@ -199,6 +205,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.DType != nil {
 			e.DType = *overrides.DType
+		}
+		if overrides.ServedModelName != nil {
+			e.ServedModelName = *overrides.ServedModelName
 		}
 		if overrides.MaxModelLen != nil {
 			e.MaxModelLen = *overrides.MaxModelLen

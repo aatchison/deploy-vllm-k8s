@@ -163,6 +163,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.EnablePrefixCaching {
 		args = append(args, "--enable-prefix-caching")
 	}
+	if e.ServedModelName != "" {
+		args = append(args, "--served-model-name", e.ServedModelName)
+	}
 	return args
 }
 
