@@ -176,7 +176,7 @@ func baseLongContextPreset() *vllmv1alpha1.LongContextPresetSpec {
 		ProgressDeadlineSeconds: 1800,
 		LivenessProbe:           vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 1200, PeriodSeconds: 30, FailureThreshold: 10},
 		ReadinessProbe:          vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 240, PeriodSeconds: 15, FailureThreshold: 60},
-		KVCacheDtype:            "fp8_e5m2",
+		KVCacheDtype:            "fp8_e4m3",
 		EnablePrefixCaching:     true,
 	}
 }
@@ -187,8 +187,8 @@ func TestResolveLongContextPresetOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if e.KVCacheDtype != "fp8_e5m2" {
-		t.Errorf("kvCacheDtype: got %q, want fp8_e5m2", e.KVCacheDtype)
+	if e.KVCacheDtype != "fp8_e4m3" {
+		t.Errorf("kvCacheDtype: got %q, want fp8_e4m3", e.KVCacheDtype)
 	}
 	if !e.EnablePrefixCaching {
 		t.Errorf("enablePrefixCaching: got false, want true")
@@ -242,7 +242,7 @@ func TestResolveLongContextHashStable(t *testing.T) {
 func TestResolveLongContextHashChangesOnKVOverride(t *testing.T) {
 	p := baseLongContextPreset()
 	_, base, _ := ResolveLongContext(p, nil)
-	_, changed, _ := ResolveLongContext(p, &vllmv1alpha1.LongContextOverrides{KVCacheDtype: strPtr("fp8_e4m3")})
+	_, changed, _ := ResolveLongContext(p, &vllmv1alpha1.LongContextOverrides{KVCacheDtype: strPtr("fp8_e5m2")})
 	if base == changed {
 		t.Errorf("hash should change when kvCacheDtype overridden; both %q", base)
 	}
@@ -290,6 +290,31 @@ func TestBuildArgsLongContextFlags(t *testing.T) {
 	}
 	if !hasPrefix {
 		t.Errorf("expected --enable-prefix-caching in args; got %v", args)
+	}
+}
+
+// TestBuildArgsKVCacheDtypeDefault confirms that fp8_e4m3 (the field-marker
+// default) flows through the merge layer and is emitted as --kv-cache-dtype.
+// The kubebuilder default applies at admission, not in our merge code, so this
+// test sets the field explicitly and verifies the flag is present in the output.
+func TestBuildArgsKVCacheDtypeDefault(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "nvidia/Gemma-4-31B-IT-NVFP4",
+		MaxModelLen:          262144,
+		GPUMemoryUtilization: "0.92",
+		TensorParallelSize:   1,
+		KVCacheDtype:         "fp8_e4m3",
+		EnablePrefixCaching:  true,
+	}
+	args := buildArgs(e)
+	found := false
+	for i, a := range args {
+		if a == "--kv-cache-dtype" && i+1 < len(args) && args[i+1] == "fp8_e4m3" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected --kv-cache-dtype fp8_e4m3 in args; got %v", args)
 	}
 }
 
