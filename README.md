@@ -135,7 +135,7 @@ Three long-context presets ship in `operator/config/samples/presets/`:
 `kvOffloadBackend: lmcache` and `kvOffloadSize` fields: evicted KV tensors are
 spilled to a host-RAM buffer and recovered on subsequent prefix-cache hits,
 reducing GPU KV-cache pressure on prefix-heavy workloads. Constraint: this mode
-is **single-slice only** (`migResourceCount: 1`) and requires a vLLM nightly
+is **single-slice only** (`migResourceCount: 1` and `tensorParallelSize: 1`) and requires a vLLM nightly
 image that includes LMCache support. See
 [`operator/config/samples/presets/gemma-4-31b-nvfp4-longctx-lmcache.yaml`](operator/config/samples/presets/gemma-4-31b-nvfp4-longctx-lmcache.yaml)
 for a ready-made sample and [issue #13](https://github.com/aatchison/deploy-vllm-k8s/issues/13)
