@@ -67,6 +67,14 @@ spec:
               untouched while opinionated defaults (KV quantization, prefix caching) ship
               here.
             properties:
+              cpuOffloadGiB:
+                description: |-
+                  CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV
+                  blocks to host RAM instead of recomputing on the next prefix hit.
+                  Helps repeat-prefix TTFT at long context. 0 = disabled.
+                format: int32
+                minimum: 0
+                type: integer
               dtype:
                 type: string
               enableAutoToolChoice:

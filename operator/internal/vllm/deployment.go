@@ -167,6 +167,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.ServedModelName != "" {
 		args = append(args, "--served-model-name", e.ServedModelName)
 	}
+	if e.CPUOffloadGiB > 0 {
+		args = append(args, "--cpu-offload-gb", strconv.Itoa(int(e.CPUOffloadGiB)))
+	}
 	return args
 }
 

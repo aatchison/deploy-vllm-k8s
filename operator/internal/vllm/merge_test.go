@@ -402,6 +402,70 @@ func TestBuildStartupProbePopulated(t *testing.T) {
 	}
 }
 
+func TestBuildArgsCPUOffloadEmits(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          262144,
+		GPUMemoryUtilization: "0.92",
+		TensorParallelSize:   1,
+		KVCacheDtype:         "fp8_e4m3",
+		EnablePrefixCaching:  true,
+		CPUOffloadGiB:        48,
+	}
+	args := buildArgs(e)
+	hasFlag := false
+	for i, a := range args {
+		if a == "--cpu-offload-gb" && i+1 < len(args) && args[i+1] == "48" {
+			hasFlag = true
+		}
+	}
+	if !hasFlag {
+		t.Errorf("expected --cpu-offload-gb 48 in args; got %v", args)
+	}
+}
+
+func TestBuildArgsCPUOffloadOmittedWhenZero(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          262144,
+		GPUMemoryUtilization: "0.92",
+		TensorParallelSize:   1,
+		CPUOffloadGiB:        0,
+	}
+	args := buildArgs(e)
+	for _, a := range args {
+		if a == "--cpu-offload-gb" {
+			t.Errorf("zero-valued CPUOffloadGiB leaked into args: %v", args)
+		}
+	}
+}
+
+func TestResolveLongContextCPUOffloadOverride(t *testing.T) {
+	p := baseLongContextPreset()
+	p.CPUOffloadGiB = 32
+
+	// Override replaces preset value.
+	o := &vllmv1alpha1.LongContextOverrides{
+		CPUOffloadGiB: int32Ptr(64),
+	}
+	e, _, err := ResolveLongContext(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.CPUOffloadGiB != 64 {
+		t.Errorf("CPUOffloadGiB override not applied: got %d, want 64", e.CPUOffloadGiB)
+	}
+
+	// No override: preset value carried through.
+	e2, _, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e2.CPUOffloadGiB != 32 {
+		t.Errorf("CPUOffloadGiB preset not carried: got %d, want 32", e2.CPUOffloadGiB)
+	}
+}
+
 func TestSanitizeLabel(t *testing.T) {
 	cases := map[string]string{
 		"google/gemma-4-E2B-it":  "google-gemma-4-E2B-it",
