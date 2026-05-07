@@ -94,6 +94,9 @@ spec:
                   field is a pointer — non-nil means override. Probe overrides replace the
                   whole ProbeConfig struct.
                 properties:
+                  cpuOffloadGiB:
+                    format: int32
+                    type: integer
                   dtype:
                     type: string
                   enableAutoToolChoice:

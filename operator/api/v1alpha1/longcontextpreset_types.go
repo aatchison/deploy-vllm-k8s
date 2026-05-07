@@ -74,6 +74,12 @@ type LongContextPresetSpec struct {
 	// almost always benefit from KV prefix reuse across requests.
 	// +kubebuilder:default=true
 	EnablePrefixCaching bool `json:"enablePrefixCaching,omitempty"`
+
+	// CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV
+	// blocks to host RAM instead of recomputing on the next prefix hit.
+	// Helps repeat-prefix TTFT at long context. 0 = disabled.
+	// +kubebuilder:validation:Minimum=0
+	CPUOffloadGiB int32 `json:"cpuOffloadGiB,omitempty"`
 }
 
 // +kubebuilder:object:root=true

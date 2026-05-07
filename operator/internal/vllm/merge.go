@@ -47,6 +47,7 @@ type EffectiveConfig struct {
 	StartupProbe            *vllmv1alpha1.ProbeConfig `json:"startupProbe,omitempty"`
 	KVCacheDtype            string                   `json:"kvCacheDtype,omitempty"`
 	EnablePrefixCaching     bool                     `json:"enablePrefixCaching,omitempty"`
+	CPUOffloadGiB           int32                    `json:"cpuOffloadGiB,omitempty"`
 }
 
 // Resolve merges overrides onto a preset (may be nil if overrides are complete)
@@ -187,6 +188,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			StartupProbe:            preset.StartupProbe,
 			KVCacheDtype:            preset.KVCacheDtype,
 			EnablePrefixCaching:     preset.EnablePrefixCaching,
+			CPUOffloadGiB:           preset.CPUOffloadGiB,
 		}
 	}
 
@@ -250,6 +252,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.EnablePrefixCaching != nil {
 			e.EnablePrefixCaching = *overrides.EnablePrefixCaching
+		}
+		if overrides.CPUOffloadGiB != nil {
+			e.CPUOffloadGiB = *overrides.CPUOffloadGiB
 		}
 	}
 
