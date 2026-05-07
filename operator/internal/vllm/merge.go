@@ -17,6 +17,20 @@ const (
 	HTTPPort               = 8000
 	LivenessPeriodSeconds  = 30
 	LivenessFailureThresh  = 10
+
+	// LMCacheImage is the sidecar image used when KVOffloadBackend == "lmcache".
+	// Pin to a specific release tag; bump via separate PR when upstream releases.
+	LMCacheImage          = "lmcache/lmcache:v0.4.0"
+	// LMCacheContainerName is the name of the LMCache sidecar container.
+	LMCacheContainerName  = "lmcache"
+	// LMCacheDataVolume is the emptyDir volume shared between vLLM and LMCache.
+	LMCacheDataVolume     = "lmcache-data"
+	// LMCacheDataMount is the mount path for the shared lmcache-data volume.
+	LMCacheDataMount      = "/lmcache-data"
+	// LMCacheAdminPort is the TCP port LMCache listens on for health/admin.
+	// Must not collide with HTTPPort (8000). LMCache upstream defaults to 9000
+	// for its management interface.
+	LMCacheAdminPort      = 9000
 )
 
 // EffectiveConfig is the fully-resolved vLLM configuration after merging
