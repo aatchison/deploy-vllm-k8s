@@ -23,9 +23,11 @@ const (
 // preset + overrides. Kept flat (no maps) so json.Marshal is byte-stable
 // and sha256 of the output is a useful drift indicator.
 //
-// Long-context fields (KVCacheDtype, EnablePrefixCaching) carry omitempty so
-// the existing ModelPreset → EffectiveConfig path serializes byte-identically
-// to before they were added.
+// Optional fields added after the initial schema (KVCacheDtype,
+// EnablePrefixCaching, ServedModelName, CPUOffloadGiB,
+// MaxNumBatchedTokens, EnableChunkedPrefill, StartupProbe) carry omitempty
+// so any path that doesn't set them produces JSON identical to the pre-field
+// shape — keeping the resolved-config-hash stable for existing instances.
 type EffectiveConfig struct {
 	ModelID                 string                   `json:"modelID"`
 	Image                   string                   `json:"image"`
