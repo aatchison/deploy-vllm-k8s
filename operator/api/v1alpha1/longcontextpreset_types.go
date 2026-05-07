@@ -66,7 +66,7 @@ type LongContextPresetSpec struct {
 	// vLLM versions support it. Use `auto` to let vLLM pick a default
 	// compatible with the weight quantization.
 	// +kubebuilder:validation:Enum=auto;fp8;fp8_e5m2;fp8_e4m3;nvfp4
-	// +kubebuilder:default=fp8_e5m2
+	// +kubebuilder:default=fp8_e4m3
 	KVCacheDtype string `json:"kvCacheDtype"`
 
 	// EnablePrefixCaching enables vLLM's RadixAttention-style automatic prefix

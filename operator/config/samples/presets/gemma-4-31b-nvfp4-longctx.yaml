@@ -27,5 +27,5 @@ spec:
   livenessProbe:  {initialDelaySeconds: 0,  periodSeconds: 30, failureThreshold: 10}
   readinessProbe: {initialDelaySeconds: 0,  periodSeconds: 5,  failureThreshold: 6}
   startupProbe:   {initialDelaySeconds: 15, periodSeconds: 10, failureThreshold: 120}
-  kvCacheDtype: fp8_e5m2
+  kvCacheDtype: fp8_e4m3
   enablePrefixCaching: true

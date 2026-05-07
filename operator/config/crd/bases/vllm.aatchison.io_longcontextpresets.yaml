@@ -100,7 +100,7 @@ spec:
                 - Never
                 type: string
               kvCacheDtype:
-                default: fp8_e5m2
+                default: fp8_e4m3
                 description: |-
                   KVCacheDtype controls vLLM's --kv-cache-dtype flag. Required for this
                   preset type — long-context deployments must opt in to a specific KV
