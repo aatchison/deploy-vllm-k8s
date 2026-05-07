@@ -130,6 +130,24 @@ spec:
                 - fp8_e4m3
                 - nvfp4
                 type: string
+              kvOffloadBackend:
+                default: none
+                description: |-
+                  KVOffloadBackend selects an external KV-offload store. Empty/"none"
+                  disables; "lmcache" reserves the slot for an in-pod LMCache sidecar
+                  (wired in a follow-up PR — this PR adds the field only).
+                enum:
+                - none
+                - lmcache
+                type: string
+              kvOffloadSize:
+                description: |-
+                  KVOffloadSize is the host-RAM budget for the external KV cache, in GiB.
+                  Used as the LMCache buffer size when KVOffloadBackend == "lmcache".
+                  0 = backend default.
+                format: int32
+                minimum: 0
+                type: integer
               livenessProbe:
                 description: |-
                   ProbeConfig is the tunable subset of a k8s probe.

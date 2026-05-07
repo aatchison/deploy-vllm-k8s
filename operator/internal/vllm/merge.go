@@ -25,7 +25,8 @@ const (
 //
 // Optional fields added after the initial schema (KVCacheDtype,
 // EnablePrefixCaching, ServedModelName, CPUOffloadGiB,
-// MaxNumBatchedTokens, EnableChunkedPrefill, StartupProbe) carry omitempty
+// MaxNumBatchedTokens, EnableChunkedPrefill, StartupProbe,
+// KVOffloadBackend, KVOffloadSize) carry omitempty
 // so any path that doesn't set them produces JSON identical to the pre-field
 // shape — keeping the resolved-config-hash stable for existing instances.
 type EffectiveConfig struct {
@@ -52,6 +53,8 @@ type EffectiveConfig struct {
 	CPUOffloadGiB           int32                    `json:"cpuOffloadGiB,omitempty"`
 	MaxNumBatchedTokens     int32                    `json:"maxNumBatchedTokens,omitempty"`
 	EnableChunkedPrefill    bool                     `json:"enableChunkedPrefill,omitempty"`
+	KVOffloadBackend        string                   `json:"kvOffloadBackend,omitempty"`
+	KVOffloadSize           int32                    `json:"kvOffloadSize,omitempty"`
 }
 
 // Resolve merges overrides onto a preset (may be nil if overrides are complete)
@@ -202,6 +205,8 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			CPUOffloadGiB:           preset.CPUOffloadGiB,
 			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
 			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
+			KVOffloadBackend:        preset.KVOffloadBackend,
+			KVOffloadSize:           preset.KVOffloadSize,
 		}
 		if preset.EnablePrefixCaching != nil {
 			v := *preset.EnablePrefixCaching
@@ -279,6 +284,12 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.EnableChunkedPrefill != nil {
 			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
+		}
+		if overrides.KVOffloadBackend != nil {
+			e.KVOffloadBackend = *overrides.KVOffloadBackend
+		}
+		if overrides.KVOffloadSize != nil {
+			e.KVOffloadSize = *overrides.KVOffloadSize
 		}
 	}
 
