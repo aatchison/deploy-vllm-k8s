@@ -177,7 +177,7 @@ func baseLongContextPreset() *vllmv1alpha1.LongContextPresetSpec {
 		LivenessProbe:           vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 1200, PeriodSeconds: 30, FailureThreshold: 10},
 		ReadinessProbe:          vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 240, PeriodSeconds: 15, FailureThreshold: 60},
 		KVCacheDtype:            "fp8_e4m3",
-		EnablePrefixCaching:     true,
+		EnablePrefixCaching:     boolPtr(true),
 	}
 }
 
@@ -190,8 +190,8 @@ func TestResolveLongContextPresetOnly(t *testing.T) {
 	if e.KVCacheDtype != "fp8_e4m3" {
 		t.Errorf("kvCacheDtype: got %q, want fp8_e4m3", e.KVCacheDtype)
 	}
-	if !e.EnablePrefixCaching {
-		t.Errorf("enablePrefixCaching: got false, want true")
+	if e.EnablePrefixCaching == nil || !*e.EnablePrefixCaching {
+		t.Errorf("enablePrefixCaching: got %v, want true", e.EnablePrefixCaching)
 	}
 	if e.MaxModelLen != 262144 {
 		t.Errorf("maxModelLen: got %d, want 262144", e.MaxModelLen)
@@ -215,8 +215,8 @@ func TestResolveLongContextOverrides(t *testing.T) {
 	if e.KVCacheDtype != "fp8_e4m3" {
 		t.Errorf("kvCacheDtype override not applied: %q", e.KVCacheDtype)
 	}
-	if e.EnablePrefixCaching {
-		t.Errorf("enablePrefixCaching override (false) not applied")
+	if e.EnablePrefixCaching == nil || *e.EnablePrefixCaching {
+		t.Errorf("enablePrefixCaching override (false) not applied; got %v", e.EnablePrefixCaching)
 	}
 	if e.MaxModelLen != 196608 {
 		t.Errorf("maxModelLen override not applied: %d", e.MaxModelLen)
@@ -261,8 +261,9 @@ func TestResolveStandardHashUnchangedByLongContextFields(t *testing.T) {
 	if e.KVCacheDtype != "" {
 		t.Errorf("standard path leaked kvCacheDtype: %q", e.KVCacheDtype)
 	}
-	if e.EnablePrefixCaching {
-		t.Errorf("standard path leaked enablePrefixCaching=true")
+	// EnablePrefixCaching is now *bool; nil = omitted from JSON = no hash impact.
+	if e.EnablePrefixCaching != nil {
+		t.Errorf("standard path leaked enablePrefixCaching=%v (want nil)", *e.EnablePrefixCaching)
 	}
 }
 
@@ -273,7 +274,7 @@ func TestBuildArgsLongContextFlags(t *testing.T) {
 		GPUMemoryUtilization: "0.92",
 		TensorParallelSize:   1,
 		KVCacheDtype:         "fp8_e5m2",
-		EnablePrefixCaching:  true,
+		EnablePrefixCaching:  boolPtr(true),
 	}
 	args := buildArgs(e)
 	hasKV, hasPrefix := false, false
@@ -304,7 +305,7 @@ func TestBuildArgsKVCacheDtypeDefault(t *testing.T) {
 		GPUMemoryUtilization: "0.92",
 		TensorParallelSize:   1,
 		KVCacheDtype:         "fp8_e4m3",
-		EnablePrefixCaching:  true,
+		EnablePrefixCaching:  boolPtr(true),
 	}
 	args := buildArgs(e)
 	found := false
@@ -434,7 +435,7 @@ func TestBuildArgsCPUOffloadEmits(t *testing.T) {
 		GPUMemoryUtilization: "0.92",
 		TensorParallelSize:   1,
 		KVCacheDtype:         "fp8_e4m3",
-		EnablePrefixCaching:  true,
+		EnablePrefixCaching:  boolPtr(true),
 		CPUOffloadGiB:        48,
 	}
 	args := buildArgs(e)
@@ -501,5 +502,65 @@ func TestSanitizeLabel(t *testing.T) {
 		if got := SanitizeLabel(in); got != want {
 			t.Errorf("SanitizeLabel(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestEnablePrefixCachingNilVsFalseVsTrue is the regression guard for the
+// *bool fix (issue #5). It verifies the three distinct states:
+//   - nil preset value with no override -> no --enable-prefix-caching flag
+//   - explicit false override -> no flag
+//   - explicit true (preset or override) -> flag emitted
+func TestEnablePrefixCachingNilVsFalseVsTrue(t *testing.T) {
+	p := baseLongContextPreset()
+
+	// 1. nil preset value + no override -> no flag
+	p.EnablePrefixCaching = nil
+	e, _, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.EnablePrefixCaching != nil {
+		t.Errorf("nil preset: expected EnablePrefixCaching==nil in EffectiveConfig; got %v", *e.EnablePrefixCaching)
+	}
+	for _, a := range buildArgs(e) {
+		if a == "--enable-prefix-caching" {
+			t.Errorf("nil preset: --enable-prefix-caching must not be emitted; got args %v", buildArgs(e))
+		}
+	}
+
+	// 2. explicit false override -> no flag
+	p.EnablePrefixCaching = boolPtr(true)
+	e2, _, err := ResolveLongContext(p, &vllmv1alpha1.LongContextOverrides{
+		EnablePrefixCaching: boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e2.EnablePrefixCaching == nil || *e2.EnablePrefixCaching {
+		t.Errorf("false override: expected EnablePrefixCaching==false; got %v", e2.EnablePrefixCaching)
+	}
+	for _, a := range buildArgs(e2) {
+		if a == "--enable-prefix-caching" {
+			t.Errorf("false override: --enable-prefix-caching must not be emitted; got args %v", buildArgs(e2))
+		}
+	}
+
+	// 3. true preset + no override -> flag emitted
+	p.EnablePrefixCaching = boolPtr(true)
+	e3, _, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e3.EnablePrefixCaching == nil || !*e3.EnablePrefixCaching {
+		t.Errorf("true preset: expected EnablePrefixCaching==true; got %v", e3.EnablePrefixCaching)
+	}
+	hasFlag := false
+	for _, a := range buildArgs(e3) {
+		if a == "--enable-prefix-caching" {
+			hasFlag = true
+		}
+	}
+	if !hasFlag {
+		t.Errorf("true preset: --enable-prefix-caching must be emitted; got args %v", buildArgs(e3))
 	}
 }

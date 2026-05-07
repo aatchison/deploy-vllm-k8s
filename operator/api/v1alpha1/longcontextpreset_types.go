@@ -76,7 +76,7 @@ type LongContextPresetSpec struct {
 	// caching. Defaults to true for this preset type — long-context workloads
 	// almost always benefit from KV prefix reuse across requests.
 	// +kubebuilder:default=true
-	EnablePrefixCaching bool `json:"enablePrefixCaching,omitempty"`
+	EnablePrefixCaching *bool `json:"enablePrefixCaching,omitempty"`
 
 	// CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV
 	// blocks to host RAM instead of recomputing on the next prefix hit.
