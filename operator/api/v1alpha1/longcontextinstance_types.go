@@ -31,6 +31,7 @@ type LongContextOverrides struct {
 	ProgressDeadlineSeconds *int32       `json:"progressDeadlineSeconds,omitempty"`
 	LivenessProbe           *ProbeConfig `json:"livenessProbe,omitempty"`
 	ReadinessProbe          *ProbeConfig `json:"readinessProbe,omitempty"`
+	StartupProbe            *ProbeConfig `json:"startupProbe,omitempty"`
 	KVCacheDtype            *string      `json:"kvCacheDtype,omitempty"`
 	EnablePrefixCaching     *bool        `json:"enablePrefixCaching,omitempty"`
 }

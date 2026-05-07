@@ -343,6 +343,65 @@ func TestBuildArgsLongContextOmittedWhenZero(t *testing.T) {
 	}
 }
 
+func TestResolveStartupProbeNilByDefault(t *testing.T) {
+	p := basePreset()
+	e, _, err := Resolve(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.StartupProbe != nil {
+		t.Errorf("startupProbe should default nil; got %+v", e.StartupProbe)
+	}
+}
+
+func TestResolveStartupProbeFromPreset(t *testing.T) {
+	p := basePreset()
+	p.StartupProbe = &vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 30, PeriodSeconds: 10, FailureThreshold: 120}
+	e, _, err := Resolve(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.StartupProbe == nil {
+		t.Fatal("startupProbe should be non-nil after preset set")
+	}
+	if e.StartupProbe.InitialDelaySeconds != 30 || e.StartupProbe.PeriodSeconds != 10 || e.StartupProbe.FailureThreshold != 120 {
+		t.Errorf("startupProbe values not carried; got %+v", e.StartupProbe)
+	}
+}
+
+func TestResolveStartupProbeOverride(t *testing.T) {
+	p := basePreset()
+	o := &vllmv1alpha1.ModelConfigOverrides{
+		StartupProbe: &vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 60, PeriodSeconds: 5, FailureThreshold: 360},
+	}
+	e, _, err := Resolve(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.StartupProbe == nil || e.StartupProbe.InitialDelaySeconds != 60 {
+		t.Errorf("startupProbe override not applied; got %+v", e.StartupProbe)
+	}
+}
+
+func TestBuildStartupProbeNilReturnsNil(t *testing.T) {
+	if got := buildStartupProbe(nil); got != nil {
+		t.Errorf("buildStartupProbe(nil) should be nil; got %+v", got)
+	}
+}
+
+func TestBuildStartupProbePopulated(t *testing.T) {
+	p := buildStartupProbe(&vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 30, PeriodSeconds: 10, FailureThreshold: 120})
+	if p == nil {
+		t.Fatal("expected non-nil probe")
+	}
+	if p.InitialDelaySeconds != 30 || p.PeriodSeconds != 10 || p.FailureThreshold != 120 {
+		t.Errorf("probe values wrong: %+v", p)
+	}
+	if p.HTTPGet == nil || p.HTTPGet.Path != "/health" {
+		t.Errorf("expected /health HTTP probe; got %+v", p.HTTPGet)
+	}
+}
+
 func TestSanitizeLabel(t *testing.T) {
 	cases := map[string]string{
 		"google/gemma-4-E2B-it":  "google-gemma-4-E2B-it",

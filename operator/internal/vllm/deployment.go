@@ -128,6 +128,7 @@ func BuildDeployment(
 						},
 						LivenessProbe:  buildLivenessProbe(e.LivenessProbe),
 						ReadinessProbe: buildReadinessProbe(e.ReadinessProbe),
+						StartupProbe:   buildStartupProbe(e.StartupProbe),
 					}},
 				},
 			},
@@ -188,6 +189,22 @@ func buildLivenessProbe(cfg vllmv1alpha1.ProbeConfig) *corev1.Probe {
 }
 
 func buildReadinessProbe(cfg vllmv1alpha1.ProbeConfig) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler:        healthProbeHandler(),
+		InitialDelaySeconds: cfg.InitialDelaySeconds,
+		PeriodSeconds:       cfg.PeriodSeconds,
+		FailureThreshold:    cfg.FailureThreshold,
+	}
+}
+
+// buildStartupProbe returns nil when cfg is nil — the canonical k8s
+// "no startupProbe" representation. Unlike buildLivenessProbe, period and
+// failureThreshold are NOT hardcoded: callers tune them per-preset because
+// startup grace varies wildly by model size and weight cache state.
+func buildStartupProbe(cfg *vllmv1alpha1.ProbeConfig) *corev1.Probe {
+	if cfg == nil {
+		return nil
+	}
 	return &corev1.Probe{
 		ProbeHandler:        healthProbeHandler(),
 		InitialDelaySeconds: cfg.InitialDelaySeconds,

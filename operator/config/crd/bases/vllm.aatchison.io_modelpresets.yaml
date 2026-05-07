@@ -150,6 +150,31 @@ spec:
               shmSizeLimit:
                 pattern: ^[0-9]+[KMGT]i?$
                 type: string
+              startupProbe:
+                description: |-
+                  StartupProbe, when set, defers livenessProbe and readinessProbe checks
+                  until the startup probe succeeds. The canonical Kubernetes pattern for
+                  slow-starting workloads — keeps liveness short-and-sharp while granting
+                  a long grace window for first-time model load. Optional; when nil the
+                  container has no startupProbe (existing behavior).
+                properties:
+                  failureThreshold:
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  initialDelaySeconds:
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  periodSeconds:
+                    format: int32
+                    minimum: 1
+                    type: integer
+                required:
+                - failureThreshold
+                - initialDelaySeconds
+                - periodSeconds
+                type: object
               tensorParallelSize:
                 format: int32
                 minimum: 1
