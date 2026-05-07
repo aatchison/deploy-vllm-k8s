@@ -677,6 +677,74 @@ func TestResolveStandardHashUnchangedByNewFields(t *testing.T) {
 	}
 }
 
+func TestResolveLongContextKVOffloadBackend(t *testing.T) {
+	p := baseLongContextPreset()
+	p.KVOffloadBackend = "lmcache"
+
+	// Preset value carried through when no override.
+	e, _, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.KVOffloadBackend != "lmcache" {
+		t.Errorf("KVOffloadBackend preset not carried: got %q, want lmcache", e.KVOffloadBackend)
+	}
+
+	// Override replaces preset value.
+	o := &vllmv1alpha1.LongContextOverrides{
+		KVOffloadBackend: strPtr("none"),
+	}
+	e2, _, err := ResolveLongContext(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e2.KVOffloadBackend != "none" {
+		t.Errorf("KVOffloadBackend override not applied: got %q, want none", e2.KVOffloadBackend)
+	}
+}
+
+func TestResolveLongContextKVOffloadSize(t *testing.T) {
+	p := baseLongContextPreset()
+	p.KVOffloadSize = 64
+
+	// Preset value carried through when no override.
+	e, _, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.KVOffloadSize != 64 {
+		t.Errorf("KVOffloadSize preset not carried: got %d, want 64", e.KVOffloadSize)
+	}
+
+	// Override replaces preset value.
+	o := &vllmv1alpha1.LongContextOverrides{
+		KVOffloadSize: int32Ptr(128),
+	}
+	e2, _, err := ResolveLongContext(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e2.KVOffloadSize != 128 {
+		t.Errorf("KVOffloadSize override not applied: got %d, want 128", e2.KVOffloadSize)
+	}
+}
+
+// TestResolveStandardHashUnchangedByKVOffloadFields verifies that adding
+// KVOffloadBackend / KVOffloadSize does NOT pollute the standard Resolve path.
+func TestResolveStandardHashUnchangedByKVOffloadFields(t *testing.T) {
+	p := basePreset()
+	e, _, err := Resolve(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.KVOffloadBackend != "" {
+		t.Errorf("standard path leaked KVOffloadBackend=%q (want empty)", e.KVOffloadBackend)
+	}
+	if e.KVOffloadSize != 0 {
+		t.Errorf("standard path leaked KVOffloadSize=%d (want 0)", e.KVOffloadSize)
+	}
+}
+
 func TestSanitizeLabel(t *testing.T) {
 	cases := map[string]string{
 		"google/gemma-4-E2B-it":  "google-gemma-4-E2B-it",

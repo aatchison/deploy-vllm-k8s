@@ -99,6 +99,19 @@ type LongContextPresetSpec struct {
 	// the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
 	// at default. Useful for long-context throughput too.
 	EnableChunkedPrefill bool `json:"enableChunkedPrefill,omitempty"`
+
+	// KVOffloadBackend selects an external KV-offload store. Empty/"none"
+	// disables; "lmcache" reserves the slot for an in-pod LMCache sidecar
+	// (wired in a follow-up PR — this PR adds the field only).
+	// +kubebuilder:validation:Enum=none;lmcache
+	// +kubebuilder:default=none
+	KVOffloadBackend string `json:"kvOffloadBackend,omitempty"`
+
+	// KVOffloadSize is the host-RAM budget for the external KV cache, in GiB.
+	// Used as the LMCache buffer size when KVOffloadBackend == "lmcache".
+	// 0 = backend default.
+	// +kubebuilder:validation:Minimum=0
+	KVOffloadSize int32 `json:"kvOffloadSize,omitempty"`
 }
 
 // +kubebuilder:object:root=true

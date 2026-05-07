@@ -38,6 +38,10 @@ type LongContextOverrides struct {
 	// +kubebuilder:validation:Minimum=0
 	MaxNumBatchedTokens     *int32       `json:"maxNumBatchedTokens,omitempty"`
 	EnableChunkedPrefill    *bool        `json:"enableChunkedPrefill,omitempty"`
+	// +kubebuilder:validation:Enum=none;lmcache
+	KVOffloadBackend        *string      `json:"kvOffloadBackend,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	KVOffloadSize           *int32       `json:"kvOffloadSize,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM

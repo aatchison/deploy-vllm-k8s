@@ -113,6 +113,15 @@ spec:
                     type: string
                   kvCacheDtype:
                     type: string
+                  kvOffloadBackend:
+                    enum:
+                    - none
+                    - lmcache
+                    type: string
+                  kvOffloadSize:
+                    format: int32
+                    minimum: 0
+                    type: integer
                   livenessProbe:
                     description: |-
                       ProbeConfig is the tunable subset of a k8s probe.
