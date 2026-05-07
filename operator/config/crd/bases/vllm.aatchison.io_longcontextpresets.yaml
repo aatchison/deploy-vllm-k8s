@@ -83,8 +83,13 @@ spec:
                 default: true
                 description: |-
                   EnablePrefixCaching enables vLLM's RadixAttention-style automatic prefix
-                  caching. Defaults to true for this preset type — long-context workloads
-                  almost always benefit from KV prefix reuse across requests.
+                  caching. Tri-state pointer semantics:
+                    - nil      → use kubebuilder default (true at admission time)
+                    - &false   → explicitly disabled
+                    - &true    → explicitly enabled
+                  The pointer type fixes the kubebuilder default+omitempty trap that
+                  previously made it impossible to disable the field once defaulted on.
+                nullable: true
                 type: boolean
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$

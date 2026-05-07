@@ -187,8 +187,11 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			ReadinessProbe:          preset.ReadinessProbe,
 			StartupProbe:            preset.StartupProbe,
 			KVCacheDtype:            preset.KVCacheDtype,
-			EnablePrefixCaching:     preset.EnablePrefixCaching,
 			CPUOffloadGiB:           preset.CPUOffloadGiB,
+		}
+		if preset.EnablePrefixCaching != nil {
+			v := *preset.EnablePrefixCaching
+			e.EnablePrefixCaching = &v
 		}
 	}
 
@@ -251,7 +254,8 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			e.KVCacheDtype = *overrides.KVCacheDtype
 		}
 		if overrides.EnablePrefixCaching != nil {
-			e.EnablePrefixCaching = overrides.EnablePrefixCaching
+			v := *overrides.EnablePrefixCaching
+			e.EnablePrefixCaching = &v
 		}
 		if overrides.CPUOffloadGiB != nil {
 			e.CPUOffloadGiB = *overrides.CPUOffloadGiB
