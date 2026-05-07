@@ -159,6 +159,155 @@ func TestBuildArgsOmitOptional(t *testing.T) {
 	}
 }
 
+func baseLongContextPreset() *vllmv1alpha1.LongContextPresetSpec {
+	return &vllmv1alpha1.LongContextPresetSpec{
+		ModelID:                 "nvidia/Gemma-4-31B-IT-NVFP4",
+		Image:                   "docker.io/library/vllm-gemma4:local",
+		ImagePullPolicy:         "Never",
+		MIGResource:             "nvidia.com/mig-4g.96gb",
+		MIGResourceCount:        1,
+		Quantization:            "nvfp4",
+		MaxModelLen:             262144,
+		GPUMemoryUtilization:    "0.92",
+		TensorParallelSize:      1,
+		EnableAutoToolChoice:    true,
+		ToolCallParser:          "gemma4",
+		SHMSizeLimit:            "16Gi",
+		ProgressDeadlineSeconds: 1800,
+		LivenessProbe:           vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 1200, PeriodSeconds: 30, FailureThreshold: 10},
+		ReadinessProbe:          vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 240, PeriodSeconds: 15, FailureThreshold: 60},
+		KVCacheDtype:            "fp8_e5m2",
+		EnablePrefixCaching:     true,
+	}
+}
+
+func TestResolveLongContextPresetOnly(t *testing.T) {
+	p := baseLongContextPreset()
+	e, h, err := ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.KVCacheDtype != "fp8_e5m2" {
+		t.Errorf("kvCacheDtype: got %q, want fp8_e5m2", e.KVCacheDtype)
+	}
+	if !e.EnablePrefixCaching {
+		t.Errorf("enablePrefixCaching: got false, want true")
+	}
+	if e.MaxModelLen != 262144 {
+		t.Errorf("maxModelLen: got %d, want 262144", e.MaxModelLen)
+	}
+	if h == "" {
+		t.Error("hash must be non-empty")
+	}
+}
+
+func TestResolveLongContextOverrides(t *testing.T) {
+	p := baseLongContextPreset()
+	o := &vllmv1alpha1.LongContextOverrides{
+		KVCacheDtype:        strPtr("fp8_e4m3"),
+		EnablePrefixCaching: boolPtr(false),
+		MaxModelLen:         int32Ptr(196608),
+	}
+	e, _, err := ResolveLongContext(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.KVCacheDtype != "fp8_e4m3" {
+		t.Errorf("kvCacheDtype override not applied: %q", e.KVCacheDtype)
+	}
+	if e.EnablePrefixCaching {
+		t.Errorf("enablePrefixCaching override (false) not applied")
+	}
+	if e.MaxModelLen != 196608 {
+		t.Errorf("maxModelLen override not applied: %d", e.MaxModelLen)
+	}
+	// Carried-over preset fields untouched.
+	if e.ModelID != p.ModelID {
+		t.Errorf("modelID changed unexpectedly: %q", e.ModelID)
+	}
+	if e.Quantization != "nvfp4" {
+		t.Errorf("quantization carried-over wrong: %q", e.Quantization)
+	}
+}
+
+func TestResolveLongContextHashStable(t *testing.T) {
+	p := baseLongContextPreset()
+	_, h1, _ := ResolveLongContext(p, nil)
+	_, h2, _ := ResolveLongContext(p, nil)
+	if h1 != h2 {
+		t.Errorf("long-context hash not stable: %q vs %q", h1, h2)
+	}
+}
+
+func TestResolveLongContextHashChangesOnKVOverride(t *testing.T) {
+	p := baseLongContextPreset()
+	_, base, _ := ResolveLongContext(p, nil)
+	_, changed, _ := ResolveLongContext(p, &vllmv1alpha1.LongContextOverrides{KVCacheDtype: strPtr("fp8_e4m3")})
+	if base == changed {
+		t.Errorf("hash should change when kvCacheDtype overridden; both %q", base)
+	}
+}
+
+// TestResolveStandardHashUnchangedByLongContextFields verifies that adding
+// the long-context fields to EffectiveConfig does NOT change the serialized
+// hash for the existing standard ModelPreset path. Critical regression guard:
+// existing VLLMInstance hashes must stay stable across this PR.
+func TestResolveStandardHashUnchangedByLongContextFields(t *testing.T) {
+	p := basePreset()
+	e, _, err := Resolve(p, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.KVCacheDtype != "" {
+		t.Errorf("standard path leaked kvCacheDtype: %q", e.KVCacheDtype)
+	}
+	if e.EnablePrefixCaching {
+		t.Errorf("standard path leaked enablePrefixCaching=true")
+	}
+}
+
+func TestBuildArgsLongContextFlags(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          262144,
+		GPUMemoryUtilization: "0.92",
+		TensorParallelSize:   1,
+		KVCacheDtype:         "fp8_e5m2",
+		EnablePrefixCaching:  true,
+	}
+	args := buildArgs(e)
+	hasKV, hasPrefix := false, false
+	for i, a := range args {
+		if a == "--kv-cache-dtype" && i+1 < len(args) && args[i+1] == "fp8_e5m2" {
+			hasKV = true
+		}
+		if a == "--enable-prefix-caching" {
+			hasPrefix = true
+		}
+	}
+	if !hasKV {
+		t.Errorf("expected --kv-cache-dtype fp8_e5m2 in args; got %v", args)
+	}
+	if !hasPrefix {
+		t.Errorf("expected --enable-prefix-caching in args; got %v", args)
+	}
+}
+
+func TestBuildArgsLongContextOmittedWhenZero(t *testing.T) {
+	e := EffectiveConfig{
+		ModelID:              "m",
+		MaxModelLen:          32768,
+		GPUMemoryUtilization: "0.9",
+		TensorParallelSize:   1,
+	}
+	args := buildArgs(e)
+	for _, a := range args {
+		if a == "--kv-cache-dtype" || a == "--enable-prefix-caching" {
+			t.Errorf("zero-valued long-context fields leaked into args: %v", args)
+		}
+	}
+}
+
 func TestSanitizeLabel(t *testing.T) {
 	cases := map[string]string{
 		"google/gemma-4-E2B-it":  "google-gemma-4-E2B-it",

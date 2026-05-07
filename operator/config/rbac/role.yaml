@@ -55,14 +55,7 @@ rules:
 - apiGroups:
   - vllm.aatchison.io
   resources:
-  - modelpresets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - vllm.aatchison.io
-  resources:
+  - longcontextinstances
   - vllminstances
   verbs:
   - get
@@ -73,8 +66,18 @@ rules:
 - apiGroups:
   - vllm.aatchison.io
   resources:
+  - longcontextinstances/status
   - vllminstances/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - vllm.aatchison.io
+  resources:
+  - longcontextpresets
+  - modelpresets
+  verbs:
+  - get
+  - list
+  - watch

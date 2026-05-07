@@ -157,6 +157,12 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.ToolCallParser != "" {
 		args = append(args, "--tool-call-parser", e.ToolCallParser)
 	}
+	if e.KVCacheDtype != "" {
+		args = append(args, "--kv-cache-dtype", e.KVCacheDtype)
+	}
+	if e.EnablePrefixCaching {
+		args = append(args, "--enable-prefix-caching")
+	}
 	return args
 }
 
