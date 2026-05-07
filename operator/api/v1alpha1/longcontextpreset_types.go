@@ -65,6 +65,9 @@ type LongContextPresetSpec struct {
 	// (4-bit) goes further (~4× density) but is bleeding-edge — not all
 	// vLLM versions support it. Use `auto` to let vLLM pick a default
 	// compatible with the weight quantization.
+	// fp8_e4m3 is chosen as the default because vLLM rejects fp8_e5m2 on
+	// FP8/NVFP4 weight checkpoints; e4m3 works with both BF16 and quantized
+	// weights. See issue #7.
 	// +kubebuilder:validation:Enum=auto;fp8;fp8_e5m2;fp8_e4m3;nvfp4
 	// +kubebuilder:default=fp8_e4m3
 	KVCacheDtype string `json:"kvCacheDtype"`
