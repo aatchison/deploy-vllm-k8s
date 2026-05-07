@@ -607,6 +607,18 @@ Numbers will be filled in once the new presets are exercised in the cluster.
 
 ---
 
+### 6.11 LMCache offload (TODO)
+
+Methodology: apply `gemma-4-31b-nvfp4-longctx-lmcache.yaml` and a matching
+`LongContextInstance`, then exercise with `loadtest-all.sh`'s repeat-prefix
+workload. Measure repeat-prefix TTFT and aggregate tok/s vs the no-offload
+baseline (`gemma-4-31b-nvfp4-longctx.yaml` at the same `MaxNumBatchedTokens`).
+
+Numbers TBD; will be filled in a follow-up doc-only PR after measurements on
+the cluster.
+
+---
+
 ## 7. Tool Use
 
 All three endpoints support OpenAI-compatible function calling with no extra application-level configuration.

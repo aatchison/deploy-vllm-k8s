@@ -129,6 +129,18 @@ Three long-context presets ship in `operator/config/samples/presets/`:
 | `gemma-4-31b-bf16-longctx` | 4g.96gb | BF16 | FP8 e5m2 | 128K |
 | `gemma-4-26b-moe-longctx` | 4g.96gb | BF16 | FP8 e5m2 | 128K (MoE native max) |
 
+#### Optional KV-offload mode (LMCache, experimental)
+
+`LongContextPreset` supports an optional host-RAM KV-offload backend via the
+`kvOffloadBackend: lmcache` and `kvOffloadSize` fields: evicted KV tensors are
+spilled to a host-RAM buffer and recovered on subsequent prefix-cache hits,
+reducing GPU KV-cache pressure on prefix-heavy workloads. Constraint: this mode
+is **single-slice only** (`migResourceCount: 1` and `tensorParallelSize: 1`) and requires a vLLM nightly
+image that includes LMCache support. See
+[`operator/config/samples/presets/gemma-4-31b-nvfp4-longctx-lmcache.yaml`](operator/config/samples/presets/gemma-4-31b-nvfp4-longctx-lmcache.yaml)
+for a ready-made sample and [issue #13](https://github.com/aatchison/deploy-vllm-k8s/issues/13)
+for ongoing LMCache integration work.
+
 Use `LongContextPreset`/`LongContextInstance` when you want the longest serving window
 the slice can hold. Use `ModelPreset`/`VLLMInstance` when you want the existing
 default behavior unchanged. The two pairs are independent — you can run instances
