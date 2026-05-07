@@ -67,6 +67,13 @@ type ModelPresetSpec struct {
 
 	LivenessProbe  ProbeConfig `json:"livenessProbe"`
 	ReadinessProbe ProbeConfig `json:"readinessProbe"`
+
+	// StartupProbe, when set, defers livenessProbe and readinessProbe checks
+	// until the startup probe succeeds. The canonical Kubernetes pattern for
+	// slow-starting workloads — keeps liveness short-and-sharp while granting
+	// a long grace window for first-time model load. Optional; when nil the
+	// container has no startupProbe (existing behavior).
+	StartupProbe *ProbeConfig `json:"startupProbe,omitempty"`
 }
 
 // +kubebuilder:object:root=true

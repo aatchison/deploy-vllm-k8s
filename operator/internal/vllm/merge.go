@@ -42,8 +42,9 @@ type EffectiveConfig struct {
 	ToolCallParser          string                   `json:"toolCallParser,omitempty"`
 	SHMSizeLimit            string                   `json:"shmSizeLimit"`
 	ProgressDeadlineSeconds int32                    `json:"progressDeadlineSeconds"`
-	LivenessProbe           vllmv1alpha1.ProbeConfig `json:"livenessProbe"`
-	ReadinessProbe          vllmv1alpha1.ProbeConfig `json:"readinessProbe"`
+	LivenessProbe           vllmv1alpha1.ProbeConfig  `json:"livenessProbe"`
+	ReadinessProbe          vllmv1alpha1.ProbeConfig  `json:"readinessProbe"`
+	StartupProbe            *vllmv1alpha1.ProbeConfig `json:"startupProbe,omitempty"`
 	KVCacheDtype            string                   `json:"kvCacheDtype,omitempty"`
 	EnablePrefixCaching     bool                     `json:"enablePrefixCaching,omitempty"`
 }
@@ -73,6 +74,7 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			ProgressDeadlineSeconds: preset.ProgressDeadlineSeconds,
 			LivenessProbe:           preset.LivenessProbe,
 			ReadinessProbe:          preset.ReadinessProbe,
+			StartupProbe:            preset.StartupProbe,
 		}
 	}
 
@@ -128,6 +130,9 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		if overrides.ReadinessProbe != nil {
 			e.ReadinessProbe = *overrides.ReadinessProbe
 		}
+		if overrides.StartupProbe != nil {
+			e.StartupProbe = overrides.StartupProbe
+		}
 	}
 
 	if e.Image == "" {
@@ -179,6 +184,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			ProgressDeadlineSeconds: preset.ProgressDeadlineSeconds,
 			LivenessProbe:           preset.LivenessProbe,
 			ReadinessProbe:          preset.ReadinessProbe,
+			StartupProbe:            preset.StartupProbe,
 			KVCacheDtype:            preset.KVCacheDtype,
 			EnablePrefixCaching:     preset.EnablePrefixCaching,
 		}
@@ -235,6 +241,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.ReadinessProbe != nil {
 			e.ReadinessProbe = *overrides.ReadinessProbe
+		}
+		if overrides.StartupProbe != nil {
+			e.StartupProbe = overrides.StartupProbe
 		}
 		if overrides.KVCacheDtype != nil {
 			e.KVCacheDtype = *overrides.KVCacheDtype

@@ -171,6 +171,28 @@ spec:
                     type: string
                   shmSizeLimit:
                     type: string
+                  startupProbe:
+                    description: |-
+                      ProbeConfig is the tunable subset of a k8s probe.
+                      Liveness periodSeconds=30 and failureThreshold=10 are hardcoded constants in the builder.
+                    properties:
+                      failureThreshold:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      initialDelaySeconds:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    required:
+                    - failureThreshold
+                    - initialDelaySeconds
+                    - periodSeconds
+                    type: object
                   tensorParallelSize:
                     format: int32
                     type: integer

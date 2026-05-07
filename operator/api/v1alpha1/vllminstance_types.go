@@ -30,6 +30,7 @@ type ModelConfigOverrides struct {
 	ProgressDeadlineSeconds *int32       `json:"progressDeadlineSeconds,omitempty"`
 	LivenessProbe           *ProbeConfig `json:"livenessProbe,omitempty"`
 	ReadinessProbe          *ProbeConfig `json:"readinessProbe,omitempty"`
+	StartupProbe            *ProbeConfig `json:"startupProbe,omitempty"`
 }
 
 // VLLMInstanceSpec is the desired state of a single vLLM deployment.

@@ -54,8 +54,9 @@ type LongContextPresetSpec struct {
 	// +kubebuilder:validation:Minimum=60
 	ProgressDeadlineSeconds int32 `json:"progressDeadlineSeconds"`
 
-	LivenessProbe  ProbeConfig `json:"livenessProbe"`
-	ReadinessProbe ProbeConfig `json:"readinessProbe"`
+	LivenessProbe  ProbeConfig  `json:"livenessProbe"`
+	ReadinessProbe ProbeConfig  `json:"readinessProbe"`
+	StartupProbe   *ProbeConfig `json:"startupProbe,omitempty"`
 
 	// KVCacheDtype controls vLLM's --kv-cache-dtype flag. Required for this
 	// preset type — long-context deployments must opt in to a specific KV

@@ -19,7 +19,13 @@ spec:
   toolCallParser: gemma4
   shmSizeLimit: 16Gi
   progressDeadlineSeconds: 1800
-  livenessProbe: {initialDelaySeconds: 1200, periodSeconds: 30, failureThreshold: 10}
-  readinessProbe: {initialDelaySeconds: 240, periodSeconds: 15, failureThreshold: 60}
+  # Probe layout follows the canonical k8s slow-start pattern:
+  #   startupProbe handles the long boot grace; once it succeeds k8s switches
+  #   to liveness + readiness, both kept short and sharp so failures
+  #   propagate quickly. With this layout, readinessProbe flips True within
+  #   ~5s of vLLM actually answering /health (previously: a flat 240s wait).
+  livenessProbe:  {initialDelaySeconds: 0,  periodSeconds: 30, failureThreshold: 10}
+  readinessProbe: {initialDelaySeconds: 0,  periodSeconds: 5,  failureThreshold: 6}
+  startupProbe:   {initialDelaySeconds: 15, periodSeconds: 10, failureThreshold: 120}
   kvCacheDtype: fp8_e5m2
   enablePrefixCaching: true
