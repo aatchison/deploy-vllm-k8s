@@ -60,8 +60,11 @@ type LongContextPresetSpec struct {
 	// KVCacheDtype controls vLLM's --kv-cache-dtype flag. Required for this
 	// preset type — long-context deployments must opt in to a specific KV
 	// cache quantization. FP8 KV roughly halves KV memory at long context,
-	// approximately doubling max-model-len at the same VRAM budget.
-	// +kubebuilder:validation:Enum=fp8;fp8_e5m2;fp8_e4m3
+	// approximately doubling max-model-len at the same VRAM budget; NVFP4
+	// (4-bit) goes further (~4× density) but is bleeding-edge — not all
+	// vLLM versions support it. Use `auto` to let vLLM pick a default
+	// compatible with the weight quantization.
+	// +kubebuilder:validation:Enum=auto;fp8;fp8_e5m2;fp8_e4m3;nvfp4
 	// +kubebuilder:default=fp8_e5m2
 	KVCacheDtype string `json:"kvCacheDtype"`
 
