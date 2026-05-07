@@ -840,6 +840,38 @@ func TestBuildDeploymentLMCacheSidecarPresent(t *testing.T) {
 	}
 }
 
+// TestBuildDeploymentLMCacheSidecarLivenessPort verifies that the LMCache
+// sidecar's TCP-socket liveness probe targets LMCacheAdminPort and NOT HTTPPort.
+// This is the regression guard for the port aliasing bug where LMCacheAdminPort
+// was mistakenly set to 8000 (== HTTPPort), causing the sidecar probe to hit
+// vLLM instead of LMCache.
+func TestBuildDeploymentLMCacheSidecarLivenessPort(t *testing.T) {
+	e := baseEffectiveConfig()
+	e.KVOffloadBackend = "lmcache"
+
+	dep := buildTestDeployment(e)
+	containers := dep.Spec.Template.Spec.Containers
+	if len(containers) < 2 {
+		t.Fatalf("expected at least 2 containers; got %d", len(containers))
+	}
+
+	sidecar := containers[1]
+	if sidecar.LivenessProbe == nil {
+		t.Fatal("sidecar must have a liveness probe")
+	}
+	if sidecar.LivenessProbe.TCPSocket == nil {
+		t.Fatal("sidecar liveness probe must be a TCPSocket probe")
+	}
+
+	probePort := sidecar.LivenessProbe.TCPSocket.Port.IntValue()
+	if probePort == HTTPPort {
+		t.Errorf("sidecar liveness probe port collides with HTTPPort (%d); must use LMCacheAdminPort (%d)", HTTPPort, LMCacheAdminPort)
+	}
+	if probePort != LMCacheAdminPort {
+		t.Errorf("sidecar liveness probe port: got %d, want LMCacheAdminPort (%d)", probePort, LMCacheAdminPort)
+	}
+}
+
 // TestBuildDeploymentNoLMCacheWhenNone verifies that when KVOffloadBackend is
 // empty or "none", BuildDeployment produces a single-container pod — no sidecar,
 // no lmcache-data volume.

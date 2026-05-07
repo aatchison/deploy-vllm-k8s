@@ -9,6 +9,8 @@ import (
 // fields. The new type exists so the existing ModelPreset semantics are
 // untouched while opinionated defaults (KV quantization, prefix caching) ship
 // here.
+//
+// +kubebuilder:validation:XValidation:rule="!(self.kvOffloadBackend == 'lmcache' && (self.migResourceCount > 1 || self.tensorParallelSize > 1))",message="LMCache offload is single-slice only (kvOffloadBackend=lmcache requires migResourceCount=1 and tensorParallelSize=1)"
 type LongContextPresetSpec struct {
 	ModelID string `json:"modelID"`
 

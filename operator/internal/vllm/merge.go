@@ -28,7 +28,9 @@ const (
 	// LMCacheDataMount is the mount path for the shared lmcache-data volume.
 	LMCacheDataMount      = "/lmcache-data"
 	// LMCacheAdminPort is the TCP port LMCache listens on for health/admin.
-	LMCacheAdminPort      = 8000
+	// Must not collide with HTTPPort (8000). LMCache upstream defaults to 9000
+	// for its management interface.
+	LMCacheAdminPort      = 9000
 )
 
 // EffectiveConfig is the fully-resolved vLLM configuration after merging

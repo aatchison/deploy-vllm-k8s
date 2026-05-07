@@ -272,6 +272,11 @@ spec:
             - shmSizeLimit
             - tensorParallelSize
             type: object
+            x-kubernetes-validations:
+            - message: LMCache offload is single-slice only (kvOffloadBackend=lmcache
+                requires migResourceCount=1 and tensorParallelSize=1)
+              rule: '!(self.kvOffloadBackend == ''lmcache'' && (self.migResourceCount
+                > 1 || self.tensorParallelSize > 1))'
         type: object
     served: true
     storage: true
