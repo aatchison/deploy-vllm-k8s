@@ -12,8 +12,9 @@ long-running instance materially exceeds working-set time. This cluster has 2
 slices and 1–3 active workloads; manual `kubectl scale --replicas=0` already
 solves the rare case. The 3–15 minute cold-start floor on Gemma 4 31B NVFP4
 also exceeds the request-buffering timeout of every off-the-shelf solution
-(Knative activator: 5 min hard cap; KEDA HTTP Add-on interceptor: configurable
-but the project itself is beta), so any "transparent" wakeup needs
+(Knative activator: default 5 min, configurable up to 10 min hard ceiling;
+KEDA HTTP Add-on interceptor: configurable but the project itself notes it
+cannot yet be recommended for production), so any "transparent" wakeup needs
 non-trivial custom plumbing. Re-open when the trigger conditions below are
 met, and revisit once vLLM's CUDA-checkpoint RFC ([vllm#34303](https://github.com/vllm-project/vllm/issues/34303))
 ships — that changes the math.
@@ -62,22 +63,32 @@ hot-spare / serverless-style request-buffering proxy?"
    interactive agent that can show a "warming up" state.
 2. **Request buffering at an activator/proxy.** The proxy holds the TCP
    connection until the pod is ready, then forwards. Knative does this.
-   Critical caveat: **Knative's activator has a 5-minute hard request
-   timeout** ([knative/serving#15450](https://github.com/knative/serving/issues/15450)).
-   Our cold-cache cold-start is up to 15 minutes — the activator path will
-   404/504 on the first request after a model download. KEDA HTTP Add-on
-   defaults to a 20s `waitTimeout` but is configurable to longer; the project
-   is **explicitly beta and not recommended for production** by its own
-   maintainers ([kedacore/http-add-on README](https://github.com/kedacore/http-add-on)).
+   Critical caveat: Knative's request timeout (`revision-timeout-seconds`)
+   defaults to 5 minutes and can be raised to a **hard ceiling of 10
+   minutes** [^1]. Our cached-cold-start floor (3 min) fits this
+   comfortably; the uncached worst-case (~15 min) does not. So
+   Knative-style transparent activation works only for the cached fast path;
+   users hitting first-time download still need a different mechanism.
+   KEDA's HTTP Add-on can stretch the wait window beyond Knative's, but the
+   project itself notes it **cannot yet be recommended for production
+   use** [^2], with maintainers assisting but not directly responsible for
+   the codebase.
+
+[^1]: knative/serving `pkg/apis/config/defaults.go` — search for `RevisionMaxTimeoutSeconds`.
+[^2]: https://github.com/kedacore/http-add-on — see project README's status note.
 3. **CUDA checkpoint/restore (vLLM RFC).**
    [vllm#34303](https://github.com/vllm-project/vllm/issues/34303) proposes
    freezing GPU state via `cuCheckpointProcess*` (driver 570+) so weights,
    compiled kernels, CUDA graphs, and `torch.compile` artifacts survive
    suspend. Modal has shown 10× improvement in similar setups; round-trip
    compresses from ~6–32s warm-restart to ~4–10s. **Status: draft RFC, not
-   implemented.** The RFC explicitly does not address FP8/NVFP4
-   quantization, and our weights are NVFP4 — so even when this lands, we'd
-   be the early-adopter test case.
+   implemented.** The RFC operates at the CUDA driver level and is
+   format-agnostic with respect to weight quantization. The RFC itself flags
+   two open risks: **UVM allocation compatibility** (whether the checkpoint
+   mechanism covers all memory pools vLLM uses) and **NCCL process-group
+   re-init cost** when `tensorParallelSize > 1`. Both are tractable but
+   unresolved as of the RFC. For our single-slice north-star workload, NCCL
+   re-init is moot; UVM compatibility is the load-bearing question.
 
 **Recommendation:** Today's cold-start floor (~3 min model-cached, up to ~15
 min uncached) is in the wrong order of magnitude for any off-the-shelf
@@ -185,8 +196,9 @@ trigger scale-up?"
 **Options surveyed:**
 
 1. **Activator proxy (Knative-style).** Highest UX (transparent wakeup) but
-   blocked by the 5-minute activator timeout vs. our 15-minute worst-case
-   cold-cache. The pattern doesn't fit our hardware.
+   blocked by Knative's 10-minute hard ceiling on `revision-timeout-seconds`
+   vs. our 15-minute worst-case cold-cache. The pattern doesn't fit our
+   hardware for uncached cold starts.
 2. **Always-on doorbell pod.** A tiny pod in front of the Service that, on
    any inbound request, patches `replicas=1` on the owning instance and
    long-polls for ready. Cheap in resource cost (no GPU); fragile in the
@@ -204,7 +216,8 @@ trigger scale-up?"
 (`kubectl patch` is fine; a `wake` action subresource is sugar). The doorbell
 pod is plausible follow-on once we have telemetry on how often it's actually
 needed. Activator-class transparent wakeup is the wrong target until vLLM
-cold-start drops below the 5-minute mark — i.e. post-CUDA-checkpoint.
+cold-start drops well below the 10-minute ceiling — i.e. post-CUDA-checkpoint
+with UVM compatibility confirmed.
 
 ## Question 7. Cost vs. operational complexity
 
@@ -252,9 +265,10 @@ instances".
    counter — if rate is ~0 for 8h+ daily on a hot-cache instance, we're
    paying real opportunity cost.
 3. **vLLM CUDA-checkpoint RFC ships** ([vllm#34303](https://github.com/vllm-project/vllm/issues/34303))
-   *and* validates against NVFP4 weights. That collapses cold-start from
-   minutes to single-digit seconds, which makes a Knative-class
-   transparent-wakeup design viable, which changes the verdict to "build".
+   *and* validates on our hardware — specifically, UVM allocation
+   compatibility is confirmed and the round-trip cold-start drops to
+   single-digit seconds. That makes a Knative-class transparent-wakeup
+   design viable, which changes the verdict to "build".
    Independent of the cluster-growth condition.
 
 Until then: `kubectl scale --replicas=0 deployment/<name>` (or
@@ -313,7 +327,7 @@ issue yet** — scope creep risk if the verdict turns out to be reject.
   idle-hours/day trigger condition without committing to scale-to-zero. ~150
   LOC + tests.
 - "Track vllm CUDA-checkpoint RFC ([vllm#34303](https://github.com/vllm-project/vllm/issues/34303))
-  for NVFP4 support" — meta-issue, no work, just a watching brief.
+  until UVM compatibility and NCCL re-init questions are resolved" — meta-issue, no work, just a watching brief.
 
 ---
 
@@ -321,7 +335,7 @@ issue yet** — scope creep risk if the verdict turns out to be reject.
 
 - [KubeAI autoscaling concepts](https://www.kubeai.org/concepts/autoscaling/) — the request-queueing-during-cold-start design.
 - [Self-Hosting LLMs in Production: vLLM + KubeAI Stack (Fadhel)](https://mfadhel.com/vllm-deepseek/) — production cold-start observations; "two-thirds of GPU budget on idle pods" anecdote.
-- [Knative Serving scale-to-zero docs](https://knative.dev/docs/serving/autoscaling/scale-to-zero/) and [activator timeout issue #15450](https://github.com/knative/serving/issues/15450) — 5-minute hard cap relevant to our cold-start budget.
+- [Knative Serving scale-to-zero docs](https://knative.dev/docs/serving/autoscaling/scale-to-zero/) and [knative/serving `pkg/apis/config/defaults.go`](https://github.com/knative/serving/blob/main/pkg/apis/config/defaults.go) (`RevisionMaxTimeoutSeconds`) — default 5 min, 10 min hard ceiling, relevant to our cold-start budget.
 - [KEDA HTTP Add-on README](https://github.com/kedacore/http-add-on) and [interceptor configuration](https://keda.sh/http-add-on/0.14/operations/configure-interceptor/) — interceptor `waitTimeout`, beta status.
 - [vLLM CUDA Checkpoint/Restore RFC #34303](https://github.com/vllm-project/vllm/issues/34303) — the cold-start floor likely changes here.
 - Project memory: `feedback_sibling_crds_over_field_additions.md`,
