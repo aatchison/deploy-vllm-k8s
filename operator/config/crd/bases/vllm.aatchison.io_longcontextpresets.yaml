@@ -1,0 +1,195 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: longcontextpresets.vllm.aatchison.io
+spec:
+  group: vllm.aatchison.io
+  names:
+    kind: LongContextPreset
+    listKind: LongContextPresetList
+    plural: longcontextpresets
+    shortNames:
+    - lcp
+    singular: longcontextpreset
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.modelID
+      name: Model
+      type: string
+    - jsonPath: .spec.migResource
+      name: MIG
+      type: string
+    - jsonPath: .spec.maxModelLen
+      name: Ctx
+      type: integer
+    - jsonPath: .spec.kvCacheDtype
+      name: KV
+      type: string
+    - jsonPath: .spec.tensorParallelSize
+      name: TP
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          LongContextPreset is a preset for vLLM deployments that prioritize
+          max-context-per-model over throughput. Consumed by LongContextInstance.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              LongContextPresetSpec is a preset tuned for maximum context length per model.
+              It mirrors ModelPresetSpec field-for-field and adds two long-context-specific
+              fields. The new type exists so the existing ModelPreset semantics are
+              untouched while opinionated defaults (KV quantization, prefix caching) ship
+              here.
+            properties:
+              dtype:
+                type: string
+              enableAutoToolChoice:
+                type: boolean
+              enablePrefixCaching:
+                default: true
+                description: |-
+                  EnablePrefixCaching enables vLLM's RadixAttention-style automatic prefix
+                  caching. Defaults to true for this preset type — long-context workloads
+                  almost always benefit from KV prefix reuse across requests.
+                type: boolean
+              gpuMemoryUtilization:
+                pattern: ^0?\.[0-9]+$|^1\.0$
+                type: string
+              image:
+                default: docker.io/library/vllm-gemma4:local
+                type: string
+              imagePullPolicy:
+                default: Never
+                enum:
+                - Always
+                - IfNotPresent
+                - Never
+                type: string
+              kvCacheDtype:
+                default: fp8_e5m2
+                description: |-
+                  KVCacheDtype controls vLLM's --kv-cache-dtype flag. Required for this
+                  preset type — long-context deployments must opt in to a specific KV
+                  cache quantization. FP8 KV roughly halves KV memory at long context,
+                  approximately doubling max-model-len at the same VRAM budget.
+                enum:
+                - fp8
+                - fp8_e5m2
+                - fp8_e4m3
+                type: string
+              livenessProbe:
+                description: |-
+                  ProbeConfig is the tunable subset of a k8s probe.
+                  Liveness periodSeconds=30 and failureThreshold=10 are hardcoded constants in the builder.
+                properties:
+                  failureThreshold:
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  initialDelaySeconds:
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  periodSeconds:
+                    format: int32
+                    minimum: 1
+                    type: integer
+                required:
+                - failureThreshold
+                - initialDelaySeconds
+                - periodSeconds
+                type: object
+              maxModelLen:
+                format: int32
+                minimum: 1024
+                type: integer
+              migResource:
+                pattern: ^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$
+                type: string
+              migResourceCount:
+                format: int32
+                maximum: 8
+                minimum: 1
+                type: integer
+              modelID:
+                type: string
+              progressDeadlineSeconds:
+                format: int32
+                minimum: 60
+                type: integer
+              quantization:
+                type: string
+              readinessProbe:
+                description: |-
+                  ProbeConfig is the tunable subset of a k8s probe.
+                  Liveness periodSeconds=30 and failureThreshold=10 are hardcoded constants in the builder.
+                properties:
+                  failureThreshold:
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  initialDelaySeconds:
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  periodSeconds:
+                    format: int32
+                    minimum: 1
+                    type: integer
+                required:
+                - failureThreshold
+                - initialDelaySeconds
+                - periodSeconds
+                type: object
+              shmSizeLimit:
+                pattern: ^[0-9]+[KMGT]i?$
+                type: string
+              tensorParallelSize:
+                format: int32
+                minimum: 1
+                type: integer
+              toolCallParser:
+                type: string
+            required:
+            - gpuMemoryUtilization
+            - kvCacheDtype
+            - livenessProbe
+            - maxModelLen
+            - migResource
+            - migResourceCount
+            - modelID
+            - progressDeadlineSeconds
+            - readinessProbe
+            - shmSizeLimit
+            - tensorParallelSize
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}

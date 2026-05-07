@@ -1,6 +1,6 @@
 # deploy-vllm-k8s
 
-A Kubernetes operator for running multiple vLLM model instances on NVIDIA MIG-partitioned GPUs. The operator manages two CRDs — `ModelPreset` and `VLLMInstance` — and automatically creates a `Deployment` and a `NodePort Service` for each instance.
+A Kubernetes operator for running multiple vLLM model instances on NVIDIA MIG-partitioned GPUs. The operator manages four CRDs — `ModelPreset`/`VLLMInstance` for general serving and `LongContextPreset`/`LongContextInstance` for max-context-per-model serving — and automatically creates a `Deployment` and a `NodePort Service` for each instance.
 
 ## Hardware
 
@@ -107,6 +107,43 @@ spec:
   pvcName: vllm-models-pvc
   hfToken: {name: hf-token, key: token}
   # nodePort: 30801   # optional — omit to let Kubernetes auto-assign
+```
+
+### LongContextPreset / LongContextInstance
+
+Sibling CRDs tuned for **maximum context length per model**. Same wire shape
+as `ModelPreset`/`VLLMInstance` but with two additional opinionated fields
+that the operator emits as vLLM CLI flags:
+
+- `kvCacheDtype` (required, enum `fp8`/`fp8_e5m2`/`fp8_e4m3`) → `--kv-cache-dtype`.
+  FP8 KV cache roughly halves KV memory at long context, approximately doubling
+  achievable `maxModelLen` on the same MIG slice.
+- `enablePrefixCaching` (default `true`) → `--enable-prefix-caching`. RadixAttention-
+  style automatic KV prefix reuse; pays off for agent workloads with shared system prompts.
+
+Three long-context presets ship in `operator/config/samples/presets/`:
+
+| Preset | MIG | Weights | KV | Target context |
+|---|---|---|---|---|
+| `gemma-4-31b-nvfp4-longctx` | 4g.96gb | NVFP4 | FP8 e5m2 | 256K (Gemma 4 native max) |
+| `gemma-4-31b-bf16-longctx` | 4g.96gb | BF16 | FP8 e5m2 | 128K |
+| `gemma-4-26b-moe-longctx` | 4g.96gb | BF16 | FP8 e5m2 | 128K (MoE native max) |
+
+Use `LongContextPreset`/`LongContextInstance` when you want the longest serving window
+the slice can hold. Use `ModelPreset`/`VLLMInstance` when you want the existing
+default behavior unchanged. The two pairs are independent — you can run instances
+of both types on the same cluster.
+
+```yaml
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: LongContextInstance
+metadata:
+  name: 31b-nvfp4-longctx
+  namespace: vllm
+spec:
+  presetRef: {name: gemma-4-31b-nvfp4-longctx}
+  pvcName: vllm-models-pvc
+  hfToken: {name: hf-token, key: token}
 ```
 
 ## MIG Profile Combinations

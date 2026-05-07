@@ -580,6 +580,33 @@ GPU 0: 1×4g.96gb (TP rank 0) + GPU 1: 1×4g.96gb (TP rank 1)
 
 ---
 
+### 6.10 Long-context type — measured ceilings (TODO)
+
+Placeholder for measurements against the new `LongContextPreset` deployments.
+The headline lever is `--kv-cache-dtype fp8_e5m2`, which roughly halves the
+KV-cache footprint and unlocks meaningfully longer `--max-model-len` on the
+same MIG slice.
+
+Expected (pre-measurement) ceilings on a single 4g.96gb slice:
+
+| Preset | Weights | KV cache | Pre-PR ceiling | Target with FP8 KV |
+|---|---|---|---|---|
+| `gemma-4-31b-nvfp4-longctx` | NVFP4 | FP8 e5m2 | 128K (`gemma-4-31b-nvfp4-96`) | **256K** (Gemma 4 native max) |
+| `gemma-4-31b-bf16-longctx` | BF16 | FP8 e5m2 | 65K (`gemma-4-31b-bf16`) | **128K** |
+| `gemma-4-26b-moe-longctx` | BF16 | FP8 e5m2 | 128K (already native) | 128K + meaningfully more concurrent users at full context |
+
+Methodology when measured:
+
+1. Apply each new preset and a matching `LongContextInstance`.
+2. Run `loadtest-all.sh` at concurrency {1, 5, 10, 20} per preset.
+3. Capture: TTFT (ms), tok/s/user, aggregate tok/s, observed peak VRAM, prefix-cache hit rate.
+4. Sweep prompt sizes: 32K, 64K, 128K, 200K (and 256K for NVFP4 only).
+5. Side-by-side throughput comparison vs the equivalent `ModelPreset` to quantify the FP8-KV throughput cost (literature suggests <5% on Hopper; Blackwell expected similar or better).
+
+Numbers will be filled in once the new presets are exercised in the cluster.
+
+---
+
 ## 7. Tool Use
 
 All three endpoints support OpenAI-compatible function calling with no extra application-level configuration.

@@ -39,7 +39,7 @@ $(KUSTOMIZE): | $(LOCALBIN)
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN)
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/..."
 
 .PHONY: manifests
 manifests: $(CONTROLLER_GEN)

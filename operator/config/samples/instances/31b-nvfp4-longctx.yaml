@@ -1,0 +1,9 @@
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: LongContextInstance
+metadata:
+  name: 31b-nvfp4-longctx
+  namespace: vllm
+spec:
+  presetRef: {name: gemma-4-31b-nvfp4-longctx}
+  pvcName: vllm-models-pvc
+  hfToken: {name: hf-token, key: token}
