@@ -199,3 +199,10 @@ legacy/                pre-operator deploy.sh workflow (reference only)
 ## Legacy Scripts
 
 The old `deploy.sh`-based workflow is preserved in `legacy/` for reference. The operator is the current and recommended approach.
+
+## License
+
+This project is licensed under the [Apache License, Version 2.0](LICENSE).
+Per-file copyright headers already declared Apache 2.0; the root `LICENSE` and
+`NOTICE` files make the declaration explicit at the project level. See
+[NOTICE](NOTICE) for AI-assisted-development attribution context.
