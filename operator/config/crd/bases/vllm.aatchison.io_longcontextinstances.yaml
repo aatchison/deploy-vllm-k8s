@@ -101,6 +101,8 @@ spec:
                     type: string
                   enableAutoToolChoice:
                     type: boolean
+                  enableChunkedPrefill:
+                    type: boolean
                   enablePrefixCaching:
                     type: boolean
                   gpuMemoryUtilization:
@@ -134,6 +136,9 @@ spec:
                     - periodSeconds
                     type: object
                   maxModelLen:
+                    format: int32
+                    type: integer
+                  maxNumBatchedTokens:
                     format: int32
                     type: integer
                   migResource:

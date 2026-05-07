@@ -74,6 +74,17 @@ type ModelPresetSpec struct {
 	// a long grace window for first-time model load. Optional; when nil the
 	// container has no startupProbe (existing behavior).
 	StartupProbe *ProbeConfig `json:"startupProbe,omitempty"`
+
+	// MaxNumBatchedTokens caps tokens per scheduling iteration.
+	// Required >= max_tokens_per_mm_item for multimodal models on vLLM v0.20+
+	// (Gemma 4: 2496). Empty/0 = vLLM default (2048 on v0.20).
+	// +kubebuilder:validation:Minimum=0
+	MaxNumBatchedTokens int32 `json:"maxNumBatchedTokens,omitempty"`
+
+	// EnableChunkedPrefill toggles vLLM's chunked-prefill scheduler. Sidesteps
+	// the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
+	// at default. Useful for long-context throughput too.
+	EnableChunkedPrefill bool `json:"enableChunkedPrefill,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -35,6 +35,8 @@ type LongContextOverrides struct {
 	KVCacheDtype            *string      `json:"kvCacheDtype,omitempty"`
 	EnablePrefixCaching     *bool        `json:"enablePrefixCaching,omitempty"`
 	CPUOffloadGiB           *int32       `json:"cpuOffloadGiB,omitempty"`
+	MaxNumBatchedTokens     *int32       `json:"maxNumBatchedTokens,omitempty"`
+	EnableChunkedPrefill    *bool        `json:"enableChunkedPrefill,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM

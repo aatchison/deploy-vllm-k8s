@@ -48,6 +48,8 @@ type EffectiveConfig struct {
 	KVCacheDtype            string                   `json:"kvCacheDtype,omitempty"`
 	EnablePrefixCaching     *bool                    `json:"enablePrefixCaching,omitempty"`
 	CPUOffloadGiB           int32                    `json:"cpuOffloadGiB,omitempty"`
+	MaxNumBatchedTokens     int32                    `json:"maxNumBatchedTokens,omitempty"`
+	EnableChunkedPrefill    bool                     `json:"enableChunkedPrefill,omitempty"`
 }
 
 // Resolve merges overrides onto a preset (may be nil if overrides are complete)
@@ -76,6 +78,8 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			LivenessProbe:           preset.LivenessProbe,
 			ReadinessProbe:          preset.ReadinessProbe,
 			StartupProbe:            preset.StartupProbe,
+			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
+			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
 		}
 	}
 
@@ -134,6 +138,12 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		if overrides.StartupProbe != nil {
 			e.StartupProbe = overrides.StartupProbe
 		}
+		if overrides.MaxNumBatchedTokens != nil {
+			e.MaxNumBatchedTokens = *overrides.MaxNumBatchedTokens
+		}
+		if overrides.EnableChunkedPrefill != nil {
+			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
+		}
 	}
 
 	if e.Image == "" {
@@ -188,6 +198,8 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			StartupProbe:            preset.StartupProbe,
 			KVCacheDtype:            preset.KVCacheDtype,
 			CPUOffloadGiB:           preset.CPUOffloadGiB,
+			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
+			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
 		}
 		if preset.EnablePrefixCaching != nil {
 			v := *preset.EnablePrefixCaching
@@ -259,6 +271,12 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.CPUOffloadGiB != nil {
 			e.CPUOffloadGiB = *overrides.CPUOffloadGiB
+		}
+		if overrides.MaxNumBatchedTokens != nil {
+			e.MaxNumBatchedTokens = *overrides.MaxNumBatchedTokens
+		}
+		if overrides.EnableChunkedPrefill != nil {
+			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
 		}
 	}
 

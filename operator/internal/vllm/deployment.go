@@ -170,6 +170,12 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.CPUOffloadGiB > 0 {
 		args = append(args, "--cpu-offload-gb", strconv.Itoa(int(e.CPUOffloadGiB)))
 	}
+	if e.MaxNumBatchedTokens > 0 {
+		args = append(args, "--max-num-batched-tokens", strconv.Itoa(int(e.MaxNumBatchedTokens)))
+	}
+	if e.EnableChunkedPrefill {
+		args = append(args, "--enable-chunked-prefill")
+	}
 	return args
 }
 

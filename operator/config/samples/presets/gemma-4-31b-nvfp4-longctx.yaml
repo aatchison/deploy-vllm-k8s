@@ -29,3 +29,8 @@ spec:
   startupProbe:   {initialDelaySeconds: 15, periodSeconds: 10, failureThreshold: 120}
   kvCacheDtype: fp8_e4m3
   enablePrefixCaching: true
+  # vLLM v0.20+ enforces: max_num_batched_tokens >= max_tokens_per_mm_item.
+  # Gemma 4's per-image token count is 2496; the v0.20 default of 2048 is too
+  # small and causes a startup ValueError. Set 4096 for comfortable headroom.
+  # Either raise this value or set enableChunkedPrefill: true as an alternative.
+  maxNumBatchedTokens: 4096
