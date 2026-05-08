@@ -38,6 +38,10 @@ type LongContextOverrides struct {
 	// +kubebuilder:validation:Minimum=0
 	MaxNumBatchedTokens     *int32       `json:"maxNumBatchedTokens,omitempty"`
 	EnableChunkedPrefill    *bool        `json:"enableChunkedPrefill,omitempty"`
+	// +kubebuilder:validation:Enum=none;lmcache
+	KVOffloadBackend        *string      `json:"kvOffloadBackend,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	KVOffloadSize           *int32       `json:"kvOffloadSize,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM
@@ -46,6 +50,7 @@ type LongContextOverrides struct {
 // +kubebuilder:validation:XValidation:rule="has(self.presetRef) || (has(self.overrides) && has(self.overrides.modelID) && has(self.overrides.migResource) && has(self.overrides.maxModelLen) && has(self.overrides.kvCacheDtype))",message="presetRef or (overrides.modelID, overrides.migResource, overrides.maxModelLen, overrides.kvCacheDtype) must be set"
 // +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1 || (has(self.overrides.migResourceCount) && self.overrides.migResourceCount == self.overrides.tensorParallelSize)",message="overrides.tensorParallelSize > 1 requires overrides.migResourceCount == tensorParallelSize"
 // +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 1",message="replicas must be 0 or 1 (MIG slice cannot host multiple pods)"
+// +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.kvOffloadBackend) || self.overrides.kvOffloadBackend != 'lmcache' || ((!has(self.overrides.migResourceCount) || self.overrides.migResourceCount <= 1) && (!has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1))",message="LMCache offload is single-slice only in the current implementation"
 type LongContextInstanceSpec struct {
 	PresetRef *LongContextPresetReference `json:"presetRef,omitempty"`
 	Overrides *LongContextOverrides       `json:"overrides,omitempty"`

@@ -1,6 +1,7 @@
 package vllm
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -51,6 +52,84 @@ func BuildDeployment(
 	shmSize := resource.MustParse(e.SHMSizeLimit)
 	migQty := resource.MustParse(strconv.Itoa(int(e.MIGResourceCount)))
 
+	volumes := []corev1.Volume{
+		{
+			Name: "models",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
+				},
+			},
+		},
+		{
+			Name: "dshm",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium:    corev1.StorageMediumMemory,
+					SizeLimit: &shmSize,
+				},
+			},
+		},
+	}
+
+	vllmVolumeMounts := []corev1.VolumeMount{
+		{Name: "models", MountPath: "/models"},
+		{Name: "dshm", MountPath: "/dev/shm"},
+	}
+
+	// When LMCache offload is enabled, add the shared emptyDir volume and mount
+	// it in the vLLM container. The sidecar gets appended below.
+	if e.KVOffloadBackend == "lmcache" {
+		volumes = append(volumes, corev1.Volume{
+			Name: LMCacheDataVolume,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+		vllmVolumeMounts = append(vllmVolumeMounts, corev1.VolumeMount{
+			Name:      LMCacheDataVolume,
+			MountPath: LMCacheDataMount,
+		})
+	}
+
+	containers := []corev1.Container{{
+		Name:            ContainerName,
+		Image:           e.Image,
+		ImagePullPolicy: corev1.PullPolicy(e.ImagePullPolicy),
+		Args:            buildArgs(e),
+		Ports: []corev1.ContainerPort{{
+			Name:          "http",
+			ContainerPort: HTTPPort,
+			Protocol:      corev1.ProtocolTCP,
+		}},
+		Env: []corev1.EnvVar{
+			{
+				Name: "HF_TOKEN",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &hfToken,
+				},
+			},
+			{Name: "HF_HOME", Value: DefaultHFHome},
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceName(e.MIGResource): migQty,
+			},
+		},
+		VolumeMounts:   vllmVolumeMounts,
+		LivenessProbe:  buildLivenessProbe(e.LivenessProbe),
+		ReadinessProbe: buildReadinessProbe(e.ReadinessProbe),
+		StartupProbe:   buildStartupProbe(e.StartupProbe),
+	}}
+
+	// Append the LMCache sidecar when the backend is "lmcache".
+	// The sidecar gets a liveness probe (TCP socket) but NO readiness probe,
+	// so a failing LMCache never causes the pod to go NotReady — vLLM can
+	// serve correctly even when LMCache is down.
+	if e.KVOffloadBackend == "lmcache" {
+		containers = append(containers, buildLMCacheSidecar())
+	}
+
 	dep := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -79,63 +158,47 @@ func BuildDeployment(
 						Operator: corev1.TolerationOpExists,
 						Effect:   corev1.TaintEffectNoSchedule,
 					}},
-					Volumes: []corev1.Volume{
-						{
-							Name: "models",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
-								},
-							},
-						},
-						{
-							Name: "dshm",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{
-									Medium:    corev1.StorageMediumMemory,
-									SizeLimit: &shmSize,
-								},
-							},
-						},
-					},
-					Containers: []corev1.Container{{
-						Name:            ContainerName,
-						Image:           e.Image,
-						ImagePullPolicy: corev1.PullPolicy(e.ImagePullPolicy),
-						Args:            buildArgs(e),
-						Ports: []corev1.ContainerPort{{
-							Name:          "http",
-							ContainerPort: HTTPPort,
-							Protocol:      corev1.ProtocolTCP,
-						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "HF_TOKEN",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: &hfToken,
-								},
-							},
-							{Name: "HF_HOME", Value: DefaultHFHome},
-						},
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								corev1.ResourceName(e.MIGResource): migQty,
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{Name: "models", MountPath: "/models"},
-							{Name: "dshm", MountPath: "/dev/shm"},
-						},
-						LivenessProbe:  buildLivenessProbe(e.LivenessProbe),
-						ReadinessProbe: buildReadinessProbe(e.ReadinessProbe),
-						StartupProbe:   buildStartupProbe(e.StartupProbe),
-					}},
+					Volumes:    volumes,
+					Containers: containers,
 				},
 			},
 		},
 	}
 
 	return dep
+}
+
+// buildLMCacheSidecar returns the LMCache sidecar Container spec.
+// Resources: 1 CPU request, 4Gi RAM.
+// Probe: TCP-socket liveness on LMCacheAdminPort; NO readiness probe so a
+// degraded LMCache doesn't take the pod NotReady.
+func buildLMCacheSidecar() corev1.Container {
+	return corev1.Container{
+		Name:            LMCacheContainerName,
+		Image:           LMCacheImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("4Gi"),
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: LMCacheDataVolume, MountPath: LMCacheDataMount},
+		},
+		// Liveness only — no readiness, so pod readiness is determined solely
+		// by the vLLM container.
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Port: intstr.FromInt(LMCacheAdminPort),
+				},
+			},
+			InitialDelaySeconds: 10,
+			PeriodSeconds:       30,
+			FailureThreshold:    5,
+		},
+	}
 }
 
 func buildArgs(e EffectiveConfig) []string {
@@ -176,7 +239,33 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.EnableChunkedPrefill {
 		args = append(args, "--enable-chunked-prefill")
 	}
+	if e.KVOffloadBackend == "lmcache" {
+		args = append(args, "--kv-transfer-config", buildKVTransferConfig(e.KVOffloadSize))
+	}
 	return args
+}
+
+// kvTransferConfig is the JSON shape for --kv-transfer-config when backend == lmcache.
+// kv_buffer_size is omitted when KVOffloadSize == 0 (let LMCache use its default).
+type kvTransferConfig struct {
+	KVConnector  string `json:"kv_connector"`
+	KVRole       string `json:"kv_role"`
+	KVBufferSize *int64 `json:"kv_buffer_size,omitempty"`
+}
+
+// buildKVTransferConfig serialises the JSON value for --kv-transfer-config.
+// sizeGiB is the desired LMCache buffer in GiB; 0 means omit (use LMCache default).
+func buildKVTransferConfig(sizeGiB int32) string {
+	cfg := kvTransferConfig{
+		KVConnector: "LMCacheConnectorV1",
+		KVRole:      "kv_both",
+	}
+	if sizeGiB > 0 {
+		bytes := int64(sizeGiB) * (1 << 30)
+		cfg.KVBufferSize = &bytes
+	}
+	b, _ := json.Marshal(cfg)
+	return string(b)
 }
 
 func healthProbeHandler() corev1.ProbeHandler {

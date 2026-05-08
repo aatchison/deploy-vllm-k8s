@@ -1,0 +1,45 @@
+# EXPERIMENTAL — requires LMCache support in the deployed vLLM nightly image.
+# Single-slice only (migResourceCount: 1, tensorParallelSize: 1); the operator
+# rejects lmcache + multi-slice combinations at admission.
+# See parent issue #13 for ongoing LMCache integration work.
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: LongContextPreset
+metadata:
+  name: gemma-4-31b-nvfp4-longctx-lmcache
+  namespace: vllm
+spec:
+  modelID: nvidia/Gemma-4-31B-IT-NVFP4
+  # Stable client-facing name shared with the BF16 / TP=2 equivalents so
+  # opencode + Claude Code configs can swap endpoints without changing the
+  # model name.
+  servedModelName: google/gemma-4-31B-it
+  migResource: nvidia.com/mig-4g.96gb
+  migResourceCount: 1
+  quantization: nvfp4
+  maxModelLen: 262144
+  gpuMemoryUtilization: "0.92"
+  tensorParallelSize: 1
+  enableAutoToolChoice: true
+  toolCallParser: gemma4
+  shmSizeLimit: 16Gi
+  progressDeadlineSeconds: 1800
+  # Probe layout follows the canonical k8s slow-start pattern:
+  #   startupProbe handles the long boot grace; once it succeeds k8s switches
+  #   to liveness + readiness, both kept short and sharp so failures
+  #   propagate quickly. With this layout, readinessProbe flips True within
+  #   ~5s of vLLM actually answering /health (previously: a flat 240s wait).
+  livenessProbe:  {initialDelaySeconds: 0,  periodSeconds: 30, failureThreshold: 10}
+  readinessProbe: {initialDelaySeconds: 0,  periodSeconds: 5,  failureThreshold: 6}
+  startupProbe:   {initialDelaySeconds: 15, periodSeconds: 10, failureThreshold: 120}
+  kvCacheDtype: fp8_e4m3
+  enablePrefixCaching: true
+  # vLLM v0.20+ enforces: max_num_batched_tokens >= max_tokens_per_mm_item.
+  # Gemma 4's per-image token count is 2496; the v0.20 default of 2048 is too
+  # small and causes a startup ValueError. Set 4096 for comfortable headroom.
+  # Either raise this value or set enableChunkedPrefill: true as an alternative.
+  maxNumBatchedTokens: 4096
+  # LMCache KV offload: spill evicted KV tensors to a 32 GiB host-RAM buffer
+  # to recover them on prefix-cache hits across requests. Tune kvOffloadSize
+  # per benchmark once measurements are available (see BENCHMARKS.md §6.11).
+  kvOffloadBackend: lmcache
+  kvOffloadSize: 32
