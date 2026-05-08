@@ -433,6 +433,65 @@ func TestBuildStartupProbePopulated(t *testing.T) {
 	}
 }
 
+// TestBuildLivenessProbeHonorsPresetValues is the regression guard for issue
+// #81. buildLivenessProbe previously hardcoded PeriodSeconds=30 and
+// FailureThreshold=10 (constants from merge.go), silently dropping per-preset
+// YAML values. Verify both fields now flow through the builder, mirroring
+// buildReadinessProbe.
+func TestBuildLivenessProbeHonorsPresetValues(t *testing.T) {
+	p := buildLivenessProbe(vllmv1alpha1.ProbeConfig{
+		InitialDelaySeconds: 90,
+		PeriodSeconds:       60,
+		FailureThreshold:    20,
+	})
+	if p == nil {
+		t.Fatal("expected non-nil probe")
+	}
+	if p.InitialDelaySeconds != 90 {
+		t.Errorf("InitialDelaySeconds: got %d, want 90", p.InitialDelaySeconds)
+	}
+	if p.PeriodSeconds != 60 {
+		t.Errorf("PeriodSeconds: got %d, want 60 (preset value, not hardcoded 30)", p.PeriodSeconds)
+	}
+	if p.FailureThreshold != 20 {
+		t.Errorf("FailureThreshold: got %d, want 20 (preset value, not hardcoded 10)", p.FailureThreshold)
+	}
+	if p.HTTPGet == nil || p.HTTPGet.Path != "/health" {
+		t.Errorf("expected /health HTTP probe; got %+v", p.HTTPGet)
+	}
+}
+
+// TestBuildDeploymentLivenessProbeFlowsThrough is the end-to-end regression
+// guard for issue #81: a preset's livenessProbe.periodSeconds and
+// failureThreshold must reach the rendered Pod spec, not be replaced by
+// hardcoded defaults.
+func TestBuildDeploymentLivenessProbeFlowsThrough(t *testing.T) {
+	e := baseEffectiveConfig()
+	e.LivenessProbe = vllmv1alpha1.ProbeConfig{
+		InitialDelaySeconds: 120,
+		PeriodSeconds:       60,
+		FailureThreshold:    20,
+	}
+	dep := buildTestDeployment(e)
+	containers := dep.Spec.Template.Spec.Containers
+	if len(containers) == 0 {
+		t.Fatal("expected at least one container")
+	}
+	lp := containers[0].LivenessProbe
+	if lp == nil {
+		t.Fatal("vLLM container must have a liveness probe")
+	}
+	if lp.InitialDelaySeconds != 120 {
+		t.Errorf("rendered LivenessProbe.InitialDelaySeconds: got %d, want 120", lp.InitialDelaySeconds)
+	}
+	if lp.PeriodSeconds != 60 {
+		t.Errorf("rendered LivenessProbe.PeriodSeconds: got %d, want 60 (preset value must flow through)", lp.PeriodSeconds)
+	}
+	if lp.FailureThreshold != 20 {
+		t.Errorf("rendered LivenessProbe.FailureThreshold: got %d, want 20 (preset value must flow through)", lp.FailureThreshold)
+	}
+}
+
 func TestBuildArgsCPUOffloadEmits(t *testing.T) {
 	e := EffectiveConfig{
 		ModelID:              "m",

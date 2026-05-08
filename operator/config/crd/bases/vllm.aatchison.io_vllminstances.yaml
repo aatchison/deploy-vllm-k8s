@@ -112,7 +112,8 @@ spec:
                   livenessProbe:
                     description: |-
                       ProbeConfig is the tunable subset of a k8s probe.
-                      Liveness periodSeconds=30 and failureThreshold=10 are hardcoded constants in the builder.
+                      All three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow
+                      through to the rendered Pod spec for both liveness and readiness probes.
                     properties:
                       failureThreshold:
                         format: int32
@@ -153,7 +154,8 @@ spec:
                   readinessProbe:
                     description: |-
                       ProbeConfig is the tunable subset of a k8s probe.
-                      Liveness periodSeconds=30 and failureThreshold=10 are hardcoded constants in the builder.
+                      All three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow
+                      through to the rendered Pod spec for both liveness and readiness probes.
                     properties:
                       failureThreshold:
                         format: int32
@@ -179,7 +181,8 @@ spec:
                   startupProbe:
                     description: |-
                       ProbeConfig is the tunable subset of a k8s probe.
-                      Liveness periodSeconds=30 and failureThreshold=10 are hardcoded constants in the builder.
+                      All three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow
+                      through to the rendered Pod spec for both liveness and readiness probes.
                     properties:
                       failureThreshold:
                         format: int32

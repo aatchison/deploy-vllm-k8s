@@ -15,8 +15,6 @@ const (
 	DefaultHFHome          = "/models/huggingface"
 	ContainerName          = "vllm"
 	HTTPPort               = 8000
-	LivenessPeriodSeconds  = 30
-	LivenessFailureThresh  = 10
 
 	// LMCacheImage is the sidecar image used when KVOffloadBackend == "lmcache".
 	// Pin to a specific release tag; bump via separate PR when upstream releases.

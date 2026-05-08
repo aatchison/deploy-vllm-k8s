@@ -397,8 +397,8 @@ func buildLivenessProbe(cfg vllmv1alpha1.ProbeConfig) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler:        healthProbeHandler(),
 		InitialDelaySeconds: cfg.InitialDelaySeconds,
-		PeriodSeconds:       LivenessPeriodSeconds,
-		FailureThreshold:    LivenessFailureThresh,
+		PeriodSeconds:       cfg.PeriodSeconds,
+		FailureThreshold:    cfg.FailureThreshold,
 	}
 }
 
