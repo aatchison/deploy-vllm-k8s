@@ -54,6 +54,27 @@ gh api -H "Accept: application/vnd.github+json" \
 # 3. Commit and PR.
 ```
 
+## Security operations
+
+This repo uses Dependabot in two distinct modes — **enable both**:
+
+1. **Version-update PRs** (weekly cadence, configured in [`.github/dependabot.yml`](../.github/dependabot.yml)). These produce the routine "Bump foo from x to y" PRs (e.g. #52–#60). Already on.
+2. **Security alerts + security updates** (real-time, configured in repo **Settings**, not in YAML). These fire when GitHub's advisory database flags a CVE in a transitive dependency, and produce out-of-band patch PRs that don't wait for the weekly window. **Currently OFF** — see issue #80.
+
+To enable the security channel (maintainer-only — requires repo admin in the GitHub UI):
+
+> **Settings → Code security and analysis** → enable **Dependabot alerts** + **Dependabot security updates**.
+
+Verify after flipping:
+
+```bash
+gh api repos/aatchison/deploy-vllm-k8s/dependabot/alerts
+# Expected: 200 with a (possibly empty) JSON array.
+# While disabled: 403 "Dependabot alerts are disabled".
+```
+
+Issue #80 tracks this. The PR landing this section is documentation-only; the maintainer must flip the UI setting for the verification command above to return 200, at which point #80 closes.
+
 ## Makefile targets
 
 | Target | What it does |
