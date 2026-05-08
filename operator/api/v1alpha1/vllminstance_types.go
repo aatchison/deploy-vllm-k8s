@@ -33,8 +33,14 @@ type ModelConfigOverrides struct {
 	ReadinessProbe          *ProbeConfig `json:"readinessProbe,omitempty"`
 	StartupProbe            *ProbeConfig `json:"startupProbe,omitempty"`
 	// +kubebuilder:validation:Minimum=0
-	MaxNumBatchedTokens     *int32       `json:"maxNumBatchedTokens,omitempty"`
-	EnableChunkedPrefill    *bool        `json:"enableChunkedPrefill,omitempty"`
+	MaxNumBatchedTokens  *int32 `json:"maxNumBatchedTokens,omitempty"`
+	EnableChunkedPrefill *bool  `json:"enableChunkedPrefill,omitempty"`
+	// PVCReadOnly, when true, mounts the model PVC at /models with
+	// readOnly=true. Set this for any tenant that should consume — but never
+	// poison — a shared model cache. See docs/multi-tenant-deployment.md and
+	// the security warning in the README. Default false preserves current
+	// single-tenant write-cache behavior.
+	PVCReadOnly *bool `json:"pvcReadOnly,omitempty"`
 }
 
 // VLLMInstanceSpec is the desired state of a single vLLM deployment.
@@ -61,6 +67,13 @@ type VLLMInstanceSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// PVCReadOnly, when true, mounts the model PVC at /models with
+	// readOnly=true. Set this for any tenant that should consume — but never
+	// poison — a shared model cache. See docs/multi-tenant-deployment.md and
+	// the security warning in the README. Default false preserves current
+	// single-tenant write-cache behavior. May also be set on Overrides.
+	PVCReadOnly *bool `json:"pvcReadOnly,omitempty"`
 }
 
 // VLLMInstanceStatus reflects the observed state.

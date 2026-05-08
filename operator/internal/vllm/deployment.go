@@ -140,8 +140,13 @@ func BuildDeployment(
 		},
 	}
 
+	// PVCReadOnly opts the /models mount into readOnly=true. Used by tenants
+	// that should consume but never poison a shared model cache (issue #76 —
+	// cross-tenant model poisoning via writable shared PVC). Default false
+	// preserves the historical single-tenant write-cache behavior so existing
+	// deployments are unchanged.
 	vllmVolumeMounts := []corev1.VolumeMount{
-		{Name: "models", MountPath: "/models"},
+		{Name: "models", MountPath: "/models", ReadOnly: e.PVCReadOnly},
 		{Name: "dshm", MountPath: "/dev/shm"},
 		{Name: HFTokenVolumeName, MountPath: HFTokenMountDir, ReadOnly: true},
 	}

@@ -105,6 +105,16 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 		return ctrl.Result{}, errors.Join(fmt.Errorf("resolve config: %w", err), perr)
 	}
+	// Apply spec-level PVCReadOnly (issue #76) unless an override already
+	// supplied a value (override wins). Recompute the hash so the status
+	// reflects the actual rendered Deployment.
+	if instance.Spec.PVCReadOnly != nil &&
+		(instance.Spec.Overrides == nil || instance.Spec.Overrides.PVCReadOnly == nil) {
+		effective.PVCReadOnly = *instance.Spec.PVCReadOnly
+		if newHash, herr := vllm.HashConfig(effective); herr == nil {
+			hash = newHash
+		}
+	}
 	instance.Status.ResolvedConfigHash = hash
 
 	// 2. Storage probe.

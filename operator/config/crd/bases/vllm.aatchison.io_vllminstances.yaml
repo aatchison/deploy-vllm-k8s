@@ -149,6 +149,14 @@ spec:
                   progressDeadlineSeconds:
                     format: int32
                     type: integer
+                  pvcReadOnly:
+                    description: |-
+                      PVCReadOnly, when true, mounts the model PVC at /models with
+                      readOnly=true. Set this for any tenant that should consume — but never
+                      poison — a shared model cache. See docs/multi-tenant-deployment.md and
+                      the security warning in the README. Default false preserves current
+                      single-tenant write-cache behavior.
+                    type: boolean
                   quantization:
                     type: string
                   readinessProbe:
@@ -223,6 +231,14 @@ spec:
                 x-kubernetes-validations:
                 - message: pvcName is immutable
                   rule: self == oldSelf
+              pvcReadOnly:
+                description: |-
+                  PVCReadOnly, when true, mounts the model PVC at /models with
+                  readOnly=true. Set this for any tenant that should consume — but never
+                  poison — a shared model cache. See docs/multi-tenant-deployment.md and
+                  the security warning in the README. Default false preserves current
+                  single-tenant write-cache behavior. May also be set on Overrides.
+                type: boolean
               replicas:
                 format: int32
                 maximum: 1
