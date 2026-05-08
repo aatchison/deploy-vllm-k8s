@@ -143,7 +143,12 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// 6. Mirror Deployment conditions.
 	var observed appsv1.Deployment
 	if err := r.Get(ctx, client.ObjectKey{Namespace: dep.Namespace, Name: dep.Name}, &observed); err != nil {
-		return ctrl.Result{}, err
+		if apierrors.IsNotFound(err) {
+			// Informer cache hasn't observed the Deployment we just SSA-applied yet.
+			// Requeue; the Owns(&Deployment) watch will trigger another reconcile.
+			return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+		}
+		return ctrl.Result{}, fmt.Errorf("get deployment: %w", err)
 	}
 	if observed.Status.ObservedGeneration >= observed.Generation {
 		instance.Status.ReadyReplicas = observed.Status.ReadyReplicas
