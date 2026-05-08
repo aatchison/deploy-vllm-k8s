@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Usage: smoke-test.sh <instance-name> [namespace] [kubectl-binary]
-# Exits 0 on success, non-zero on any failure.
+#
+# Looks up <instance-name> as a VLLMInstance first, then falls back to
+# LongContextInstance. Both CRDs expose the same .status.endpoint field, so the
+# script is kind-agnostic past the lookup. Exits 0 on success, non-zero on any
+# failure.
 set -euo pipefail
 
 INSTANCE="${1:?Usage: $0 <instance-name> [namespace] [kubectl]}"
@@ -8,14 +12,29 @@ NAMESPACE="${2:-vllm}"
 # Split KUBECTL into an array so "microk8s kubectl" works as well as plain "kubectl".
 read -ra KUBECTL <<< "${3:-kubectl}"
 
-# ── 1. Resolve endpoint from VLLMInstance status ─────────────────────────────
-echo "==> Fetching endpoint for VLLMInstance '$INSTANCE' in namespace '$NAMESPACE'..."
-ENDPOINT=$("${KUBECTL[@]}" get vllminstance "$INSTANCE" -n "$NAMESPACE" \
-    -o jsonpath='{.status.endpoint}' 2>/dev/null)
+# ── 1. Resolve endpoint from VLLMInstance or LongContextInstance status ──────
+# Try VLLMInstance first; fall back to LongContextInstance. Both CRDs expose
+# the same `.status.endpoint` field, so the rest of the script is kind-agnostic.
+KIND=""
+ENDPOINT=""
+for kind in vllminstance longcontextinstance; do
+    if "${KUBECTL[@]}" get "$kind" "$INSTANCE" -n "$NAMESPACE" >/dev/null 2>&1; then
+        KIND="$kind"
+        echo "==> Fetching endpoint for ${kind^} '$INSTANCE' in namespace '$NAMESPACE'..."
+        ENDPOINT=$("${KUBECTL[@]}" get "$kind" "$INSTANCE" -n "$NAMESPACE" \
+            -o jsonpath='{.status.endpoint}' 2>/dev/null)
+        break
+    fi
+done
+
+if [[ -z "$KIND" ]]; then
+    echo "ERROR: no VLLMInstance or LongContextInstance named '$INSTANCE' in namespace '$NAMESPACE'" >&2
+    exit 1
+fi
 
 if [[ -z "$ENDPOINT" ]]; then
-    echo "ERROR: status.endpoint is empty — instance not Ready yet?" >&2
-    "${KUBECTL[@]}" get vllminstance "$INSTANCE" -n "$NAMESPACE" \
+    echo "ERROR: status.endpoint is empty on $KIND/$INSTANCE — instance not Ready yet?" >&2
+    "${KUBECTL[@]}" get "$KIND" "$INSTANCE" -n "$NAMESPACE" \
         -o jsonpath='{range .status.conditions[*]}{.type}={.status}: {.message}{"\n"}{end}' 2>/dev/null || true
     exit 1
 fi

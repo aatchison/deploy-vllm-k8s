@@ -99,7 +99,7 @@ spec:
   readinessProbe: {initialDelaySeconds: 60, periodSeconds: 10, failureThreshold: 30}
 ```
 
-Seven presets ship in `operator/config/samples/presets/`, covering the full Gemma 4 range from E2B (1g.24gb) through 31B BF16 TP=2 (two 4g.96gb slices across both GPUs).
+Twelve presets ship in `operator/config/samples/presets/` — eight `ModelPreset`s covering the Gemma 4 range from E2B (1g.24gb) through 31B BF16 TP=2 (two 4g.96gb slices across both GPUs), plus four `LongContextPreset`s tuned for maximum context per slice (see "LongContextPreset / LongContextInstance" below).
 
 ### VLLMInstance
 
@@ -124,19 +124,25 @@ Sibling CRDs tuned for **maximum context length per model**. Same wire shape
 as `ModelPreset`/`VLLMInstance` but with two additional opinionated fields
 that the operator emits as vLLM CLI flags:
 
-- `kvCacheDtype` (required, enum `fp8`/`fp8_e5m2`/`fp8_e4m3`) → `--kv-cache-dtype`.
-  FP8 KV cache roughly halves KV memory at long context, approximately doubling
-  achievable `maxModelLen` on the same MIG slice.
+- `kvCacheDtype` (enum `auto`/`fp8`/`fp8_e5m2`/`fp8_e4m3`/`nvfp4`, defaults to
+  `fp8_e4m3`) → `--kv-cache-dtype`. FP8 KV cache roughly halves KV memory at long
+  context, approximately doubling achievable `maxModelLen` on the same MIG slice.
+  `fp8_e4m3` is the default because vLLM rejects `fp8_e5m2` on FP8/NVFP4 weight
+  checkpoints (see CRD comment at
+  `operator/config/crd/bases/vllm.aatchison.io_longcontextpresets.yaml`:
+  *"fp8_e4m3 is chosen as the default because vLLM rejects fp8_e5m2 on FP8/NVFP4
+  weight checkpoints; e4m3 works with both BF16 and quantized weights."*).
 - `enablePrefixCaching` (default `true`) → `--enable-prefix-caching`. RadixAttention-
   style automatic KV prefix reuse; pays off for agent workloads with shared system prompts.
 
-Three long-context presets ship in `operator/config/samples/presets/`:
+Four long-context presets ship in `operator/config/samples/presets/`:
 
 | Preset | MIG | Weights | KV | Target context |
 |---|---|---|---|---|
-| `gemma-4-31b-nvfp4-longctx` | 4g.96gb | NVFP4 | FP8 e5m2 | 256K (Gemma 4 native max) |
-| `gemma-4-31b-bf16-longctx` | 4g.96gb | BF16 | FP8 e5m2 | 128K |
-| `gemma-4-26b-moe-longctx` | 4g.96gb | BF16 | FP8 e5m2 | 128K (MoE native max) |
+| `gemma-4-31b-nvfp4-longctx` | 4g.96gb | NVFP4 | FP8 e4m3 | 256K (Gemma 4 native max) |
+| `gemma-4-31b-bf16-longctx` | 4g.96gb | BF16 | FP8 e4m3 | 128K |
+| `gemma-4-26b-moe-longctx` | 4g.96gb | BF16 | FP8 e4m3 | 128K (MoE native max) |
+| `gemma-4-31b-nvfp4-longctx-lmcache` | 4g.96gb | NVFP4 | FP8 e4m3 | 256K + LMCache host-RAM offload (experimental) |
 
 #### Optional KV-offload mode (LMCache, experimental)
 
@@ -194,7 +200,7 @@ microk8s kubectl delete pod -n gpu-operator-resources -l app=nvidia-device-plugi
 |---|---|---|
 | `1g.24gb` | 24 GB | `gemma-4-e2b-1g` |
 | `2g.48gb` | 48 GB | `gemma-4-e2b`, `gemma-4-e4b`, `gemma-4-26b-a4b`, `gemma-4-31b-nvfp4` |
-| `4g.96gb` | 96 GB | `gemma-4-31b-nvfp4-96`, `gemma-4-31b-bf16` |
+| `4g.96gb` | 96 GB | `gemma-4-31b-nvfp4-96`, `gemma-4-31b-bf16`, `gemma-4-31b-nvfp4-longctx` (256K), `gemma-4-31b-bf16-longctx` (128K), `gemma-4-26b-moe-longctx` (128K), `gemma-4-31b-nvfp4-longctx-lmcache` (256K + host-RAM KV offload) |
 | `4g.96gb` ×2 (TP=2) | 192 GB | `gemma-4-31b-bf16-tp2` (spans both GPUs) |
 
 ## Smoke Test
@@ -202,6 +208,8 @@ microk8s kubectl delete pod -n gpu-operator-resources -l app=nvidia-device-plugi
 ```bash
 cd operator && make smoke-test INSTANCE=<name>
 # e.g. make smoke-test INSTANCE=e2b
+# Works for both VLLMInstance and LongContextInstance — the script tries
+# `vllminstance/<name>` first and falls back to `longcontextinstance/<name>`.
 ```
 
 ## Repository Layout

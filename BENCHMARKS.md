@@ -119,10 +119,15 @@ The node is labelled `nvidia.com/mig.config=custom-mig`, which triggers `mig-man
 
 ### MIG Persistence After Reboot
 
-Both GPUs are fully managed by mig-manager via the `custom-mig` ConfigMap. Applying the node label is sufficient to restore the full MIG layout on any reboot. `setup-mig.sh` handles this:
+Both GPUs are fully managed by mig-manager via the `custom-mig` ConfigMap. Applying the node label is sufficient to restore the full MIG layout on any reboot.
+
+> **Legacy (deploy.sh era) command shown below for historical reference.** The
+> current operator workflow is `cd operator && make mig-setup` (which renders the
+> `custom-mig-config` ConfigMap and the mig-setup Job that re-labels the node).
+> See the README "Quick Start" for the full operator-era flow.
 
 ```
-deploy.sh setup
+deploy.sh setup   # legacy
 ```
 
 Steps performed by `setup-mig.sh`:
@@ -253,6 +258,17 @@ All benchmarks use this prompt unless noted:
 `max_tokens=4096`. Load test script: `loadtest-all.sh`.
 
 ---
+
+## Legacy results (deploy.sh era)
+
+> Sections 6.1–6.8 below were captured against the pre-operator `deploy.sh`
+> workflow. The numbers and conclusions still describe the underlying hardware
+> behavior accurately, but the *commands* (`./deploy.sh E2B`, `./deploy.sh
+> dual-moe`, etc.) refer to a script that now lives only in `legacy/` and is no
+> longer the recommended path. Treat 6.1–6.8 as historical reference only;
+> the current operator-era workflow is documented in §6.9 ("Operator MIG
+> Profile Combination Sweep") and in the project README. The Appendix at the
+> bottom of this file is also legacy and is annotated accordingly.
 
 ### 6.1 Single-Model Throughput (5 concurrent requests)
 
@@ -583,17 +599,18 @@ GPU 0: 1×4g.96gb (TP rank 0) + GPU 1: 1×4g.96gb (TP rank 1)
 ### 6.10 Long-context type — measured ceilings (TODO)
 
 Placeholder for measurements against the new `LongContextPreset` deployments.
-The headline lever is `--kv-cache-dtype fp8_e5m2`, which roughly halves the
-KV-cache footprint and unlocks meaningfully longer `--max-model-len` on the
-same MIG slice.
+The headline lever is `--kv-cache-dtype fp8_e4m3` (the default chosen by the
+`LongContextPreset` CRD; vLLM rejects `fp8_e5m2` on FP8/NVFP4 weight
+checkpoints), which roughly halves the KV-cache footprint and unlocks
+meaningfully longer `--max-model-len` on the same MIG slice.
 
 Expected (pre-measurement) ceilings on a single 4g.96gb slice:
 
 | Preset | Weights | KV cache | Pre-PR ceiling | Target with FP8 KV |
 |---|---|---|---|---|
-| `gemma-4-31b-nvfp4-longctx` | NVFP4 | FP8 e5m2 | 128K (`gemma-4-31b-nvfp4-96`) | **256K** (Gemma 4 native max) |
-| `gemma-4-31b-bf16-longctx` | BF16 | FP8 e5m2 | 65K (`gemma-4-31b-bf16`) | **128K** |
-| `gemma-4-26b-moe-longctx` | BF16 | FP8 e5m2 | 128K (already native) | 128K + meaningfully more concurrent users at full context |
+| `gemma-4-31b-nvfp4-longctx` | NVFP4 | FP8 e4m3 | 128K (`gemma-4-31b-nvfp4-96`) | **256K** (Gemma 4 native max) |
+| `gemma-4-31b-bf16-longctx` | BF16 | FP8 e4m3 | 65K (`gemma-4-31b-bf16`) | **128K** |
+| `gemma-4-26b-moe-longctx` | BF16 | FP8 e4m3 | 128K (already native) | 128K + meaningfully more concurrent users at full context |
 
 Methodology when measured:
 
@@ -697,7 +714,7 @@ NVFP4 delivers 2.3x throughput over BF16 for Gemma 4 on RTX PRO 6000 Blackwell. 
 
 ### MIG Makes Multi-Tenancy and Tensor Parallelism Both Practical
 
-MIG gives you two deployment modes from the same hardware. Partition each GPU into `2x 2g.48gb` to run three models simultaneously (E2B + E4B + 31B NVFP4). Or consolidate both GPUs into `2x 4g.96gb` and use TP=2 to run a single 31B BF16 model with 256K context and 41 tok/s at single-user throughput. Switching between modes is a ConfigMap edit + `deploy.sh setup`.
+MIG gives you two deployment modes from the same hardware. Partition each GPU into `2x 2g.48gb` to run three models simultaneously (E2B + E4B + 31B NVFP4). Or consolidate both GPUs into `2x 4g.96gb` and use TP=2 to run a single 31B BF16 model with 256K context and 41 tok/s at single-user throughput. Switching between modes is a ConfigMap edit + a one-shot MIG-setup Job (`make mig-setup` in the operator-era workflow; `deploy.sh setup` in the legacy workflow).
 
 ### Tensor Parallelism Unlocks the Full Context Window
 
@@ -713,9 +730,15 @@ The `protoLabsAI/gemma-4-26B-A4B-it-FP8` checkpoint uses non-standard block size
 
 ---
 
-## Appendix: Quick Reference
+## Appendix: Quick Reference (legacy deploy.sh era)
 
-### Deploy a model
+> The commands below describe the pre-operator `deploy.sh` workflow, preserved
+> here for historical reference. The current operator-era equivalents are
+> `kubectl apply -f operator/config/samples/instances/<name>.yaml` for deploys
+> and `make smoke-test INSTANCE=<name>` for smoke tests — see the project
+> README "Quick Start" and "Smoke Test" sections for the supported flow.
+
+### Deploy a model (legacy)
 
 ```bash
 # Single-model deployments (port 30800)
