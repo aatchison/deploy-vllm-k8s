@@ -63,17 +63,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Single Recorder shared by both reconcilers — events surface in
+	// `kubectl describe` keyed by the source name we pass here.
+	recorder := mgr.GetEventRecorderFor("vllm-operator")
+
 	if err := (&controllers.VLLMInstanceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: recorder,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "VLLMInstance")
 		os.Exit(1)
 	}
 
 	if err := (&controllers.LongContextInstanceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: recorder,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "LongContextInstance")
 		os.Exit(1)
