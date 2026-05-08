@@ -7,6 +7,7 @@ import (
 
 // LongContextPresetReference names a LongContextPreset in the same namespace.
 type LongContextPresetReference struct {
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="presetRef.name is immutable"
 	Name string `json:"name"`
 }
 
@@ -55,8 +56,10 @@ type LongContextInstanceSpec struct {
 	PresetRef *LongContextPresetReference `json:"presetRef,omitempty"`
 	Overrides *LongContextOverrides       `json:"overrides,omitempty"`
 
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="pvcName is immutable"
 	PVCName string `json:"pvcName"`
 
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="hfToken is immutable"
 	HFToken corev1.SecretKeySelector `json:"hfToken"`
 
 	// NodePort to expose on every cluster node. Must be in 30000-32767.

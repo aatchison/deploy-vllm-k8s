@@ -77,6 +77,9 @@ spec:
                 - key
                 type: object
                 x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: hfToken is immutable
+                  rule: self == oldSelf
               nodePort:
                 description: |-
                   NodePort to expose on every cluster node. Must be in 30000-32767.
@@ -202,11 +205,17 @@ spec:
                 properties:
                   name:
                     type: string
+                    x-kubernetes-validations:
+                    - message: presetRef.name is immutable
+                      rule: self == oldSelf
                 required:
                 - name
                 type: object
               pvcName:
                 type: string
+                x-kubernetes-validations:
+                - message: pvcName is immutable
+                  rule: self == oldSelf
               replicas:
                 format: int32
                 maximum: 1
