@@ -51,8 +51,6 @@ spec:
           # re-pin this on every release — see issue #64.
           image: ghcr.io/aatchison/vllm-operator@sha256:b5eb7bae95769e444488f1af564247fd6b7752aa1b6ac992dfa27d8d1534f953
           imagePullPolicy: Always
-          args:
-            - --leader-elect=false
           ports:
             # controller-runtime defaults: metrics on :8080, health on :8081.
             # Declared explicitly so a Service can target them by name and
