@@ -119,6 +119,57 @@ spec:
   # nodePort: 30801   # optional — omit to let Kubernetes auto-assign
 ```
 
+### Endpoint resolution
+
+`status.endpoint` defaults to the **in-cluster Service DNS form**:
+
+```
+http://svc-<name>.<namespace>.svc.cluster.local:8000/v1
+```
+
+This is reachable only from workloads running inside the cluster. The
+operator does *not* publish Node InternalIPs by default — doing so would
+launder a cluster-scoped permission (`nodes:get`) into a namespace-readable
+status field, letting any tenant with `vllminstances:get` enumerate node
+IPs (issue #78).
+
+For dev clusters or smoke tests that need to curl the endpoint from
+outside the cluster, three options:
+
+1. **Opt the instance into the legacy NodeIP form** by adding the
+   `vllm.aatchison.io/expose-node-ip: "true"` annotation. The operator
+   will then publish `http://<NodeInternalIP>:<NodePort>/v1` (the same
+   shape as before this change). Use only on trust-bounded clusters.
+
+   ```yaml
+   apiVersion: vllm.aatchison.io/v1alpha1
+   kind: VLLMInstance
+   metadata:
+     name: e2b
+     namespace: vllm
+     annotations:
+       vllm.aatchison.io/expose-node-ip: "true"
+   spec:
+     # …
+   ```
+
+2. **`kubectl port-forward`** — point at the Service, no annotation needed:
+
+   ```bash
+   kubectl -n vllm port-forward svc/svc-e2b 8000:8000
+   curl http://localhost:8000/v1/models
+   ```
+
+   This is what `operator/hack/smoke-test.sh` and `operator/hack/benchmark.sh`
+   require — the scripts read `status.endpoint`, which defaults to the
+   in-cluster DNS form, so they cannot dial it directly from a laptop.
+   Either add the opt-in annotation above or wrap the curl behind a
+   port-forward.
+
+3. **Ingress** (production pattern) — front the Service with an Ingress
+   (and TLS / authn / authz appropriate to your cluster). Out of scope for
+   this operator.
+
 ### LongContextPreset / LongContextInstance
 
 Sibling CRDs tuned for **maximum context length per model**. Same wire shape
