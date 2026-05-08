@@ -97,6 +97,7 @@ const (
 	ReasonDeploymentUnavailable = "DeploymentUnavailable"
 	ReasonAllReady              = "AllReady"
 	ReasonScaledToZero          = "ScaledToZero"
+	ReasonApplyFailed           = "ApplyFailed"
 )
 
 // +kubebuilder:object:root=true

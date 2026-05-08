@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +35,8 @@ const (
 // LongContextInstanceReconciler reconciles a LongContextInstance object.
 type LongContextInstanceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=longcontextpresets,verbs=get;list;watch
@@ -67,9 +69,12 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		var preset vllmv1alpha1.LongContextPreset
 		if err := r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.PresetRef.Name}, &preset); err != nil {
 			if apierrors.IsNotFound(err) {
-				setLongContextCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionFalse,
-					vllmv1alpha1.ReasonPresetNotFound, fmt.Sprintf("LongContextPreset %q not found in namespace %s", instance.Spec.PresetRef.Name, instance.Namespace))
-				setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPresetNotFound, "Preset not found")
+				if setLongContextCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionFalse,
+					vllmv1alpha1.ReasonPresetNotFound, fmt.Sprintf("LongContextPreset %q not found in namespace %s", instance.Spec.PresetRef.Name, instance.Namespace)) {
+					r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonPresetNotFound,
+						"LongContextPreset %q not found in namespace %s", instance.Spec.PresetRef.Name, instance.Namespace)
+				}
+				r.setReadyFalse(&instance, vllmv1alpha1.ReasonPresetNotFound, "Preset not found")
 				return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: transientRequeue})
 			}
 			_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
@@ -94,9 +99,12 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 	var pvc corev1.PersistentVolumeClaim
 	if err := r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.PVCName}, &pvc); err != nil {
 		if apierrors.IsNotFound(err) {
-			setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
-				vllmv1alpha1.ReasonPVCNotFound, fmt.Sprintf("PVC %q not found", instance.Spec.PVCName))
-			setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPVCNotFound, "Storage not ready")
+			if setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
+				vllmv1alpha1.ReasonPVCNotFound, fmt.Sprintf("PVC %q not found", instance.Spec.PVCName)) {
+				r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonPVCNotFound,
+					"PVC %q not found", instance.Spec.PVCName)
+			}
+			r.setReadyFalse(&instance, vllmv1alpha1.ReasonPVCNotFound, "Storage not ready")
 			return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: transientRequeue})
 		}
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
@@ -122,6 +130,11 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 	// 4. Build + SSA Deployment.
 	dep := vllm.BuildDeployment(instance.Name, instance.Namespace, replicas, effective, instance.Spec.PVCName, instance.Spec.HFToken, ownerRef)
 	if err := r.Patch(ctx, dep, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
+		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonApplyFailed, fmt.Sprintf("apply Deployment: %v", err)) {
+			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonApplyFailed,
+				"Failed to apply Deployment %q: %v", dep.Name, err)
+		}
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 		return ctrl.Result{}, errors.Join(fmt.Errorf("apply deployment: %w", err), perr)
 	}
@@ -130,6 +143,11 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 	// 5. Build + SSA Service.
 	svc := vllm.BuildService(instance.Name, instance.Namespace, instance.Spec.NodePort, ownerRef)
 	if err := r.Patch(ctx, svc, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
+		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonApplyFailed, fmt.Sprintf("apply Service: %v", err)) {
+			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonApplyFailed,
+				"Failed to apply Service %q: %v", svc.Name, err)
+		}
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 		return ctrl.Result{}, errors.Join(fmt.Errorf("apply service: %w", err), perr)
 	}
@@ -196,7 +214,12 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 	// 8. Ready condition.
 	ready := avail != nil && avail.Status == corev1.ConditionTrue && instance.Status.ReadyReplicas >= replicas
 	if ready {
-		setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionTrue, vllmv1alpha1.ReasonAllReady, "Deployment available, pods ready")
+		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionTrue, vllmv1alpha1.ReasonAllReady, "Deployment available, pods ready") {
+			// False→True (or first-time-True) transition. One Normal event so
+			// kubectl describe shows the Ready breadcrumb without per-reconcile spam.
+			r.eventf(&instance, corev1.EventTypeNormal, vllmv1alpha1.ReasonAllReady,
+				"Instance ready, endpoint=%s", endpoint)
+		}
 	} else {
 		reason := vllmv1alpha1.ReasonDeploymentUnavailable
 		msg := "Waiting for Deployment to become available"
@@ -226,8 +249,36 @@ func (r *LongContextInstanceReconciler) patchStatus(ctx context.Context, instanc
 	return res, nil
 }
 
-// setLongContextCondition mirrors setVLLMCondition for LongContextInstance.
-func setLongContextCondition(instance *vllmv1alpha1.LongContextInstance, t string, s metav1.ConditionStatus, reason, msg string) {
+// eventf mirrors VLLMInstanceReconciler.eventf — a nil-safe wrapper around
+// EventRecorder.Eventf so tests that build the reconciler without main.go's
+// setup don't NPE when condition transitions fire.
+func (r *LongContextInstanceReconciler) eventf(instance *vllmv1alpha1.LongContextInstance, eventType, reason, format string, args ...interface{}) {
+	if r.Recorder == nil {
+		return
+	}
+	r.Recorder.Eventf(instance, eventType, reason, format, args...)
+}
+
+// setReadyFalse flips Ready to False without emitting an event — the upstream
+// False condition already emitted the Warning, so we don't double-count.
+func (r *LongContextInstanceReconciler) setReadyFalse(instance *vllmv1alpha1.LongContextInstance, reason, msg string) {
+	setLongContextCondition(instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, reason, msg)
+}
+
+// setLongContextCondition mirrors setVLLMCondition for LongContextInstance and
+// returns true when the call materially changed the condition's Status, so
+// callers can gate event emission on actual transitions.
+//
+// Snapshots prior Status before delegating: apimeta.FindStatusCondition
+// returns a pointer into the slice that SetStatusCondition mutates in place,
+// so reading old.Status after the call would give the new value.
+func setLongContextCondition(instance *vllmv1alpha1.LongContextInstance, t string, s metav1.ConditionStatus, reason, msg string) bool {
+	old := apimeta.FindStatusCondition(instance.Status.Conditions, t)
+	priorStatus := metav1.ConditionUnknown
+	hadPrior := old != nil
+	if hadPrior {
+		priorStatus = old.Status
+	}
 	apimeta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               t,
 		Status:             s,
@@ -235,6 +286,7 @@ func setLongContextCondition(instance *vllmv1alpha1.LongContextInstance, t strin
 		Message:            msg,
 		ObservedGeneration: instance.Generation,
 	})
+	return !hadPrior || priorStatus != s
 }
 
 // resolveEndpoint mirrors VLLMInstanceReconciler.resolveEndpoint — see that

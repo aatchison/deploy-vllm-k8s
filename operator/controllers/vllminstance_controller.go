@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,7 +38,8 @@ const (
 // VLLMInstanceReconciler reconciles a VLLMInstance object.
 type VLLMInstanceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=modelpresets,verbs=get;list;watch
@@ -70,9 +72,12 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		var preset vllmv1alpha1.ModelPreset
 		if err := r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.PresetRef.Name}, &preset); err != nil {
 			if apierrors.IsNotFound(err) {
-				setVLLMCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionFalse,
-					vllmv1alpha1.ReasonPresetNotFound, fmt.Sprintf("ModelPreset %q not found in namespace %s", instance.Spec.PresetRef.Name, instance.Namespace))
-				setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPresetNotFound, "Preset not found")
+				if setVLLMCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionFalse,
+					vllmv1alpha1.ReasonPresetNotFound, fmt.Sprintf("ModelPreset %q not found in namespace %s", instance.Spec.PresetRef.Name, instance.Namespace)) {
+					r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonPresetNotFound,
+						"ModelPreset %q not found in namespace %s", instance.Spec.PresetRef.Name, instance.Namespace)
+				}
+				r.setReadyFalse(&instance, vllmv1alpha1.ReasonPresetNotFound, "Preset not found")
 				return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: transientRequeue})
 			}
 			_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
@@ -97,9 +102,12 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	var pvc corev1.PersistentVolumeClaim
 	if err := r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.PVCName}, &pvc); err != nil {
 		if apierrors.IsNotFound(err) {
-			setVLLMCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
-				vllmv1alpha1.ReasonPVCNotFound, fmt.Sprintf("PVC %q not found", instance.Spec.PVCName))
-			setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPVCNotFound, "Storage not ready")
+			if setVLLMCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
+				vllmv1alpha1.ReasonPVCNotFound, fmt.Sprintf("PVC %q not found", instance.Spec.PVCName)) {
+				r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonPVCNotFound,
+					"PVC %q not found", instance.Spec.PVCName)
+			}
+			r.setReadyFalse(&instance, vllmv1alpha1.ReasonPVCNotFound, "Storage not ready")
 			return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: transientRequeue})
 		}
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
@@ -125,6 +133,11 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// 4. Build + SSA Deployment.
 	dep := vllm.BuildDeployment(instance.Name, instance.Namespace, replicas, effective, instance.Spec.PVCName, instance.Spec.HFToken, ownerRef)
 	if err := r.Patch(ctx, dep, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
+		if setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonApplyFailed, fmt.Sprintf("apply Deployment: %v", err)) {
+			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonApplyFailed,
+				"Failed to apply Deployment %q: %v", dep.Name, err)
+		}
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 		return ctrl.Result{}, errors.Join(fmt.Errorf("apply deployment: %w", err), perr)
 	}
@@ -133,6 +146,11 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// 5. Build + SSA Service.
 	svc := vllm.BuildService(instance.Name, instance.Namespace, instance.Spec.NodePort, ownerRef)
 	if err := r.Patch(ctx, svc, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
+		if setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonApplyFailed, fmt.Sprintf("apply Service: %v", err)) {
+			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonApplyFailed,
+				"Failed to apply Service %q: %v", svc.Name, err)
+		}
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 		return ctrl.Result{}, errors.Join(fmt.Errorf("apply service: %w", err), perr)
 	}
@@ -201,7 +219,12 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// 8. Ready condition.
 	ready := avail != nil && avail.Status == corev1.ConditionTrue && instance.Status.ReadyReplicas >= replicas
 	if ready {
-		setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionTrue, vllmv1alpha1.ReasonAllReady, "Deployment available, pods ready")
+		if setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionTrue, vllmv1alpha1.ReasonAllReady, "Deployment available, pods ready") {
+			// False→True (or first-time-True) transition. Emit one Normal event so
+			// kubectl describe shows the Ready breadcrumb without per-reconcile spam.
+			r.eventf(&instance, corev1.EventTypeNormal, vllmv1alpha1.ReasonAllReady,
+				"Instance ready, endpoint=%s", endpoint)
+		}
 	} else {
 		reason := vllmv1alpha1.ReasonDeploymentUnavailable
 		msg := "Waiting for Deployment to become available"
@@ -239,11 +262,45 @@ func (r *VLLMInstanceReconciler) patchStatus(ctx context.Context, instance, orig
 	return res, nil
 }
 
+// eventf emits a Kubernetes Event on the given object via the configured
+// EventRecorder, no-oping if the recorder hasn't been wired (tests that
+// instantiate the reconciler directly without main.go's setup).
+func (r *VLLMInstanceReconciler) eventf(instance *vllmv1alpha1.VLLMInstance, eventType, reason, format string, args ...interface{}) {
+	if r.Recorder == nil {
+		return
+	}
+	r.Recorder.Eventf(instance, eventType, reason, format, args...)
+}
+
+// setReadyFalse is a wrapper that flips Ready to False with the supplied
+// reason+message. It does not emit its own event because the upstream False
+// condition (PresetResolved, StorageReady, …) already emitted the Warning;
+// re-emitting on Ready would double-count the same root cause.
+func (r *VLLMInstanceReconciler) setReadyFalse(instance *vllmv1alpha1.VLLMInstance, reason, msg string) {
+	setVLLMCondition(instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, reason, msg)
+}
+
 // setVLLMCondition is a thin wrapper around apimeta.SetStatusCondition that
 // stamps ObservedGeneration. The upstream helper preserves LastTransitionTime
 // when the status is unchanged and dedupes no-op writes — both properties our
 // previous hand-rolled setCondition lacked.
-func setVLLMCondition(instance *vllmv1alpha1.VLLMInstance, t string, s metav1.ConditionStatus, reason, msg string) {
+//
+// Returns true if the call materially changed the condition's Status (i.e.
+// either the condition is brand new or its Status flipped). Callers use this
+// to gate event emission so kubectl describe shows transitions, not per-
+// reconcile spam from steady-state writes.
+//
+// We snapshot the prior Status into a local before delegating because
+// apimeta.FindStatusCondition returns a pointer into the slice that
+// SetStatusCondition mutates in place — reading old.Status after the call
+// gives the new value, not the prior one.
+func setVLLMCondition(instance *vllmv1alpha1.VLLMInstance, t string, s metav1.ConditionStatus, reason, msg string) bool {
+	old := apimeta.FindStatusCondition(instance.Status.Conditions, t)
+	priorStatus := metav1.ConditionUnknown
+	hadPrior := old != nil
+	if hadPrior {
+		priorStatus = old.Status
+	}
 	apimeta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               t,
 		Status:             s,
@@ -251,6 +308,7 @@ func setVLLMCondition(instance *vllmv1alpha1.VLLMInstance, t string, s metav1.Co
 		Message:            msg,
 		ObservedGeneration: instance.Generation,
 	})
+	return !hadPrior || priorStatus != s
 }
 
 // resolveEndpoint returns http://<nodeIP>:<nodePort>/v1 where nodeIP is an InternalIP of a
