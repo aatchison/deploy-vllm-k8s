@@ -20,6 +20,18 @@ Each GPU has 4 compute slices that MIG carves into isolated partitions. Slices o
 - microk8s with the `gpu` addon enabled
 - NVIDIA GPU Operator with `mig-manager` (included in the microk8s `gpu` addon)
 - A PersistentVolumeClaim (`vllm-models-pvc`) backed by NFS or similar shared storage
+
+> ⚠️ **Security — shared PVC = full cross-tenant trust.** The `vllm-models-pvc`
+> PVC must be **per-tenant or per-trust-zone**. **Never share `vllm-models-pvc`
+> across mutually distrusting namespaces.** Tenant A can replace HuggingFace
+> cache files under `/models/huggingface/hub/` that tenant B loads on next
+> pull, enabling **arbitrary code execution** via poisoned `*.safetensors`
+> weights, poisoned `tokenizer_config.json`, or poisoned custom `modeling_*.py`
+> (HF `trust_remote_code` lineage). For multi-tenant clusters, see
+> [`docs/multi-tenant-deployment.md`](docs/multi-tenant-deployment.md) for the
+> recommended shared-RO + per-tenant-RWO pattern, and set `pvcReadOnly: true`
+> on `VLLMInstance`/`LongContextInstance` for any tenant that consumes a shared
+> cache it should not write.
 - A Secret named `hf-token` in the `vllm` namespace containing your HuggingFace token
 
 ## Quick Start

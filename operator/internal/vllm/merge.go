@@ -18,23 +18,23 @@ const (
 
 	// LMCacheImage is the sidecar image used when KVOffloadBackend == "lmcache".
 	// Pin to a specific release tag; bump via separate PR when upstream releases.
-	LMCacheImage          = "lmcache/lmcache:v0.4.0"
+	LMCacheImage = "lmcache/lmcache:v0.4.0"
 	// LMCacheContainerName is the name of the LMCache sidecar container.
-	LMCacheContainerName  = "lmcache"
+	LMCacheContainerName = "lmcache"
 	// LMCacheDataVolume is the emptyDir volume shared between vLLM and LMCache.
-	LMCacheDataVolume     = "lmcache-data"
+	LMCacheDataVolume = "lmcache-data"
 	// LMCacheDataMount is the mount path for the shared lmcache-data volume.
-	LMCacheDataMount      = "/lmcache-data"
+	LMCacheDataMount = "/lmcache-data"
 	// LMCacheAdminPort is the TCP port LMCache listens on for health/admin.
 	// Must not collide with HTTPPort (8000). LMCache upstream defaults to 9000
 	// for its management interface.
-	LMCacheAdminPort      = 9000
+	LMCacheAdminPort = 9000
 
 	// ManagedByLabelKey is the standard "app.kubernetes.io/managed-by" label
 	// key. Stamped on every operator-applied Deployment + Service so the
 	// controller-runtime informer cache (which is scoped to this label in
 	// main.go, issue #83) actually observes the resources we own.
-	ManagedByLabelKey   = "app.kubernetes.io/managed-by"
+	ManagedByLabelKey = "app.kubernetes.io/managed-by"
 	// ManagedByLabelValue is the value used in the managed-by label. Must
 	// match the selector built in main.go's cache.Options.ByObject map —
 	// changing one without the other silently breaks the cache.
@@ -52,31 +52,49 @@ const (
 // so any path that doesn't set them produces JSON identical to the pre-field
 // shape — keeping the resolved-config-hash stable for existing instances.
 type EffectiveConfig struct {
-	ModelID                 string                   `json:"modelID"`
-	Image                   string                   `json:"image"`
-	ImagePullPolicy         string                   `json:"imagePullPolicy"`
-	MIGResource             string                   `json:"migResource"`
-	MIGResourceCount        int32                    `json:"migResourceCount"`
-	Quantization            string                   `json:"quantization,omitempty"`
-	DType                   string                   `json:"dtype,omitempty"`
-	ServedModelName         string                   `json:"servedModelName,omitempty"`
-	MaxModelLen             int32                    `json:"maxModelLen"`
-	GPUMemoryUtilization    string                   `json:"gpuMemoryUtilization"`
-	TensorParallelSize      int32                    `json:"tensorParallelSize"`
-	EnableAutoToolChoice    bool                     `json:"enableAutoToolChoice"`
-	ToolCallParser          string                   `json:"toolCallParser,omitempty"`
-	SHMSizeLimit            string                   `json:"shmSizeLimit"`
-	ProgressDeadlineSeconds int32                    `json:"progressDeadlineSeconds"`
+	ModelID                 string                    `json:"modelID"`
+	Image                   string                    `json:"image"`
+	ImagePullPolicy         string                    `json:"imagePullPolicy"`
+	MIGResource             string                    `json:"migResource"`
+	MIGResourceCount        int32                     `json:"migResourceCount"`
+	Quantization            string                    `json:"quantization,omitempty"`
+	DType                   string                    `json:"dtype,omitempty"`
+	ServedModelName         string                    `json:"servedModelName,omitempty"`
+	MaxModelLen             int32                     `json:"maxModelLen"`
+	GPUMemoryUtilization    string                    `json:"gpuMemoryUtilization"`
+	TensorParallelSize      int32                     `json:"tensorParallelSize"`
+	EnableAutoToolChoice    bool                      `json:"enableAutoToolChoice"`
+	ToolCallParser          string                    `json:"toolCallParser,omitempty"`
+	SHMSizeLimit            string                    `json:"shmSizeLimit"`
+	ProgressDeadlineSeconds int32                     `json:"progressDeadlineSeconds"`
 	LivenessProbe           vllmv1alpha1.ProbeConfig  `json:"livenessProbe"`
 	ReadinessProbe          vllmv1alpha1.ProbeConfig  `json:"readinessProbe"`
 	StartupProbe            *vllmv1alpha1.ProbeConfig `json:"startupProbe,omitempty"`
-	KVCacheDtype            string                   `json:"kvCacheDtype,omitempty"`
-	EnablePrefixCaching     *bool                    `json:"enablePrefixCaching,omitempty"`
-	CPUOffloadGiB           int32                    `json:"cpuOffloadGiB,omitempty"`
-	MaxNumBatchedTokens     int32                    `json:"maxNumBatchedTokens,omitempty"`
-	EnableChunkedPrefill    bool                     `json:"enableChunkedPrefill,omitempty"`
-	KVOffloadBackend        string                   `json:"kvOffloadBackend,omitempty"`
-	KVOffloadSize           int32                    `json:"kvOffloadSize,omitempty"`
+	KVCacheDtype            string                    `json:"kvCacheDtype,omitempty"`
+	EnablePrefixCaching     *bool                     `json:"enablePrefixCaching,omitempty"`
+	CPUOffloadGiB           int32                     `json:"cpuOffloadGiB,omitempty"`
+	MaxNumBatchedTokens     int32                     `json:"maxNumBatchedTokens,omitempty"`
+	EnableChunkedPrefill    bool                      `json:"enableChunkedPrefill,omitempty"`
+	KVOffloadBackend        string                    `json:"kvOffloadBackend,omitempty"`
+	KVOffloadSize           int32                     `json:"kvOffloadSize,omitempty"`
+	// PVCReadOnly, when true, causes BuildDeployment to mark the /models
+	// VolumeMount readOnly. Default false preserves current write-cache
+	// behavior. omitempty keeps the resolved-config-hash stable for instances
+	// that don't opt in.
+	PVCReadOnly bool `json:"pvcReadOnly,omitempty"`
+}
+
+// HashConfig returns the sha256 hex digest of the canonical JSON encoding of
+// e. Used by callers that mutate an EffectiveConfig after Resolve (e.g. to
+// apply spec-level fields such as PVCReadOnly) and need a fresh hash for the
+// instance status.
+func HashConfig(e EffectiveConfig) (string, error) {
+	buf, err := json.Marshal(e)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(buf)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // Resolve merges overrides onto a preset (may be nil if overrides are complete)
@@ -170,6 +188,9 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		}
 		if overrides.EnableChunkedPrefill != nil {
 			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
+		}
+		if overrides.PVCReadOnly != nil {
+			e.PVCReadOnly = *overrides.PVCReadOnly
 		}
 	}
 
@@ -312,6 +333,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.KVOffloadSize != nil {
 			e.KVOffloadSize = *overrides.KVOffloadSize
+		}
+		if overrides.PVCReadOnly != nil {
+			e.PVCReadOnly = *overrides.PVCReadOnly
 		}
 	}
 

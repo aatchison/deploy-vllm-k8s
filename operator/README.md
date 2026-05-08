@@ -23,6 +23,10 @@ microk8s kubectl apply -f ../00-base.yaml
 microk8s kubectl apply -f config/storage/pv-nfs.yaml       # NFS (RWX)
 # or
 microk8s kubectl apply -f config/storage/pvc-local.yaml    # local hostpath (RWO)
+# Multi-tenant clusters: see config/storage/pvc-shared-readonly.yaml and
+# ../docs/multi-tenant-deployment.md for the shared-RO + per-tenant-RWO
+# pattern. Sharing a writable PVC across tenants enables cross-tenant model
+# poisoning (arbitrary code execution via poisoned weights / modeling_*.py).
 
 # 4. Build image, load into microk8s, install CRDs, deploy operator
 make image-load
@@ -53,6 +57,18 @@ gh api -H "Accept: application/vnd.github+json" \
 #    image: ghcr.io/aatchison/vllm-operator@sha256:<digest>
 # 3. Commit and PR.
 ```
+
+## Multi-tenant security
+
+> ⚠️ **The `vllm-models-pvc` PVC must be per-tenant or per-trust-zone.** Never
+> share `vllm-models-pvc` across mutually distrusting namespaces — tenant A
+> can replace HuggingFace cache files in `/models` that tenant B loads on next
+> pull, enabling arbitrary code execution via poisoned weights or
+> `modeling_*.py`. For shared model caches, mount the cache PVC read-only by
+> setting `pvcReadOnly: true` on the `VLLMInstance` / `LongContextInstance`
+> spec, and pair it with a per-tenant RWO PVC for downloads. See
+> [`../docs/multi-tenant-deployment.md`](../docs/multi-tenant-deployment.md) and
+> [`config/storage/pvc-shared-readonly.yaml`](config/storage/pvc-shared-readonly.yaml).
 
 ## Security operations
 

@@ -75,17 +75,17 @@ func TestResolveOverridesReplace(t *testing.T) {
 
 func TestResolveDefaultsWhenOverridesOnly(t *testing.T) {
 	o := &vllmv1alpha1.ModelConfigOverrides{
-		ModelID:              strPtr("custom/model"),
-		MIGResource:          strPtr("nvidia.com/mig-4g.96gb"),
-		MIGResourceCount:     int32Ptr(1),
-		MaxModelLen:          int32Ptr(16384),
-		GPUMemoryUtilization: strPtr("0.80"),
-		SHMSizeLimit:         strPtr("4Gi"),
+		ModelID:                 strPtr("custom/model"),
+		MIGResource:             strPtr("nvidia.com/mig-4g.96gb"),
+		MIGResourceCount:        int32Ptr(1),
+		MaxModelLen:             int32Ptr(16384),
+		GPUMemoryUtilization:    strPtr("0.80"),
+		SHMSizeLimit:            strPtr("4Gi"),
 		ProgressDeadlineSeconds: int32Ptr(300),
-		TensorParallelSize:   int32Ptr(1),
-		LivenessProbe:        &vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 30, PeriodSeconds: 30, FailureThreshold: 10},
-		ReadinessProbe:       &vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 10, PeriodSeconds: 5, FailureThreshold: 6},
-		EnableAutoToolChoice: boolPtr(false),
+		TensorParallelSize:      int32Ptr(1),
+		LivenessProbe:           &vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 30, PeriodSeconds: 30, FailureThreshold: 10},
+		ReadinessProbe:          &vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 10, PeriodSeconds: 5, FailureThreshold: 6},
+		EnableAutoToolChoice:    boolPtr(false),
 	}
 	e, _, err := Resolve(nil, o)
 	if err != nil {
@@ -811,9 +811,9 @@ func TestResolveStandardHashUnchangedByKVOffloadFields(t *testing.T) {
 
 func TestSanitizeLabel(t *testing.T) {
 	cases := map[string]string{
-		"google/gemma-4-E2B-it":  "google-gemma-4-E2B-it",
-		"nvidia/Gemma-4-31B-IT":  "nvidia-Gemma-4-31B-IT",
-		"some@weird!value":       "some-weird-value",
+		"google/gemma-4-E2B-it": "google-gemma-4-E2B-it",
+		"nvidia/Gemma-4-31B-IT": "nvidia-Gemma-4-31B-IT",
+		"some@weird!value":      "some-weird-value",
 	}
 	for in, want := range cases {
 		if got := SanitizeLabel(in); got != want {
@@ -1184,18 +1184,18 @@ func TestBuildDeploymentHFTokenMount(t *testing.T) {
 // constructing test Deployments.
 func baseEffectiveConfig() EffectiveConfig {
 	return EffectiveConfig{
-		ModelID:              "test/model",
-		Image:                "docker.io/library/vllm-test:local",
-		ImagePullPolicy:      "Never",
-		MIGResource:          "nvidia.com/mig-2g.48gb",
-		MIGResourceCount:     1,
-		MaxModelLen:          32768,
-		GPUMemoryUtilization: "0.90",
-		TensorParallelSize:   1,
-		SHMSizeLimit:         "8Gi",
+		ModelID:                 "test/model",
+		Image:                   "docker.io/library/vllm-test:local",
+		ImagePullPolicy:         "Never",
+		MIGResource:             "nvidia.com/mig-2g.48gb",
+		MIGResourceCount:        1,
+		MaxModelLen:             32768,
+		GPUMemoryUtilization:    "0.90",
+		TensorParallelSize:      1,
+		SHMSizeLimit:            "8Gi",
 		ProgressDeadlineSeconds: 600,
-		LivenessProbe:  vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 60, PeriodSeconds: 30, FailureThreshold: 10},
-		ReadinessProbe: vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 30, PeriodSeconds: 10, FailureThreshold: 6},
+		LivenessProbe:           vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 60, PeriodSeconds: 30, FailureThreshold: 10},
+		ReadinessProbe:          vllmv1alpha1.ProbeConfig{InitialDelaySeconds: 30, PeriodSeconds: 10, FailureThreshold: 6},
 	}
 }
 

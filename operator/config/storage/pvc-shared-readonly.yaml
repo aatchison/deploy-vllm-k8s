@@ -1,0 +1,92 @@
+---
+# Multi-tenant pattern: shared read-only model cache + per-tenant RWO scratch.
+# See docs/multi-tenant-deployment.md for the threat model and rationale.
+#
+# This file is a TEMPLATE — `# CHANGE ME` markers point at the values to
+# customize per cluster.
+#
+# Trust model
+# -----------
+# • The shared cache PVC (`vllm-models-shared-ro`) is seeded out-of-band by a
+#   cluster admin under a controlled ServiceAccount, then consumed read-only
+#   by every tenant. Tenants cannot mutate the cache, so tenant A cannot
+#   poison weights or `modeling_*.py` that tenant B loads.
+# • Per-tenant scratch PVCs (`vllm-models-<tenant>-rw`) are RWO, namespaced
+#   per tenant, and mounted writable so tenant pods can download
+#   tenant-private models that the shared cache does not carry.
+#
+# Apply with:
+#   kubectl apply -f operator/config/storage/pvc-shared-readonly.yaml
+#
+# Then deploy a VLLMInstance referencing the shared cache with `pvcReadOnly:
+# true` (sample at the bottom of this file).
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: vllm-models-shared-ro-pv
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    # ── CHANGE ME ────────────────────────────────────────────────
+    server: "YOUR_NFS_SERVER_IP"
+    path: "/your/nfs/export/path"
+  mountOptions:
+    - nfsvers=4.1
+    - ro
+    - rsize=262144
+    - wsize=262144
+---
+# Cluster-scoped shared cache. Every tenant namespace creates a PVC pointing
+# at this PV (one per namespace; PVCs are namespaced).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-models-shared-ro
+  # ── CHANGE ME — repeat this PVC manifest for every tenant namespace ─
+  namespace: tenant-a
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 2Ti
+  volumeName: vllm-models-shared-ro-pv
+---
+# Per-tenant RWO scratch for downloads tenant A wants but the shared cache
+# does not carry. Backed by the default storage class (microk8s-hostpath in
+# this example; swap for the appropriate class on your cluster).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-models-tenant-a-rw
+  namespace: tenant-a
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: microk8s-hostpath
+---
+# Sample VLLMInstance referencing the shared read-only cache. The
+# `pvcReadOnly: true` field renders the /models VolumeMount with
+# readOnly=true — a kernel-enforced barrier against cross-tenant poisoning
+# that complements the access-mode enforcement on the PV.
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: VLLMInstance
+metadata:
+  name: e2b
+  namespace: tenant-a
+spec:
+  presetRef:
+    name: gemma-4-e2b
+  pvcName: vllm-models-shared-ro
+  pvcReadOnly: true
+  hfToken:
+    name: hf-token
+    key: token
