@@ -38,12 +38,13 @@ jobs:
       run:
         working-directory: operator
     steps:
+      # Always check out so the `operator/` working-directory exists, even
+      # when we're about to short-circuit. The no-op echo runs after this.
+      - uses: actions/checkout@v4
+
       - name: No-op when operator unchanged
         if: needs.changes.outputs.operator != 'true'
         run: echo "No operator changes; skipping generated-code check."
-
-      - uses: actions/checkout@v4
-        if: needs.changes.outputs.operator == 'true'
 
       - uses: actions/setup-go@v5
         if: needs.changes.outputs.operator == 'true'
@@ -85,12 +86,13 @@ jobs:
     env:
       KUBECONFORM_VERSION: v0.6.4
     steps:
+      # Checkout has no defaults.working-directory issue here, but kept
+      # unconditional for symmetry with `generated` above.
+      - uses: actions/checkout@v4
+
       - name: No-op when manifests unchanged
         if: needs.changes.outputs.manifests != 'true'
         run: echo "No manifest changes; skipping kubeconform validation."
-
-      - uses: actions/checkout@v4
-        if: needs.changes.outputs.manifests == 'true'
 
       - name: Install kubeconform
         if: needs.changes.outputs.manifests == 'true'
