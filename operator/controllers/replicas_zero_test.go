@@ -259,10 +259,9 @@ func TestResolveEndpoint_NoReadyEndpointReturnsEmpty(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(slice, node).Build()
 	r := &VLLMInstanceReconciler{Client: cl, Scheme: scheme}
 
-	// Opt-in to the NodeIP form so we exercise the EndpointSlice fallback
-	// path; the in-cluster DNS default doesn't consult EndpointSlices.
-	exposeNodeIP := map[string]string{ExposeNodeIPAnnotation: "true"}
-	if got := r.resolveEndpoint(context.Background(), "ns", "vi", 30000, exposeNodeIP); got != "" {
+	// resolveEndpoint is the EndpointSlice -> Node-InternalIP path used only
+	// when spec.serviceType == NodePort.
+	if got := r.resolveEndpoint(context.Background(), "ns", "vi", 30000); got != "" {
 		t.Errorf("expected empty endpoint when no Ready endpoint; got %q (the dropped node fallback returned a phantom URL)", got)
 	}
 }
@@ -321,9 +320,9 @@ func TestResolveEndpoint_StableSortAcrossShuffledEndpoints(t *testing.T) {
 			).
 			Build()
 		r := &VLLMInstanceReconciler{Client: cl, Scheme: scheme}
-		// Opt-in to the legacy NodeIP form to exercise the deterministic-sort
-		// behaviour; the default in-cluster-DNS form bypasses EndpointSlice.
-		return r.resolveEndpoint(context.Background(), "ns", "vi", 30000, map[string]string{ExposeNodeIPAnnotation: "true"})
+		// resolveEndpoint is exercised here because it owns the deterministic
+		// EndpointSlice sort that backs the spec.serviceType == NodePort path.
+		return r.resolveEndpoint(context.Background(), "ns", "vi", 30000)
 	}
 
 	got1 := build(epsForward)

@@ -35,12 +35,19 @@ type ModelConfigOverrides struct {
 	// +kubebuilder:validation:Minimum=0
 	MaxNumBatchedTokens  *int32 `json:"maxNumBatchedTokens,omitempty"`
 	EnableChunkedPrefill *bool  `json:"enableChunkedPrefill,omitempty"`
+
 	// PVCReadOnly, when true, mounts the model PVC at /models with
 	// readOnly=true. Set this for any tenant that should consume — but never
 	// poison — a shared model cache. See docs/multi-tenant-deployment.md and
 	// the security warning in the README. Default false preserves current
 	// single-tenant write-cache behavior.
 	PVCReadOnly *bool `json:"pvcReadOnly,omitempty"`
+
+	// APIKey, when set, overrides the instance-level apiKey. Same semantics as
+	// VLLMInstanceSpec.APIKey: secret value is projected as a read-only file at
+	// /var/run/vllm/api-key and passed to vLLM via --api-key. See
+	// VLLMInstanceSpec.APIKey for the file-vs-env-var rationale.
+	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
 }
 
 // VLLMInstanceSpec is the desired state of a single vLLM deployment.
@@ -60,9 +67,40 @@ type VLLMInstanceSpec struct {
 
 	// NodePort to expose on every cluster node. Must be in 30000-32767.
 	// If omitted, Kubernetes auto-assigns a free port from the NodePort range.
+	// Honored only when serviceType is NodePort; ignored for ClusterIP and
+	// LoadBalancer.
 	// +kubebuilder:validation:Minimum=30000
 	// +kubebuilder:validation:Maximum=32767
 	NodePort *int32 `json:"nodePort,omitempty"`
+
+	// ServiceType selects the Kubernetes Service type fronting the vLLM pod.
+	// Defaults to ClusterIP — the safe-by-default for production deployments
+	// behind an Ingress/LoadBalancer with TLS termination. NodePort is provided
+	// for dev clusters that need a host-port shortcut, and LoadBalancer for
+	// cloud-managed external IPs (charges apply on most providers).
+	//
+	// BREAKING (issue #75): prior to this field existing, Services were always
+	// rendered as NodePort. Existing manifests that rely on the auto-NodePort
+	// exposure must set serviceType: NodePort explicitly.
+	// +kubebuilder:default=ClusterIP
+	// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+
+	// APIKey, when set, enables per-request authentication on the vLLM HTTP
+	// endpoint. The referenced Secret key is projected into the pod as a
+	// read-only file (mode 0400) and passed to vLLM via --api-key. Clients
+	// must then send `Authorization: Bearer <token>` on every request.
+	//
+	// Opt-in by design: an unauthenticated endpoint behind a strict
+	// NetworkPolicy and ClusterIP Service is still a defensible posture for
+	// trusted-tenant clusters. Setting this field is the right call any time
+	// the endpoint is reachable from outside the cluster (Ingress,
+	// LoadBalancer, NodePort).
+	//
+	// File-mount form (not env var) follows the same rationale as HFToken:
+	// env vars leak via `kubectl describe`, /proc/PID/environ, and Python
+	// tracebacks printing os.environ.
+	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
 
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1

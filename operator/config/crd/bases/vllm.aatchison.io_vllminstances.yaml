@@ -58,6 +58,43 @@ spec:
           spec:
             description: VLLMInstanceSpec is the desired state of a single vLLM deployment.
             properties:
+              apiKey:
+                description: |-
+                  APIKey, when set, enables per-request authentication on the vLLM HTTP
+                  endpoint. The referenced Secret key is projected into the pod as a
+                  read-only file (mode 0400) and passed to vLLM via --api-key. Clients
+                  must then send `Authorization: Bearer <token>` on every request.
+
+                  Opt-in by design: an unauthenticated endpoint behind a strict
+                  NetworkPolicy and ClusterIP Service is still a defensible posture for
+                  trusted-tenant clusters. Setting this field is the right call any time
+                  the endpoint is reachable from outside the cluster (Ingress,
+                  LoadBalancer, NodePort).
+
+                  File-mount form (not env var) follows the same rationale as HFToken:
+                  env vars leak via `kubectl describe`, /proc/PID/environ, and Python
+                  tracebacks printing os.environ.
+                properties:
+                  key:
+                    description: The key of the secret to select from.  Must be a
+                      valid secret key.
+                    type: string
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                  optional:
+                    description: Specify whether the Secret or its key must be defined
+                    type: boolean
+                required:
+                - key
+                type: object
+                x-kubernetes-map-type: atomic
               hfToken:
                 description: SecretKeySelector selects a key of a Secret.
                 properties:
@@ -88,6 +125,8 @@ spec:
                 description: |-
                   NodePort to expose on every cluster node. Must be in 30000-32767.
                   If omitted, Kubernetes auto-assigns a free port from the NodePort range.
+                  Honored only when serviceType is NodePort; ignored for ClusterIP and
+                  LoadBalancer.
                 format: int32
                 maximum: 32767
                 minimum: 30000
@@ -97,6 +136,34 @@ spec:
                   ModelConfigOverrides mirrors ModelPresetSpec field-for-field; every field is a pointer —
                   non-nil means override. Probe overrides replace the whole ProbeConfig struct.
                 properties:
+                  apiKey:
+                    description: |-
+                      APIKey, when set, overrides the instance-level apiKey. Same semantics as
+                      VLLMInstanceSpec.APIKey: secret value is projected as a read-only file at
+                      /var/run/vllm/api-key and passed to vLLM via --api-key. See
+                      VLLMInstanceSpec.APIKey for the file-vs-env-var rationale.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
                   dtype:
                     type: string
                   enableAutoToolChoice:
@@ -244,6 +311,23 @@ spec:
                 maximum: 1
                 minimum: 0
                 type: integer
+              serviceType:
+                default: ClusterIP
+                description: |-
+                  ServiceType selects the Kubernetes Service type fronting the vLLM pod.
+                  Defaults to ClusterIP — the safe-by-default for production deployments
+                  behind an Ingress/LoadBalancer with TLS termination. NodePort is provided
+                  for dev clusters that need a host-port shortcut, and LoadBalancer for
+                  cloud-managed external IPs (charges apply on most providers).
+
+                  BREAKING (issue #75): prior to this field existing, Services were always
+                  rendered as NodePort. Existing manifests that rely on the auto-NodePort
+                  exposure must set serviceType: NodePort explicitly.
+                enum:
+                - ClusterIP
+                - NodePort
+                - LoadBalancer
+                type: string
             required:
             - hfToken
             - pvcName

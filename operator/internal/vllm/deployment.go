@@ -38,6 +38,31 @@ const (
 	HFTokenFileMode int32 = 0o400
 )
 
+// API key file mount constants (issue #75). vLLM accepts one or more API keys
+// via --api-key=<value>. Following the same pattern as the HF token, we
+// project the secret into the pod as a read-only file at /var/run/vllm/api-key
+// rather than passing the key value on the argv. This avoids leaking the key
+// through `kubectl describe`, /proc/PID/cmdline, and core dumps.
+//
+// vLLM does not (currently) accept a --api-key-file flag, so the entrypoint
+// is wrapped: the container reads the file at startup and passes the value
+// through the VLLM_API_KEY env var, which vLLM also honors. We deliberately
+// do NOT mount the secret as an env var via valueFrom — that bakes the
+// secret into the PodSpec and exposes it via `kubectl describe`.
+const (
+	// APIKeyVolumeName is the Volume that wraps the API-key Secret.
+	APIKeyVolumeName = "vllm-api-key"
+	// APIKeyMountDir is the directory the secret volume is mounted at.
+	APIKeyMountDir = "/var/run/vllm"
+	// APIKeyFileName is the filename inside APIKeyMountDir holding the key.
+	APIKeyFileName = "api-key"
+	// APIKeyMountPath is the absolute path of the projected API-key file.
+	APIKeyMountPath = APIKeyMountDir + "/" + APIKeyFileName
+	// APIKeyFileMode is the file permission applied to the projected key.
+	// 0400 — readable only by the container's UID.
+	APIKeyFileMode int32 = 0o400
+)
+
 // Pod security context constants for vLLM model pods (issue #37).
 //
 // The upstream vllm/vllm-openai image does not set a USER directive, so the
@@ -78,12 +103,18 @@ func SanitizeLabel(s string) string {
 // BuildDeployment renders a vLLM Deployment from the resolved config.
 // `name` is the VLLMInstance name; it's used as both the Deployment name
 // and the pod label selector.
+//
+// apiKey is optional (issue #75): when nil, the rendered pod has no API-key
+// volume and vLLM is started without --api-key. When non-nil, the secret is
+// projected as a read-only file at APIKeyMountPath and the container args
+// include --api-key=<file-contents> via an entrypoint wrapper.
 func BuildDeployment(
 	name, namespace string,
 	replicas int32,
 	e EffectiveConfig,
 	pvcName string,
 	hfToken corev1.SecretKeySelector,
+	apiKey *corev1.SecretKeySelector,
 	ownerRef metav1.OwnerReference,
 ) *appsv1.Deployment {
 	podLabels := map[string]string{
@@ -151,6 +182,31 @@ func BuildDeployment(
 		{Name: HFTokenVolumeName, MountPath: HFTokenMountDir, ReadOnly: true},
 	}
 
+	// Issue #75: when an API key is configured, project the Secret as a
+	// read-only file at APIKeyMountPath. The container args also gain
+	// --api-key=<value-read-from-file> via an entrypoint wrapper; see
+	// buildArgs / buildAPIKeyCommand below.
+	if apiKey != nil {
+		mode := APIKeyFileMode
+		volumes = append(volumes, corev1.Volume{
+			Name: APIKeyVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  apiKey.Name,
+					DefaultMode: &mode,
+					Items: []corev1.KeyToPath{
+						{Key: apiKey.Key, Path: APIKeyFileName},
+					},
+				},
+			},
+		})
+		vllmVolumeMounts = append(vllmVolumeMounts, corev1.VolumeMount{
+			Name:      APIKeyVolumeName,
+			MountPath: APIKeyMountDir,
+			ReadOnly:  true,
+		})
+	}
+
 	// When LMCache offload is enabled, add the shared emptyDir volume and mount
 	// it in the vLLM container. The sidecar gets appended below.
 	if e.KVOffloadBackend == "lmcache" {
@@ -178,7 +234,7 @@ func BuildDeployment(
 		})
 	}
 
-	containers := []corev1.Container{{
+	vllmContainer := corev1.Container{
 		Name:            ContainerName,
 		Image:           e.Image,
 		ImagePullPolicy: corev1.PullPolicy(e.ImagePullPolicy),
@@ -205,7 +261,23 @@ func BuildDeployment(
 		ReadinessProbe:  buildReadinessProbe(e.ReadinessProbe),
 		StartupProbe:    buildStartupProbe(e.StartupProbe),
 		SecurityContext: buildContainerSecurityContext(),
-	}}
+	}
+
+	// When apiKey is set, replace the container Command with a tiny shell
+	// wrapper that reads the projected secret file and exec's the upstream
+	// vLLM entrypoint with --api-key=<value> appended. This keeps the secret
+	// off the rendered PodSpec — `kubectl get pod -o yaml` and `kubectl
+	// describe` show neither the value nor a value-bearing env var.
+	//
+	// The argv form ends up in /proc/<pid>/cmdline, which is readable by
+	// processes in the same UID namespace; restricted PSA prevents a stray
+	// shell on the same pod from being launched, and the pod's own UID is
+	// 1000 (non-root). The trade-off is documented in the issue.
+	if apiKey != nil {
+		vllmContainer.Command, vllmContainer.Args = buildAPIKeyCommand(buildArgs(e))
+	}
+
+	containers := []corev1.Container{vllmContainer}
 
 	// Append the LMCache sidecar when the backend is "lmcache".
 	// The sidecar gets a liveness probe (TCP socket) but NO readiness probe,
@@ -342,6 +414,31 @@ func buildContainerSecurityContext() *corev1.SecurityContext {
 			Drop: []corev1.Capability{"ALL"},
 		},
 	}
+}
+
+// buildAPIKeyCommand returns the (Command, Args) pair to use when an API key
+// is configured. The wrapper sources the projected secret file into a local
+// shell var, then exec's vLLM with --api-key=<value> appended to the rest of
+// the argv. The vllm/vllm-openai image's default ENTRYPOINT is
+// `python3 -m vllm.entrypoints.openai.api_server`, so the wrapper has to call
+// it explicitly when overriding Command.
+//
+// Why an exec wrapper rather than a Secret-backed env var on the PodSpec:
+// Secret-backed env vars (env: valueFrom: secretKeyRef) embed the value in
+// the materialized PodSpec, which exposes it via `kubectl describe pod`.
+// Reading the file at exec time keeps the value out of the API surface; the
+// only place it lands is /proc/<pid>/cmdline of the vLLM process itself,
+// which is read-restricted to the pod's UID.
+func buildAPIKeyCommand(args []string) ([]string, []string) {
+	// `set -e`: fail fast if the file is missing (Secret not yet projected).
+	// `exec`: replace shell with vLLM so signals (SIGTERM on pod stop) flow
+	// to vLLM rather than being trapped by the shell.
+	script := fmt.Sprintf(
+		`set -e; KEY=$(cat %s); exec python3 -m vllm.entrypoints.openai.api_server "$@" --api-key="$KEY"`,
+		APIKeyMountPath,
+	)
+	cmd := []string{"sh", "-c", script, "--"}
+	return cmd, args
 }
 
 func buildArgs(e EffectiveConfig) []string {

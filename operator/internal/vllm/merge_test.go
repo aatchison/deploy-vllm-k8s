@@ -1200,7 +1200,9 @@ func baseEffectiveConfig() EffectiveConfig {
 }
 
 // buildTestDeployment is a thin wrapper around BuildDeployment that supplies
-// the boilerplate name/namespace/ownerRef values needed by tests.
+// the boilerplate name/namespace/ownerRef values needed by tests. The apiKey
+// param defaults to nil; tests that exercise the API-key path call
+// BuildDeployment directly.
 func buildTestDeployment(e EffectiveConfig) *appsv1.Deployment {
 	return BuildDeployment(
 		"test-instance",
@@ -1212,6 +1214,7 @@ func buildTestDeployment(e EffectiveConfig) *appsv1.Deployment {
 			LocalObjectReference: corev1.LocalObjectReference{Name: "hf-secret"},
 			Key:                  "token",
 		},
+		nil, // apiKey
 		metav1.OwnerReference{},
 	)
 }

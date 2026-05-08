@@ -34,7 +34,7 @@ func TestBuildDeploymentManagedByLabel(t *testing.T) {
 // reconciler's "re-read after SSA-apply to learn the actual NodePort" step
 // returns IsNotFound forever and the requeue-loop never converges.
 func TestBuildServiceManagedByLabel(t *testing.T) {
-	svc := BuildService("test-instance", "default", nil, metav1.OwnerReference{})
+	svc := BuildService("test-instance", "default", corev1.ServiceTypeClusterIP, nil, metav1.OwnerReference{})
 
 	got := svc.Labels[ManagedByLabelKey]
 	if got != ManagedByLabelValue {
