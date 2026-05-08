@@ -1,22 +1,28 @@
+version: "2"
+
 run:
   timeout: 5m
-  go: "1.22"
+  go: "1.26"
 
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-
-issues:
-  exclude-rules:
-    # controller-runtime reconciler returns from generated code hit this
-    - path: controllers/
-      linters: [unused]
+  settings:
+    errcheck:
+      check-type-assertions: true
+    staticcheck:
+      # v2 lint enables more checks than v1.57 ran by default. Restore the v1
+      # behavior: keep SA*/S*/U*/QF* (real-bug categories) and skip stylecheck (ST*).
+      # Also suppress SA1019 during the controller-runtime v0.17 -> v0.24 bump —
+      # several APIs were deprecated (client.Apply, scheme.Builder, mgr.GetEventRecorderFor,
+      # res.Requeue) and each migration is tracked in its own follow-up.
+      checks: ["SA*", "S*", "U*", "QF*", "-SA1019"]
+  exclusions:
+    rules:
+      # controller-runtime reconciler returns from generated code hit this
+      - path: controllers/
+        linters: [unused]
