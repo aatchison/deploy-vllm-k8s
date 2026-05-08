@@ -1,0 +1,18 @@
+# Optional ServiceMonitor for Prometheus Operator (issue #40). Not applied by
+# the default `make deploy` target — apply via `make deploy-monitoring` only on
+# clusters where the Prometheus Operator CRDs are installed (otherwise kubectl
+# will reject this with "no matches for kind ServiceMonitor").
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm-operator
+  namespace: vllm-system
+  labels:
+    control-plane: vllm-operator
+spec:
+  selector:
+    matchLabels:
+      control-plane: vllm-operator
+  endpoints:
+    - port: metrics
+      interval: 30s
