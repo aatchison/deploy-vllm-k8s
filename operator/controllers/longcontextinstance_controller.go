@@ -126,6 +126,11 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 	// Re-read the Service to get the actual NodePort.
 	var actualSvc corev1.Service
 	if err := r.Get(ctx, client.ObjectKey{Namespace: svc.Namespace, Name: svc.Name}, &actualSvc); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Informer cache hasn't observed the Service we just SSA-applied yet.
+			// Requeue; the Owns(&Service) watch will trigger another reconcile once the cache catches up.
+			return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+		}
 		return ctrl.Result{}, fmt.Errorf("get service: %w", err)
 	}
 	var actualNodePort int32
