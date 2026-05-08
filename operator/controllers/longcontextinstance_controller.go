@@ -217,8 +217,11 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: time.Minute})
 	}
 
-	// 7a. Endpoint.
-	endpoint := r.resolveEndpoint(ctx, instance.Namespace, svc.Name, actualNodePort)
+	// 7a. Endpoint — default to in-cluster Service DNS so we don't leak
+	// Node InternalIPs into a namespace-readable status field (issue #78).
+	// Cluster admins can opt instances into the legacy NodeIP form via
+	// ExposeNodeIPAnnotation.
+	endpoint := r.resolveEndpoint(ctx, instance.Namespace, svc.Name, actualNodePort, instance.Annotations)
 	instance.Status.Endpoint = endpoint
 
 	// 8. Ready condition.
@@ -300,9 +303,13 @@ func setLongContextCondition(instance *vllmv1alpha1.LongContextInstance, t strin
 }
 
 // resolveEndpoint mirrors VLLMInstanceReconciler.resolveEndpoint — see that
-// function's doc for the no-Ready-endpoint behaviour and the deterministic-sort
-// rationale.
-func (r *LongContextInstanceReconciler) resolveEndpoint(ctx context.Context, namespace, svcName string, nodePort int32) string {
+// function's doc for the default in-cluster-DNS behaviour, the
+// ExposeNodeIPAnnotation opt-in, the no-Ready-endpoint return value, and the
+// deterministic-sort rationale.
+func (r *LongContextInstanceReconciler) resolveEndpoint(ctx context.Context, namespace, svcName string, nodePort int32, annotations map[string]string) string {
+	if annotations[ExposeNodeIPAnnotation] != "true" {
+		return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d/v1", svcName, namespace, vllm.HTTPPort)
+	}
 	var slices discoveryv1.EndpointSliceList
 	if err := r.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{discoveryv1.LabelServiceName: svcName}); err != nil {
 		return ""
