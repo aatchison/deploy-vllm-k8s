@@ -38,6 +38,33 @@ const (
 	HFTokenFileMode int32 = 0o400
 )
 
+// Pod security context constants for vLLM model pods (issue #37).
+//
+// The upstream vllm/vllm-openai image does not set a USER directive, so the
+// default container UID is 0 (root). PodSecurity admission "restricted" mode
+// rejects that. We force a non-root UID at the pod level. Choice rationale:
+//   - 1000 is the conventional first non-system user on most Linux distros
+//     and is what vLLM's own base images use for the unprivileged path.
+//   - vLLM's runtime does not require root: model weights live under
+//     /models (PVC, made writable via fsGroup), and the OpenAI server binds
+//     to port 8000 (>1024, no CAP_NET_BIND_SERVICE needed).
+//   - fsGroup matches runAsUser so the PVC mount is owned by the running
+//     user and HF_HOME (/models/huggingface) is writable for weight cache.
+//
+// If a future preset needs a different UID (e.g. a hardened base image that
+// pre-creates user 65532), expose it via the preset CRD and override here.
+const (
+	// VLLMRunAsUser is the UID used for the vLLM container and fsGroup.
+	VLLMRunAsUser int64 = 1000
+	// VLLMFsGroup is the supplemental group applied to mounted volumes so
+	// the running user can read/write the PVC. Matches VLLMRunAsUser.
+	VLLMFsGroup int64 = 1000
+	// LMCacheDataDefaultSizeLimitGiB is the fallback emptyDir sizeLimit (in
+	// GiB) for the lmcache-data volume when KVOffloadSize is unset (== 0).
+	// 16 GiB matches the LMCache preset default documented in BENCHMARKS.
+	LMCacheDataDefaultSizeLimitGiB int64 = 16
+)
+
 // SanitizeLabel converts a model ID (e.g. "google/gemma-4-e2b-it") into a
 // label-safe string. Replaces any invalid char with '-'.
 func SanitizeLabel(s string) string {
@@ -119,10 +146,22 @@ func BuildDeployment(
 	// When LMCache offload is enabled, add the shared emptyDir volume and mount
 	// it in the vLLM container. The sidecar gets appended below.
 	if e.KVOffloadBackend == "lmcache" {
+		// Cap the emptyDir to the configured cache budget (KVOffloadSize, GiB).
+		// Without a sizeLimit, an over-eager LMCache could fill the node's
+		// ephemeral storage and trip the kubelet eviction manager — taking
+		// down every other pod on the node. Default to 16 GiB when the preset
+		// leaves KVOffloadSize at 0 (let LMCache pick its own kv_buffer_size).
+		sizeGiB := int64(e.KVOffloadSize)
+		if sizeGiB <= 0 {
+			sizeGiB = LMCacheDataDefaultSizeLimitGiB
+		}
+		lmcacheSize := resource.MustParse(fmt.Sprintf("%dGi", sizeGiB))
 		volumes = append(volumes, corev1.Volume{
 			Name: LMCacheDataVolume,
 			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					SizeLimit: &lmcacheSize,
+				},
 			},
 		})
 		vllmVolumeMounts = append(vllmVolumeMounts, corev1.VolumeMount{
@@ -153,10 +192,11 @@ func BuildDeployment(
 				corev1.ResourceName(e.MIGResource): migQty,
 			},
 		},
-		VolumeMounts:   vllmVolumeMounts,
-		LivenessProbe:  buildLivenessProbe(e.LivenessProbe),
-		ReadinessProbe: buildReadinessProbe(e.ReadinessProbe),
-		StartupProbe:   buildStartupProbe(e.StartupProbe),
+		VolumeMounts:    vllmVolumeMounts,
+		LivenessProbe:   buildLivenessProbe(e.LivenessProbe),
+		ReadinessProbe:  buildReadinessProbe(e.ReadinessProbe),
+		StartupProbe:    buildStartupProbe(e.StartupProbe),
+		SecurityContext: buildContainerSecurityContext(),
 	}}
 
 	// Append the LMCache sidecar when the backend is "lmcache".
@@ -195,8 +235,9 @@ func BuildDeployment(
 						Operator: corev1.TolerationOpExists,
 						Effect:   corev1.TaintEffectNoSchedule,
 					}},
-					Volumes:    volumes,
-					Containers: containers,
+					SecurityContext: buildPodSecurityContext(),
+					Volumes:         volumes,
+					Containers:      containers,
 				},
 			},
 		},
@@ -234,6 +275,44 @@ func buildLMCacheSidecar() corev1.Container {
 			InitialDelaySeconds: 10,
 			PeriodSeconds:       30,
 			FailureThreshold:    5,
+		},
+		SecurityContext: buildContainerSecurityContext(),
+	}
+}
+
+// buildPodSecurityContext returns the Pod-level securityContext applied to
+// every vLLM model pod. Issue #37: the upstream vllm/vllm-openai image runs
+// as root by default, which is rejected by the "restricted" PodSecurity
+// admission profile. Forcing runAsNonRoot + an explicit UID + fsGroup makes
+// the pod admissible while keeping /models writable for HF weight cache.
+//
+// readOnlyRootFilesystem is intentionally NOT set: vLLM writes to /tmp and
+// other dirs at runtime (CUDA caches, torch JIT). Hardening that further is
+// tracked separately and would require an emptyDir mounted at /tmp.
+func buildPodSecurityContext() *corev1.PodSecurityContext {
+	runAsNonRoot := true
+	uid := VLLMRunAsUser
+	gid := VLLMFsGroup
+	return &corev1.PodSecurityContext{
+		RunAsNonRoot: &runAsNonRoot,
+		RunAsUser:    &uid,
+		FSGroup:      &gid,
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+}
+
+// buildContainerSecurityContext returns the container-level securityContext
+// applied to both the vLLM container and the LMCache sidecar (issue #37).
+// AllowPrivilegeEscalation:false + drop ALL capabilities are required by the
+// "restricted" PodSecurity admission profile.
+func buildContainerSecurityContext() *corev1.SecurityContext {
+	allowPrivEsc := false
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &allowPrivEsc,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
 		},
 	}
 }

@@ -29,6 +29,18 @@ spec:
         control-plane: vllm-operator
     spec:
       serviceAccountName: vllm-operator
+      # Pod-level security context (issue #37). Explicit UID/GID prevents a
+      # silent regression if the operator base image swap-in ever changes the
+      # default. fsGroup matches so any future emptyDir / projected volume is
+      # writable by the running user. seccompProfile=RuntimeDefault is required
+      # by the "restricted" PodSecurity admission profile.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: manager
           image: ghcr.io/aatchison/vllm-operator:latest
@@ -54,9 +66,12 @@ spec:
             requests:
               cpu: 50m
               memory: 128Mi
+          # Container-level hardening (issue #37). The operator binary is
+          # statically built and writes nothing under /, so readOnlyRootFilesystem
+          # is safe here (unlike the vLLM model pods which write to /tmp).
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
-            runAsNonRoot: true
       terminationGracePeriodSeconds: 10
