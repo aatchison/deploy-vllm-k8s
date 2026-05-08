@@ -18,6 +18,26 @@ import (
 
 var labelSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 
+// HF token file mount constants. The token is projected into the pod as a
+// read-only file rather than an env var: env vars leak through `kubectl
+// describe`, /proc/<pid>/environ, vLLM tracebacks that print os.environ,
+// and forked workers that inherit the parent env. A file mount avoids all
+// of those vectors.
+const (
+	// HFTokenVolumeName is the Volume that wraps the HF token Secret.
+	HFTokenVolumeName = "hf-token"
+	// HFTokenMountDir is the directory the secret volume is mounted at.
+	HFTokenMountDir = "/var/run/hf"
+	// HFTokenFileName is the filename inside HFTokenMountDir holding the token.
+	HFTokenFileName = "token"
+	// HFTokenMountPath is the absolute path the token file ends up at,
+	// which is also the value of HF_TOKEN_PATH inside the container.
+	HFTokenMountPath = HFTokenMountDir + "/" + HFTokenFileName
+	// HFTokenFileMode is the file permission applied to the projected token.
+	// 0400 — readable only by the container's UID, no group/world bits.
+	HFTokenFileMode int32 = 0o400
+)
+
 // SanitizeLabel converts a model ID (e.g. "google/gemma-4-e2b-it") into a
 // label-safe string. Replaces any invalid char with '-'.
 func SanitizeLabel(s string) string {
@@ -51,6 +71,7 @@ func BuildDeployment(
 
 	shmSize := resource.MustParse(e.SHMSizeLimit)
 	migQty := resource.MustParse(strconv.Itoa(int(e.MIGResourceCount)))
+	hfTokenMode := HFTokenFileMode
 
 	volumes := []corev1.Volume{
 		{
@@ -70,11 +91,29 @@ func BuildDeployment(
 				},
 			},
 		},
+		{
+			// Project the HF token as a read-only file (mode 0400) rather
+			// than an env var. Env vars leak via `kubectl describe`,
+			// /proc/PID/environ, and Python tracebacks printing os.environ.
+			// The file form is read by huggingface_hub via HF_TOKEN_PATH
+			// (set on the container env below).
+			Name: HFTokenVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  hfToken.Name,
+					DefaultMode: &hfTokenMode,
+					Items: []corev1.KeyToPath{
+						{Key: hfToken.Key, Path: HFTokenFileName},
+					},
+				},
+			},
+		},
 	}
 
 	vllmVolumeMounts := []corev1.VolumeMount{
 		{Name: "models", MountPath: "/models"},
 		{Name: "dshm", MountPath: "/dev/shm"},
+		{Name: HFTokenVolumeName, MountPath: HFTokenMountDir, ReadOnly: true},
 	}
 
 	// When LMCache offload is enabled, add the shared emptyDir volume and mount
@@ -103,12 +142,10 @@ func BuildDeployment(
 			Protocol:      corev1.ProtocolTCP,
 		}},
 		Env: []corev1.EnvVar{
-			{
-				Name: "HF_TOKEN",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &hfToken,
-				},
-			},
+			// HF_TOKEN_PATH points huggingface_hub at the projected secret
+			// file. Do NOT set HF_TOKEN — that re-introduces the env-var
+			// leak this volume mount exists to avoid.
+			{Name: "HF_TOKEN_PATH", Value: HFTokenMountPath},
 			{Name: "HF_HOME", Value: DefaultHFHome},
 		},
 		Resources: corev1.ResourceRequirements{
