@@ -1,0 +1,24 @@
+# Hand-authored — DO NOT regenerate.
+#
+# `make manifests` invokes controller-gen with
+# `output:rbac:artifacts:config=config/rbac`, which only manages files it
+# produces (currently `role.yaml`); it leaves sibling files in this
+# directory untouched. This binding wires the generated ClusterRole
+# `vllm-operator-role` to the operator's ServiceAccount declared in
+# `config/manager/manager.yaml`.
+#
+# Required on hardened RBAC clusters. On microk8s the default profile
+# grants implicit cluster-admin to ServiceAccounts, which masked the gap
+# until issue #23 was filed.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vllm-operator-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vllm-operator-role
+subjects:
+  - kind: ServiceAccount
+    name: vllm-operator
+    namespace: vllm-system

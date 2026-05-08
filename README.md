@@ -37,6 +37,15 @@ microk8s kubectl wait --for=condition=complete job/mig-setup -n kube-system --ti
 
 # 4. Install CRDs and deploy the operator
 cd operator && make install && make deploy
+# `make deploy` applies, in order:
+#   - Namespace        vllm-system
+#   - ServiceAccount   vllm-operator (in vllm-system)
+#   - ClusterRole      vllm-operator-role
+#   - ClusterRoleBinding vllm-operator-rolebinding
+#   - Deployment       vllm-operator
+# The ClusterRoleBinding is required on hardened RBAC clusters; microk8s
+# grants implicit cluster-admin to ServiceAccounts so the operator runs
+# even without it.
 
 # 5. Apply presets
 microk8s kubectl apply -f operator/config/samples/presets/
