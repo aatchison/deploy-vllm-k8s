@@ -25,61 +25,84 @@ jobs:
               - ".github/workflows/pr-validate.yaml"
 
   # ── Go: generated files are up-to-date ────────────────────────────────────
+  # NOTE: this job ALWAYS runs so the "Generated code is up-to-date" required
+  # status context always reports. When `changes.outputs.operator != 'true'`
+  # the work is skipped at the step level and the job reports success.
+  # Don't add a job-level `if:` here — `master` branch protection treats a
+  # SKIPPED required job as not-satisfied.
   generated:
     name: Generated code is up-to-date
     needs: changes
-    if: needs.changes.outputs.operator == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: operator
     steps:
+      # Always check out so the `operator/` working-directory exists, even
+      # when we're about to short-circuit. The no-op echo runs after this.
       - uses: actions/checkout@v4
 
+      - name: No-op when operator unchanged
+        if: needs.changes.outputs.operator != 'true'
+        run: echo "No operator changes; skipping generated-code check."
+
       - uses: actions/setup-go@v5
+        if: needs.changes.outputs.operator == 'true'
         with:
           go-version-file: operator/go.mod
           cache-dependency-path: operator/go.sum
 
       - name: Install controller-gen
+        if: needs.changes.outputs.operator == 'true'
         run: GOBIN=/usr/local/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
 
       - name: Check go mod tidy
+        if: needs.changes.outputs.operator == 'true'
         run: |
           go mod tidy
           git diff --exit-code go.mod go.sum \
             || { echo "::error::go.mod/go.sum are not tidy — run 'go mod tidy' and commit the result"; exit 1; }
 
       - name: Check deepcopy is current
+        if: needs.changes.outputs.operator == 'true'
         run: |
           make generate
           git diff --exit-code \
             || { echo "::error::Generated deepcopy is stale — run 'make generate' and commit the result"; exit 1; }
 
       - name: Check CRD/RBAC manifests are current
+        if: needs.changes.outputs.operator == 'true'
         run: |
           make manifests
           git diff --exit-code \
             || { echo "::error::Generated CRD/RBAC manifests are stale — run 'make manifests' and commit the result"; exit 1; }
 
   # ── YAML: Kubernetes manifests are valid ──────────────────────────────────
+  # Same always-run pattern as `generated` above — see the comment there.
   yaml-validate:
     name: Kubernetes manifests are valid
     needs: changes
-    if: needs.changes.outputs.manifests == 'true'
     runs-on: ubuntu-latest
     env:
       KUBECONFORM_VERSION: v0.6.4
     steps:
+      # Checkout has no defaults.working-directory issue here, but kept
+      # unconditional for symmetry with `generated` above.
       - uses: actions/checkout@v4
 
+      - name: No-op when manifests unchanged
+        if: needs.changes.outputs.manifests != 'true'
+        run: echo "No manifest changes; skipping kubeconform validation."
+
       - name: Install kubeconform
+        if: needs.changes.outputs.manifests == 'true'
         run: |
           curl -sSfL \
             "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
             | tar -xz -C /usr/local/bin kubeconform
 
       - name: Validate sample manifests
+        if: needs.changes.outputs.manifests == 'true'
         run: |
           kubeconform \
             -kubernetes-version 1.29.0 \
@@ -97,6 +120,7 @@ jobs:
             operator/config/rbac/role.yaml
 
       - name: Validate CRD bases (if generated)
+        if: needs.changes.outputs.manifests == 'true'
         # CRDs are themselves CustomResourceDefinition resources whose meta-schema
         # isn't always in kubeconform's default catalog at every k8s version, so
         # `-ignore-missing-schemas` is required (matches the sample-manifests step
