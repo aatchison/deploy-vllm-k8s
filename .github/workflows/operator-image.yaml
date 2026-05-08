@@ -7,10 +7,12 @@ on:
     paths:
       - "operator/**"
       - ".github/workflows/operator-image.yaml"
+  # No `paths:` filter on pull_request — the `Build & test` job is a required
+  # status check on `master`, and a path-filtered workflow that doesn't trigger
+  # leaves the context unreported, which branch protection treats as
+  # not-satisfied. The job itself short-circuits below when no operator
+  # files changed, so docs-only PRs still get a fast SUCCESS.
   pull_request:
-    paths:
-      - "operator/**"
-      - ".github/workflows/operator-image.yaml"
 
 env:
   REGISTRY: ghcr.io
@@ -26,21 +28,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            operator:
+              - "operator/**"
+              - ".github/workflows/operator-image.yaml"
+
+      - name: No-op when operator unchanged
+        if: steps.filter.outputs.operator != 'true'
+        run: echo "No operator changes; skipping build/test."
+
       - uses: actions/setup-go@v5
+        if: steps.filter.outputs.operator == 'true'
         with:
           go-version-file: operator/go.mod
           cache-dependency-path: operator/go.sum
 
       - name: Install controller-gen
+        if: steps.filter.outputs.operator == 'true'
         run: GOBIN=/usr/local/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
 
       - name: Lint
+        if: steps.filter.outputs.operator == 'true'
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.57.2
           working-directory: operator
 
-      - run: make generate fmt vet test
+      - if: steps.filter.outputs.operator == 'true'
+        run: make generate fmt vet test
 
   publish:
     name: Publish image
