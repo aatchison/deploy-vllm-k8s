@@ -34,9 +34,25 @@ make apply-samples
 microk8s kubectl wait -n vllm vllminstance/e2b --for=condition=Ready --timeout=600s
 ```
 
-## Makefile targets
+## Image publishing
 
-CI publishes the operator image to `ghcr.io/aatchison/vllm-operator` on every push to `master` that touches `operator/`. Tags: short SHA + `latest`.
+CI publishes the operator image to `ghcr.io/aatchison/vllm-operator` on every push to `master` that touches `operator/`. Tags: short SHA only (the floating `latest` tag was dropped in PR #62 because it lets a deploy silently roll forward across breaking changes). `manager.yaml` pins to a digest; re-pin after each release. See issue #64 for rationale.
+
+### Release flow (re-pinning manager.yaml)
+
+After cutting a new operator image, update the digest in `config/manager/manager.yaml` so `make deploy` rolls forward:
+
+```bash
+# 1. Find the digest of the latest master build
+gh api -H "Accept: application/vnd.github+json" \
+  /users/aatchison/packages/container/vllm-operator/versions \
+  | jq -r '.[] | select(.metadata.container.tags | length > 0) | "\(.metadata.container.tags[0])  \(.name)"' \
+  | head
+
+# 2. Replace the image: line in operator/config/manager/manager.yaml with
+#    image: ghcr.io/aatchison/vllm-operator@sha256:<digest>
+# 3. Commit and PR.
+```
 
 ## Makefile targets
 

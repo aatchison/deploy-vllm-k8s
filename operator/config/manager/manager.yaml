@@ -43,7 +43,13 @@ spec:
           type: RuntimeDefault
       containers:
         - name: manager
-          image: ghcr.io/aatchison/vllm-operator:latest
+          # Pinned to a digest so manager.yaml always resolves to a known
+          # build. PR #62 dropped the floating `latest` tag from the image
+          # publish workflow, so a tag pin is no longer available; digest
+          # pinning is also the security-parity choice (issue #43 pins the
+          # base image by digest for the same reason). Maintainers must
+          # re-pin this on every release — see issue #64.
+          image: ghcr.io/aatchison/vllm-operator@sha256:b5eb7bae95769e444488f1af564247fd6b7752aa1b6ac992dfa27d8d1534f953
           imagePullPolicy: Always
           args:
             - --leader-elect=false
