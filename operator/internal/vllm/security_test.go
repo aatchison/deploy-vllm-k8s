@@ -44,6 +44,52 @@ func TestBuildDeploymentPodSecurityContext(t *testing.T) {
 	}
 }
 
+// TestBuildDeploymentNoServiceAccountToken is the regression guard for issue
+// #74: the upstream vllm/vllm-openai container makes zero kube API calls, but
+// the namespace's default ServiceAccount token would otherwise be auto-mounted
+// at /var/run/secrets/kubernetes.io/serviceaccount/token. On microk8s the
+// default SA is often cluster-admin, so an RCE inside vLLM (poisoned weights,
+// custom modeling code, future CVE) would inherit a usable kube API token and
+// defeat the HF_TOKEN file-mount hardening from #48.
+//
+// The rendered Pod must have AutomountServiceAccountToken explicitly set to
+// false. The default (nil) is unsafe — kubelet treats nil as "automount" — so
+// the test asserts both that the pointer is non-nil and that it dereferences
+// to false.
+func TestBuildDeploymentNoServiceAccountToken(t *testing.T) {
+	dep := buildTestDeployment(baseEffectiveConfig())
+	got := dep.Spec.Template.Spec.AutomountServiceAccountToken
+	if got == nil {
+		t.Fatal("AutomountServiceAccountToken is nil; kubelet treats this as automount=true and will mount the default SA token")
+	}
+	if *got {
+		t.Errorf("AutomountServiceAccountToken: got true, want false (issue #74)")
+	}
+	// The pod must also not pin a non-default ServiceAccountName: leaving it
+	// empty + automount=false is the safest combination (no token, no SA
+	// binding to escalate against).
+	if sa := dep.Spec.Template.Spec.ServiceAccountName; sa != "" {
+		t.Errorf("ServiceAccountName: got %q, want empty (issue #74 — no SA binding for model pods)", sa)
+	}
+}
+
+// TestBuildDeploymentNoServiceAccountTokenWithLMCache is the LMCache-sidecar
+// variant of the #74 regression: AutomountServiceAccountToken is a pod-level
+// field, so it must remain false even when the sidecar is appended to the
+// containers list. A sidecar pulling in a default-SA token would re-introduce
+// the same attack surface in the same pod.
+func TestBuildDeploymentNoServiceAccountTokenWithLMCache(t *testing.T) {
+	e := baseEffectiveConfig()
+	e.KVOffloadBackend = "lmcache"
+	e.KVOffloadSize = 32
+
+	dep := buildTestDeployment(e)
+	got := dep.Spec.Template.Spec.AutomountServiceAccountToken
+	if got == nil || *got {
+		t.Errorf("AutomountServiceAccountToken with LMCache sidecar: got %v, want pointer-to-false (issue #74)", got)
+	}
+}
+
 // TestBuildDeploymentVLLMContainerSecurityContext verifies the vLLM container
 // itself has AllowPrivilegeEscalation=false and drops ALL capabilities — both
 // requirements of the restricted PodSecurity admission profile.

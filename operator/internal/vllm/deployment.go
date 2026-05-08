@@ -99,6 +99,9 @@ func BuildDeployment(
 	shmSize := resource.MustParse(e.SHMSizeLimit)
 	migQty := resource.MustParse(strconv.Itoa(int(e.MIGResourceCount)))
 	hfTokenMode := HFTokenFileMode
+	// Issue #74: explicitly disable SA token automount on the pod (see
+	// AutomountServiceAccountToken field below for the full rationale).
+	automountSAToken := false
 
 	volumes := []corev1.Volume{
 		{
@@ -235,9 +238,19 @@ func BuildDeployment(
 						Operator: corev1.TolerationOpExists,
 						Effect:   corev1.TaintEffectNoSchedule,
 					}},
-					SecurityContext: buildPodSecurityContext(),
-					Volumes:         volumes,
-					Containers:      containers,
+					// Issue #74: do NOT mount the namespace's default
+					// ServiceAccount token into vLLM model pods. The model
+					// container makes zero kube API calls, but a default-SA
+					// token (often cluster-admin on microk8s) would let any
+					// vLLM compromise (RCE via poisoned weights, custom
+					// modeling code, future CVE) impersonate the SA against
+					// kube-apiserver. Disabling the automount removes that
+					// vector entirely and complements the HF_TOKEN file
+					// mount from #48.
+					AutomountServiceAccountToken: &automountSAToken,
+					SecurityContext:              buildPodSecurityContext(),
+					Volumes:                      volumes,
+					Containers:                   containers,
 				},
 			},
 		},
