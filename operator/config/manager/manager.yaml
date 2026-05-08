@@ -73,13 +73,32 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
+          # Runtime tuning for Go's GC + scheduler under cgroup limits
+          # (issue #82). GOMEMLIMIT is ~90% of the memory limit so the GC
+          # has headroom to react before the kernel OOM-kills the pod —
+          # controller-runtime's informer cache can spike during relist.
+          # GOMAXPROCS is set automatically at process start by the
+          # go.uber.org/automaxprocs blank import in main.go (it reads the
+          # cgroup CPU quota and clamps GOMAXPROCS to ceil(cpu_limit)),
+          # which avoids scheduler thrash on large nodes where the default
+          # would be runtime.NumCPU() (e.g. 32 on a 32-core host vs the
+          # 1 we actually have headroom for).
+          env:
+            - name: GOMEMLIMIT
+              value: "230MiB"
+          # requests = limits → Guaranteed QoS class, so the kubelet won't
+          # evict the operator under node memory/CPU pressure. The numbers
+          # match the previous limits; the previous Burstable config (50m/128Mi
+          # request, 500m/256Mi limit) made the operator a first-tier
+          # eviction target during fleet incidents — exactly when the
+          # control loop needs to keep running.
           resources:
             limits:
               cpu: 500m
               memory: 256Mi
             requests:
-              cpu: 50m
-              memory: 128Mi
+              cpu: 500m
+              memory: 256Mi
           # Container-level hardening (issue #37). The operator binary is
           # statically built and writes nothing under /, so readOnlyRootFilesystem
           # is safe here (unlike the vLLM model pods which write to /tmp).
@@ -88,4 +107,9 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
-      terminationGracePeriodSeconds: 10
+      # 30s matches controller-runtime's default leader-lease release
+      # cycle (LeaseDuration=15s + RenewDeadline=10s + buffer). 10s was too
+      # tight: SIGTERM could fire before the manager finished releasing
+      # the Lease, leaving the standby waiting a full LeaseDuration before
+      # taking over. Issue #82.
+      terminationGracePeriodSeconds: 30

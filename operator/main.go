@@ -6,6 +6,13 @@ import (
 	"os"
 	"time"
 
+	// Blank-import automaxprocs so GOMAXPROCS is clamped to the cgroup CPU
+	// quota at process start. Without this, on a large node (e.g. 32 cores)
+	// with a 500m CPU limit, the Go runtime would default GOMAXPROCS to
+	// runtime.NumCPU() (32) and oversubscribe the GC mark workers and
+	// scheduler — wasting ~10-30% CPU under load. Issue #82.
+	_ "go.uber.org/automaxprocs"
+
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
