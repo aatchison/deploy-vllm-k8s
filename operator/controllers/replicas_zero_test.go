@@ -155,13 +155,12 @@ func TestReconcile_ReplicasZero_ReadyFalseAndEmptyEndpoint(t *testing.T) {
 	}
 
 	cond := apimeta.FindStatusCondition(got.Status.Conditions, vllmv1alpha1.ConditionReady)
-	if cond == nil {
+	switch {
+	case cond == nil:
 		t.Fatal("Ready condition missing")
-	}
-	if cond.Status != metav1.ConditionFalse {
+	case cond.Status != metav1.ConditionFalse:
 		t.Errorf("Ready: got %q, want False", cond.Status)
-	}
-	if cond.Reason != vllmv1alpha1.ReasonScaledToZero {
+	case cond.Reason != vllmv1alpha1.ReasonScaledToZero:
 		t.Errorf("Ready.Reason: got %q, want %q", cond.Reason, vllmv1alpha1.ReasonScaledToZero)
 	}
 }
@@ -216,10 +215,10 @@ func TestReconcileLongContext_ReplicasZero_ReadyFalseAndEmptyEndpoint(t *testing
 		t.Errorf("status.endpoint must be cleared on replicas=0; got %q", got.Status.Endpoint)
 	}
 	cond := apimeta.FindStatusCondition(got.Status.Conditions, vllmv1alpha1.ConditionReady)
-	if cond == nil {
+	switch {
+	case cond == nil:
 		t.Fatal("Ready condition missing")
-	}
-	if cond.Status != metav1.ConditionFalse || cond.Reason != vllmv1alpha1.ReasonScaledToZero {
+	case cond.Status != metav1.ConditionFalse || cond.Reason != vllmv1alpha1.ReasonScaledToZero:
 		t.Errorf("Ready: got %q/%q, want False/%s", cond.Status, cond.Reason, vllmv1alpha1.ReasonScaledToZero)
 	}
 }
