@@ -1,22 +1,21 @@
+version: "2"
+
 run:
   timeout: 5m
-  go: "1.22"
+  go: "1.26"
 
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-
-issues:
-  exclude-rules:
-    # controller-runtime reconciler returns from generated code hit this
-    - path: controllers/
-      linters: [unused]
+  settings:
+    errcheck:
+      check-type-assertions: true
+  exclusions:
+    rules:
+      # controller-runtime reconciler returns from generated code hit this
+      - path: controllers/
+        linters: [unused]
