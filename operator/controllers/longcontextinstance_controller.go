@@ -17,8 +17,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	vllmv1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
@@ -290,12 +292,17 @@ func (r *LongContextInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Watches(
 			&vllmv1alpha1.LongContextPreset{},
 			handler.EnqueueRequestsFromMapFunc(r.mapPresetToInstances),
-			builder.WithPredicates(),
+			// See VLLMInstanceReconciler.SetupWithManager for the rationale on
+			// GenerationChangedPredicate here.
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Watches(
 			&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.mapNodeToInstances),
+			builder.WithPredicates(nodeWatchPredicate()),
 		).
+		// See VLLMInstanceReconciler.SetupWithManager for rationale.
+		WithOptions(controller.Options{MaxConcurrentReconciles: 4}).
 		Complete(r)
 }
 
