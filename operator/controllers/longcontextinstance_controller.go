@@ -129,7 +129,12 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// 4. Build + SSA Deployment.
 	dep := vllm.BuildDeployment(instance.Name, instance.Namespace, replicas, effective, instance.Spec.PVCName, instance.Spec.HFToken, ownerRef)
-	if err := r.Patch(ctx, dep, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
+	depAC, err := toApplyConfiguration(dep)
+	if err != nil {
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(fmt.Errorf("encode deployment apply: %w", err), perr)
+	}
+	if err := r.Apply(ctx, depAC, fieldOwner, client.ForceOwnership); err != nil {
 		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
 			vllmv1alpha1.ReasonApplyFailed, fmt.Sprintf("apply Deployment: %v", err)) {
 			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonApplyFailed,
@@ -142,7 +147,12 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// 5. Build + SSA Service.
 	svc := vllm.BuildService(instance.Name, instance.Namespace, instance.Spec.NodePort, ownerRef)
-	if err := r.Patch(ctx, svc, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
+	svcAC, err := toApplyConfiguration(svc)
+	if err != nil {
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(fmt.Errorf("encode service apply: %w", err), perr)
+	}
+	if err := r.Apply(ctx, svcAC, fieldOwner, client.ForceOwnership); err != nil {
 		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
 			vllmv1alpha1.ReasonApplyFailed, fmt.Sprintf("apply Service: %v", err)) {
 			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonApplyFailed,

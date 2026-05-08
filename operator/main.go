@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -15,6 +20,20 @@ import (
 	vllmv1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
 	"github.com/aatchison/deploy-vllm-k8s/operator/controllers"
 )
+
+// eventBroadcasterRunnable adapts a record.EventBroadcaster onto
+// manager.Runnable so the broadcaster shuts down cleanly when the manager's
+// stop context is cancelled. Without this, dropped events would race the
+// process exit.
+type eventBroadcasterRunnable struct {
+	broadcaster record.EventBroadcaster
+}
+
+func (e eventBroadcasterRunnable) Start(ctx context.Context) error {
+	<-ctx.Done()
+	e.broadcaster.Shutdown()
+	return nil
+}
 
 var rtscheme = clientgoscheme.Scheme
 
@@ -65,7 +84,36 @@ func main() {
 
 	// Single Recorder shared by both reconcilers — events surface in
 	// `kubectl describe` keyed by the source name we pass here.
-	recorder := mgr.GetEventRecorderFor("vllm-operator")
+	//
+	// We wire the broadcaster manually instead of calling
+	// mgr.GetEventRecorderFor: controller-runtime v0.24 deprecated that
+	// helper in favor of mgr.GetEventRecorder, but the new method returns
+	// k8s.io/client-go/tools/events.EventRecorder — a different interface
+	// with a 7-arg Eventf shape (regarding/related/type/reason/action/note/args).
+	// Reshaping every Eventf callsite (and the FakeRecorder-based tests)
+	// would be a much larger surface change than this issue warrants. The
+	// underlying record.EventBroadcaster + EventRecorder types are NOT
+	// deprecated, so building one directly off the manager's REST config
+	// gives the reconcilers the same record.EventRecorder behaviour they
+	// already depend on, without tripping SA1019.
+	clientset, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		ctrl.Log.Error(err, "unable to build clientset for event recorder")
+		os.Exit(1)
+	}
+	broadcaster := record.NewBroadcaster()
+	// Mirror controller-runtime's own GetEventRecorderFor wiring: forward
+	// events to apiserver via the core/v1 events sink and tee a structured
+	// log line for any in-process observers (controller logs).
+	broadcaster.StartStructuredLogging(0)
+	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
+	// Stop the broadcaster on manager shutdown so in-flight events drain
+	// instead of getting cut off mid-write.
+	if err := mgr.Add(eventBroadcasterRunnable{broadcaster: broadcaster}); err != nil {
+		ctrl.Log.Error(err, "unable to register event broadcaster shutdown")
+		os.Exit(1)
+	}
+	recorder := broadcaster.NewRecorder(rtscheme, corev1.EventSource{Component: "vllm-operator"})
 
 	if err := (&controllers.VLLMInstanceReconciler{
 		Client:   mgr.GetClient(),

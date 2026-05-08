@@ -184,10 +184,14 @@ func TestPatchStatus_SurfacesConflictAsError(t *testing.T) {
 	if !apierrors.IsConflict(err) {
 		t.Errorf("expected IsConflict error, got: %v", err)
 	}
-	// Confirm the previous bug shape is gone: Result{Requeue: true} with nil
-	// error is what the buggy code returned to bypass backoff.
-	if res.Requeue {
-		t.Errorf("Result.Requeue must be false on error path so workqueue backoff applies; got %+v", res)
+	// Confirm the previous bug shape is gone: Result{Requeue: true} (the
+	// pre-fix behaviour) bypassed workqueue backoff. The Requeue field is
+	// deprecated in controller-runtime v0.24, so the only "please re-run"
+	// signal worth asserting on is RequeueAfter. A non-zero value here would
+	// also bypass backoff (the workqueue treats it as an explicit retry
+	// request), so the invariant is RequeueAfter == 0 on the error path.
+	if res.RequeueAfter > 0 {
+		t.Errorf("Result must be zero on error path so workqueue backoff applies; got %+v", res)
 	}
 }
 
@@ -230,7 +234,11 @@ func TestLongContextPatchStatus_SurfacesConflictAsError(t *testing.T) {
 	if !apierrors.IsConflict(err) {
 		t.Errorf("expected IsConflict error, got: %v", err)
 	}
-	if res.Requeue {
-		t.Errorf("Result.Requeue must be false on error path; got %+v", res)
+	// Same regression invariant as TestVLLMPatchStatus_SurfacesConflictAsError:
+	// RequeueAfter must be zero on the error path, otherwise the workqueue's
+	// exponential backoff is bypassed (the deprecated Requeue bool would have
+	// the same effect, but it is no longer accessed).
+	if res.RequeueAfter > 0 {
+		t.Errorf("Result must be zero on error path; got %+v", res)
 	}
 }
