@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,6 +57,9 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		return ctrl.Result{}, err
 	}
+	// Capture the original for status patching; mutations below stage in-memory
+	// changes that we flush via Status().Patch(MergeFrom(orig)) at every exit.
+	orig := instance.DeepCopy()
 
 	// 1. Resolve preset + overrides.
 	var presetSpec *vllmv1alpha1.ModelPresetSpec
@@ -62,24 +67,26 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		var preset vllmv1alpha1.ModelPreset
 		if err := r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.PresetRef.Name}, &preset); err != nil {
 			if apierrors.IsNotFound(err) {
-				r.setCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionFalse,
+				setVLLMCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionFalse,
 					vllmv1alpha1.ReasonPresetNotFound, fmt.Sprintf("ModelPreset %q not found in namespace %s", instance.Spec.PresetRef.Name, instance.Namespace))
-				r.setCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPresetNotFound, "Preset not found")
-				return r.patchStatus(ctx, &instance, ctrl.Result{RequeueAfter: transientRequeue})
+				setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPresetNotFound, "Preset not found")
+				return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: transientRequeue})
 			}
-			return ctrl.Result{}, err
+			_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+			return ctrl.Result{}, errors.Join(err, perr)
 		}
 		presetSpec = &preset.Spec
-		r.setCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionTrue,
+		setVLLMCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionTrue,
 			vllmv1alpha1.ReasonPresetFound, fmt.Sprintf("Using ModelPreset %q", instance.Spec.PresetRef.Name))
 	} else {
-		r.setCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionTrue,
+		setVLLMCondition(&instance, vllmv1alpha1.ConditionPresetResolved, metav1.ConditionTrue,
 			vllmv1alpha1.ReasonOverridesUsed, "No presetRef; using overrides")
 	}
 
 	effective, hash, err := vllm.Resolve(presetSpec, instance.Spec.Overrides)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("resolve config: %w", err)
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(fmt.Errorf("resolve config: %w", err), perr)
 	}
 	instance.Status.ResolvedConfigHash = hash
 
@@ -87,14 +94,15 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	var pvc corev1.PersistentVolumeClaim
 	if err := r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.PVCName}, &pvc); err != nil {
 		if apierrors.IsNotFound(err) {
-			r.setCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
+			setVLLMCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
 				vllmv1alpha1.ReasonPVCNotFound, fmt.Sprintf("PVC %q not found", instance.Spec.PVCName))
-			r.setCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPVCNotFound, "Storage not ready")
-			return r.patchStatus(ctx, &instance, ctrl.Result{RequeueAfter: transientRequeue})
+			setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonPVCNotFound, "Storage not ready")
+			return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: transientRequeue})
 		}
-		return ctrl.Result{}, err
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(err, perr)
 	}
-	r.setCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionTrue, vllmv1alpha1.ReasonPVCFound, "PVC exists")
+	setVLLMCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionTrue, vllmv1alpha1.ReasonPVCFound, "PVC exists")
 
 	// 3. Desired replicas.
 	replicas := int32(1)
@@ -114,14 +122,16 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// 4. Build + SSA Deployment.
 	dep := vllm.BuildDeployment(instance.Name, instance.Namespace, replicas, effective, instance.Spec.PVCName, instance.Spec.HFToken, ownerRef)
 	if err := r.Patch(ctx, dep, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
-		return ctrl.Result{}, fmt.Errorf("apply deployment: %w", err)
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(fmt.Errorf("apply deployment: %w", err), perr)
 	}
 	instance.Status.DeploymentName = dep.Name
 
 	// 5. Build + SSA Service.
 	svc := vllm.BuildService(instance.Name, instance.Namespace, instance.Spec.NodePort, ownerRef)
 	if err := r.Patch(ctx, svc, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
-		return ctrl.Result{}, fmt.Errorf("apply service: %w", err)
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(fmt.Errorf("apply service: %w", err), perr)
 	}
 	instance.Status.ServiceName = svc.Name
 
@@ -130,10 +140,12 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err := r.Get(ctx, client.ObjectKey{Namespace: svc.Namespace, Name: svc.Name}, &actualSvc); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Informer cache hasn't observed the Service we just SSA-applied yet.
-			// Requeue; the Owns(&Service) watch will trigger another reconcile once the cache catches up.
-			return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+			// Flush staged status, then requeue; the Owns(&Service) watch will
+			// trigger another reconcile once the cache catches up.
+			return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: 1 * time.Second})
 		}
-		return ctrl.Result{}, fmt.Errorf("get service: %w", err)
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(fmt.Errorf("get service: %w", err), perr)
 	}
 	var actualNodePort int32
 	if len(actualSvc.Spec.Ports) > 0 {
@@ -145,10 +157,12 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err := r.Get(ctx, client.ObjectKey{Namespace: dep.Namespace, Name: dep.Name}, &observed); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Informer cache hasn't observed the Deployment we just SSA-applied yet.
-			// Requeue; the Owns(&Deployment) watch will trigger another reconcile.
-			return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+			// Flush staged status, then requeue; the Owns(&Deployment) watch will
+			// trigger another reconcile.
+			return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: 1 * time.Second})
 		}
-		return ctrl.Result{}, fmt.Errorf("get deployment: %w", err)
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(fmt.Errorf("get deployment: %w", err), perr)
 	}
 	if observed.Status.ObservedGeneration >= observed.Generation {
 		instance.Status.ReadyReplicas = observed.Status.ReadyReplicas
@@ -158,10 +172,10 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	prog := conditionFromDeployment(observed.Status.Conditions, appsv1.DeploymentProgressing)
 
 	if avail != nil {
-		r.setCondition(&instance, vllmv1alpha1.ConditionDeploymentAvail, metav1.ConditionStatus(avail.Status), avail.Reason, avail.Message)
+		setVLLMCondition(&instance, vllmv1alpha1.ConditionDeploymentAvail, metav1.ConditionStatus(avail.Status), avail.Reason, avail.Message)
 	}
 	if prog != nil {
-		r.setCondition(&instance, vllmv1alpha1.ConditionProgressing, metav1.ConditionStatus(prog.Status), prog.Reason, prog.Message)
+		setVLLMCondition(&instance, vllmv1alpha1.ConditionProgressing, metav1.ConditionStatus(prog.Status), prog.Reason, prog.Message)
 	}
 
 	// 7. Endpoint — use the actual assigned NodePort.
@@ -171,7 +185,7 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// 8. Ready condition.
 	ready := avail != nil && avail.Status == corev1.ConditionTrue && instance.Status.ReadyReplicas >= replicas
 	if ready {
-		r.setCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionTrue, vllmv1alpha1.ReasonAllReady, "Deployment available, pods ready")
+		setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionTrue, vllmv1alpha1.ReasonAllReady, "Deployment available, pods ready")
 	} else {
 		reason := vllmv1alpha1.ReasonDeploymentUnavailable
 		msg := "Waiting for Deployment to become available"
@@ -179,7 +193,7 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			reason = prog.Reason
 			msg = prog.Message
 		}
-		r.setCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, reason, msg)
+		setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, reason, msg)
 	}
 
 	requeue := ctrl.Result{}
@@ -189,42 +203,36 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		requeue = ctrl.Result{RequeueAfter: time.Minute}
 	}
 	logger.V(1).Info("reconciled", "ready", ready, "hash", hash)
-	return r.patchStatus(ctx, &instance, requeue)
+	return r.patchStatus(ctx, &instance, orig, requeue)
 }
 
-func (r *VLLMInstanceReconciler) patchStatus(ctx context.Context, instance *vllmv1alpha1.VLLMInstance, res ctrl.Result) (ctrl.Result, error) {
+// patchStatus flushes staged status mutations using a strategic merge patch
+// against the original (pre-mutation) snapshot. Using Patch — not Update —
+// avoids the stale-resourceVersion conflict that PUT triggers when another
+// reconcile fires from an Owns() watch in parallel. On Conflict we surface the
+// error so the workqueue applies exponential backoff rather than hot-looping.
+func (r *VLLMInstanceReconciler) patchStatus(ctx context.Context, instance, orig *vllmv1alpha1.VLLMInstance, res ctrl.Result) (ctrl.Result, error) {
 	instance.Status.ObservedGeneration = instance.Generation
-	if err := r.Status().Update(ctx, instance); err != nil {
-		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
-		}
+	if err := r.Status().Patch(ctx, instance, client.MergeFrom(orig)); err != nil {
+		// Conflicts surface as a normal error so controller-runtime's workqueue
+		// can apply exponential backoff. Returning Result{Requeue: true}, nil
+		// (the previous behaviour) bypasses backoff and causes hot loops under
+		// burst conflicts.
 		return ctrl.Result{}, err
 	}
 	return res, nil
 }
 
-func (r *VLLMInstanceReconciler) setCondition(instance *vllmv1alpha1.VLLMInstance, t string, s metav1.ConditionStatus, reason, msg string) {
-	now := metav1.Now()
-	for i := range instance.Status.Conditions {
-		c := &instance.Status.Conditions[i]
-		if c.Type != t {
-			continue
-		}
-		if c.Status != s {
-			c.LastTransitionTime = now
-		}
-		c.Status = s
-		c.Reason = reason
-		c.Message = msg
-		c.ObservedGeneration = instance.Generation
-		return
-	}
-	instance.Status.Conditions = append(instance.Status.Conditions, metav1.Condition{
+// setVLLMCondition is a thin wrapper around apimeta.SetStatusCondition that
+// stamps ObservedGeneration. The upstream helper preserves LastTransitionTime
+// when the status is unchanged and dedupes no-op writes — both properties our
+// previous hand-rolled setCondition lacked.
+func setVLLMCondition(instance *vllmv1alpha1.VLLMInstance, t string, s metav1.ConditionStatus, reason, msg string) {
+	apimeta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               t,
 		Status:             s,
 		Reason:             reason,
 		Message:            msg,
-		LastTransitionTime: now,
 		ObservedGeneration: instance.Generation,
 	})
 }
