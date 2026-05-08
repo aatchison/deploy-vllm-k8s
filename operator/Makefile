@@ -1,7 +1,9 @@
 # vLLM operator build + deploy
 
 # Local image tag (used for microk8s image-load).
-# Override to publish: IMG=ghcr.io/aatchison/vllm-operator:latest make docker-build
+# CI publishes ghcr.io/aatchison/vllm-operator with a short-SHA tag (no :latest;
+# see issue #64). Override the tag to publish locally if needed:
+#   IMG=ghcr.io/aatchison/vllm-operator:$(git rev-parse --short HEAD) make docker-build
 IMG ?= docker.io/library/vllm-operator:local
 KUBECTL ?= microk8s kubectl
 NAMESPACE ?= vllm-system
