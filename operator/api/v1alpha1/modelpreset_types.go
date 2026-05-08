@@ -5,7 +5,8 @@ import (
 )
 
 // ProbeConfig is the tunable subset of a k8s probe.
-// Liveness periodSeconds=30 and failureThreshold=10 are hardcoded constants in the builder.
+// All three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow
+// through to the rendered Pod spec for both liveness and readiness probes.
 type ProbeConfig struct {
 	// +kubebuilder:validation:Minimum=0
 	InitialDelaySeconds int32 `json:"initialDelaySeconds"`
