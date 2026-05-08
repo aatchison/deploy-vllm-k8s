@@ -13,19 +13,24 @@ import (
 	// scheduler — wasting ~10-30% CPU under load. Issue #82.
 	_ "go.uber.org/automaxprocs"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	vllmv1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
 	"github.com/aatchison/deploy-vllm-k8s/operator/controllers"
+	"github.com/aatchison/deploy-vllm-k8s/operator/internal/vllm"
 )
 
 // eventBroadcasterRunnable adapts a record.EventBroadcaster onto
@@ -69,6 +74,21 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// Scope the shared informer cache to only the Deployments + Services this
+	// operator owns (issue #83). Without this, controller-runtime caches every
+	// Deployment and Service in the cluster — on a multi-tenant cluster with
+	// 1000 unrelated Deployments, the operator's RSS scales with that count
+	// rather than the handful of objects it actually owns.
+	//
+	// EndpointSlice is intentionally NOT filtered here: filtering it would
+	// require Kubernetes to propagate our managed-by label onto EndpointSlices
+	// (which it does not — kube-controller-manager only inherits the
+	// kubernetes.io/service-name label). Switching the slice filter to
+	// service-name would force the cache to re-list when service names change
+	// and is more invasive than this issue warrants. Cluster-wide EndpointSlice
+	// watch is left as today; the savings are dominated by Deployment.
+	mgrSelector := labels.SelectorFromSet(labels.Set{vllm.ManagedByLabelKey: vllm.ManagedByLabelValue})
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                     rtscheme,
 		Metrics:                    metricsserver.Options{BindAddress: metricsAddr},
@@ -83,6 +103,12 @@ func main() {
 		LeaseDuration: durationPtr(15 * time.Second),
 		RenewDeadline: durationPtr(10 * time.Second),
 		RetryPeriod:   durationPtr(2 * time.Second),
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&appsv1.Deployment{}: {Label: mgrSelector},
+				&corev1.Service{}:    {Label: mgrSelector},
+			},
+		},
 	})
 	if err != nil {
 		ctrl.Log.Error(err, "unable to start manager")

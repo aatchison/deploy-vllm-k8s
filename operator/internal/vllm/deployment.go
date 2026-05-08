@@ -216,9 +216,18 @@ func BuildDeployment(
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       namespace,
-			Labels:          map[string]string{"app": name},
+			Name:      name,
+			Namespace: namespace,
+			// app.kubernetes.io/managed-by gates the controller-runtime cache
+			// scope (issue #83): the manager only loads Deployments labelled
+			// "managed-by=vllm-operator" into the informer cache, so RSS scales
+			// with operator-owned objects rather than every Deployment in the
+			// cluster. Drop this label and reconciles will silently miss the
+			// SSA-applied Deployment because it never reaches the cache.
+			Labels: map[string]string{
+				"app":                          name,
+				"app.kubernetes.io/managed-by": ManagedByLabelValue,
+			},
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Spec: appsv1.DeploymentSpec{
