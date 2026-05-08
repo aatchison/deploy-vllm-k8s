@@ -178,7 +178,18 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		setLongContextCondition(&instance, vllmv1alpha1.ConditionProgressing, metav1.ConditionStatus(prog.Status), prog.Reason, prog.Message)
 	}
 
-	// 7. Endpoint.
+	// 7. Endpoint + Ready. See VLLMInstanceReconciler.Reconcile for the rationale —
+	// scale-to-zero is a steady state distinct from "unavailable", and the avail
+	// flow would otherwise either lie (Ready=True) or report a misleading reason.
+	if replicas == 0 {
+		setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonScaledToZero, "spec.replicas=0; no pods serving")
+		instance.Status.Endpoint = ""
+		logger.V(1).Info("reconciled longcontext", "ready", false, "hash", hash, "scaledToZero", true)
+		return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: time.Minute})
+	}
+
+	// 7a. Endpoint.
 	endpoint := r.resolveEndpoint(ctx, instance.Namespace, svc.Name, actualNodePort)
 	instance.Status.Endpoint = endpoint
 
@@ -226,34 +237,17 @@ func setLongContextCondition(instance *vllmv1alpha1.LongContextInstance, t strin
 	})
 }
 
-// resolveEndpoint mirrors VLLMInstanceReconciler.resolveEndpoint.
+// resolveEndpoint mirrors VLLMInstanceReconciler.resolveEndpoint — see that
+// function's doc for the no-Ready-endpoint behaviour and the deterministic-sort
+// rationale.
 func (r *LongContextInstanceReconciler) resolveEndpoint(ctx context.Context, namespace, svcName string, nodePort int32) string {
 	var slices discoveryv1.EndpointSliceList
-	if err := r.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{discoveryv1.LabelServiceName: svcName}); err == nil {
-		for _, s := range slices.Items {
-			for _, ep := range s.Endpoints {
-				if ep.NodeName == nil || ep.Conditions.Ready == nil || !*ep.Conditions.Ready {
-					continue
-				}
-				if ip := r.nodeInternalIP(ctx, *ep.NodeName); ip != "" {
-					return fmt.Sprintf("http://%s:%d/v1", ip, nodePort)
-				}
-			}
-		}
-	}
-
-	var nodes corev1.NodeList
-	if err := r.List(ctx, &nodes); err != nil {
+	if err := r.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{discoveryv1.LabelServiceName: svcName}); err != nil {
 		return ""
 	}
-	for _, n := range nodes.Items {
-		if !nodeReady(&n) {
-			continue
-		}
-		for _, a := range n.Status.Addresses {
-			if a.Type == corev1.NodeInternalIP {
-				return fmt.Sprintf("http://%s:%d/v1", a.Address, nodePort)
-			}
+	for _, name := range readyNodeNames(slices.Items) {
+		if ip := r.nodeInternalIP(ctx, name); ip != "" {
+			return fmt.Sprintf("http://%s:%d/v1", ip, nodePort)
 		}
 	}
 	return ""
