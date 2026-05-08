@@ -1,0 +1,17 @@
+# Namespace-scoped pod permissions for the mig-setup Job.
+# The script only deletes device-plugin pods in the GPU Operator namespace
+# (default: gpu-operator-resources). Cluster-wide pod delete is unnecessary,
+# so we scope this down to a single namespace.
+#
+# If your GPU Operator runs in a different namespace, update both the
+# `devicePluginNamespace` value in the vllm-mig-setup ConfigMap AND the
+# namespace below (and the matching RoleBinding in rolebinding.yaml).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vllm-mig-setup-pods
+  namespace: gpu-operator-resources
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
