@@ -1013,6 +1013,111 @@ func TestBuildDeploymentLMCacheSidecarViaOverride(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// HF token file-mount tests (issue #35 — CRITICAL secret-handling fix)
+//
+// These guard the regression where HF_TOKEN was injected as an env var via
+// SecretKeyRef. Env vars leak through `kubectl describe`, /proc/PID/environ,
+// vLLM tracebacks, and forked workers, so the fix projects the token as a
+// read-only file at /var/run/hf/token and points HF_TOKEN_PATH at it.
+// ---------------------------------------------------------------------------
+
+// TestBuildDeploymentNoHFTokenEnvVar is the headline guard: the rendered
+// container env must NOT contain HF_TOKEN under any name (env var or
+// SecretKeyRef). If a future change re-adds it, this test fails loudly.
+func TestBuildDeploymentNoHFTokenEnvVar(t *testing.T) {
+	dep := buildTestDeployment(baseEffectiveConfig())
+	c := dep.Spec.Template.Spec.Containers[0]
+	for _, ev := range c.Env {
+		if ev.Name == "HF_TOKEN" {
+			t.Fatalf("HF_TOKEN env var must NOT be set on the vLLM container "+
+				"(re-introduces the leak via kubectl describe / /proc/environ); "+
+				"got entry %+v", ev)
+		}
+	}
+}
+
+// TestBuildDeploymentHFTokenPathSet asserts the replacement: HF_TOKEN_PATH
+// must point at the file the secret volume is mounted at.
+func TestBuildDeploymentHFTokenPathSet(t *testing.T) {
+	dep := buildTestDeployment(baseEffectiveConfig())
+	c := dep.Spec.Template.Spec.Containers[0]
+	var got string
+	found := false
+	for _, ev := range c.Env {
+		if ev.Name == "HF_TOKEN_PATH" {
+			found = true
+			got = ev.Value
+			if ev.ValueFrom != nil {
+				t.Errorf("HF_TOKEN_PATH must be a literal path, not ValueFrom: %+v", ev.ValueFrom)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("HF_TOKEN_PATH env var not set; env: %+v", c.Env)
+	}
+	if got != HFTokenMountPath {
+		t.Errorf("HF_TOKEN_PATH = %q, want %q", got, HFTokenMountPath)
+	}
+}
+
+// TestBuildDeploymentHFTokenSecretVolume asserts the pod has a Volume
+// backed by a Secret carrying the HF token, with the right key->path
+// mapping and read-only mode 0400.
+func TestBuildDeploymentHFTokenSecretVolume(t *testing.T) {
+	dep := buildTestDeployment(baseEffectiveConfig())
+	var hfVol *corev1.Volume
+	for i, v := range dep.Spec.Template.Spec.Volumes {
+		if v.Name == HFTokenVolumeName {
+			hfVol = &dep.Spec.Template.Spec.Volumes[i]
+			break
+		}
+	}
+	if hfVol == nil {
+		t.Fatalf("hf-token volume not present; volumes: %v", volumeNames(dep.Spec.Template.Spec.Volumes))
+	}
+	if hfVol.Secret == nil {
+		t.Fatalf("hf-token volume must use Secret source; got: %+v", hfVol.VolumeSource)
+	}
+	// The test helper constructs the SecretKeySelector with Name="hf-secret",
+	// Key="token". The volume must reference both.
+	if hfVol.Secret.SecretName != "hf-secret" {
+		t.Errorf("hf-token secretName: got %q, want %q", hfVol.Secret.SecretName, "hf-secret")
+	}
+	if hfVol.Secret.DefaultMode == nil || *hfVol.Secret.DefaultMode != HFTokenFileMode {
+		t.Errorf("hf-token defaultMode: got %v, want %d (0400)", hfVol.Secret.DefaultMode, HFTokenFileMode)
+	}
+	if len(hfVol.Secret.Items) != 1 ||
+		hfVol.Secret.Items[0].Key != "token" ||
+		hfVol.Secret.Items[0].Path != HFTokenFileName {
+		t.Errorf("hf-token Items: got %+v, want [{Key:\"token\", Path:%q}]",
+			hfVol.Secret.Items, HFTokenFileName)
+	}
+}
+
+// TestBuildDeploymentHFTokenMount asserts the vLLM container has a
+// read-only VolumeMount for the HF token at the expected path.
+func TestBuildDeploymentHFTokenMount(t *testing.T) {
+	dep := buildTestDeployment(baseEffectiveConfig())
+	c := dep.Spec.Template.Spec.Containers[0]
+	var got *corev1.VolumeMount
+	for i, m := range c.VolumeMounts {
+		if m.Name == HFTokenVolumeName {
+			got = &c.VolumeMounts[i]
+			break
+		}
+	}
+	if got == nil {
+		t.Fatalf("vLLM container missing hf-token VolumeMount; mounts: %+v", c.VolumeMounts)
+	}
+	if got.MountPath != HFTokenMountDir {
+		t.Errorf("hf-token mountPath: got %q, want %q", got.MountPath, HFTokenMountDir)
+	}
+	if !got.ReadOnly {
+		t.Errorf("hf-token mount must be ReadOnly; got %+v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // helpers used only by the LMCache tests
 // ---------------------------------------------------------------------------
 
