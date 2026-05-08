@@ -55,6 +55,12 @@ jobs:
         if: steps.filter.outputs.operator == 'true'
         run: GOBIN=/usr/local/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
 
+      - name: govulncheck
+        if: steps.filter.outputs.operator == 'true'
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
       - name: Lint
         if: steps.filter.outputs.operator == 'true'
         uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
@@ -136,7 +142,7 @@ jobs:
           # Scan the freshly-pushed image at its immutable digest.
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: table
-          severity: CRITICAL
+          severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: os,library
