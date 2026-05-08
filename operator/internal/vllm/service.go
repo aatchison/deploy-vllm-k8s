@@ -29,9 +29,17 @@ func BuildService(
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ServiceName(instanceName),
-			Namespace:       namespace,
-			Labels:          map[string]string{"app": instanceName},
+			Name:      ServiceName(instanceName),
+			Namespace: namespace,
+			// app.kubernetes.io/managed-by gates the controller-runtime cache
+			// scope (issue #83): the manager only loads Services labelled
+			// "managed-by=vllm-operator" into the informer cache. Drop this
+			// label and re-reads of the Service we just SSA-applied will
+			// IsNotFound forever because the cache never sees the object.
+			Labels: map[string]string{
+				"app":             instanceName,
+				ManagedByLabelKey: ManagedByLabelValue,
+			},
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Spec: corev1.ServiceSpec{

@@ -29,6 +29,16 @@ const (
 	// Must not collide with HTTPPort (8000). LMCache upstream defaults to 9000
 	// for its management interface.
 	LMCacheAdminPort      = 9000
+
+	// ManagedByLabelKey is the standard "app.kubernetes.io/managed-by" label
+	// key. Stamped on every operator-applied Deployment + Service so the
+	// controller-runtime informer cache (which is scoped to this label in
+	// main.go, issue #83) actually observes the resources we own.
+	ManagedByLabelKey   = "app.kubernetes.io/managed-by"
+	// ManagedByLabelValue is the value used in the managed-by label. Must
+	// match the selector built in main.go's cache.Options.ByObject map —
+	// changing one without the other silently breaks the cache.
+	ManagedByLabelValue = "vllm-operator"
 )
 
 // EffectiveConfig is the fully-resolved vLLM configuration after merging

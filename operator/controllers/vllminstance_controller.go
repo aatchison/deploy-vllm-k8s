@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -451,12 +452,52 @@ func (r *VLLMInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.mapNodeToInstances),
 			builder.WithPredicates(nodeWatchPredicate()),
 		).
+		// EndpointSlice watch is required so resolveEndpoint reads from the
+		// informer cache instead of going to the API server every reconcile
+		// (issue #83). Without an explicit Watches() registration,
+		// controller-runtime treats r.List(slices, ...) as an uncached call —
+		// N not-ready instances during cold start = N EndpointSlice LIST RPCs
+		// per minute against the apiserver.
+		Watches(
+			&discoveryv1.EndpointSlice{},
+			handler.EnqueueRequestsFromMapFunc(r.mapEndpointSliceToInstance),
+		).
 		// MaxConcurrentReconciles=4 lets the controller drain the workqueue when a
 		// preset edit or node-IP change fans out to many instances.
 		// controller-runtime guarantees per-object-key serialization regardless of
 		// the worker count, so this is safe.
 		WithOptions(controller.Options{MaxConcurrentReconciles: 4}).
 		Complete(r)
+}
+
+// mapEndpointSliceToInstance enqueues the parent VLLMInstance for an
+// EndpointSlice change. The slice carries the parent Service via the
+// kubernetes.io/service-name label (kube-controller-manager populates this);
+// our Service naming convention is svc-<instance>, so trimming the prefix
+// yields the instance name.
+//
+// Returns nil for slices that don't reference an operator-owned Service —
+// the trim is a no-op when the prefix isn't present, which we use as the
+// "not ours" signal. This lets us share the cluster-wide EndpointSlice cache
+// with other controllers without enqueueing on unrelated services.
+func (r *VLLMInstanceReconciler) mapEndpointSliceToInstance(_ context.Context, obj client.Object) []reconcile.Request {
+	slice, ok := obj.(*discoveryv1.EndpointSlice)
+	if !ok {
+		return nil
+	}
+	svcName := slice.Labels[discoveryv1.LabelServiceName]
+	if svcName == "" {
+		return nil
+	}
+	instanceName := strings.TrimPrefix(svcName, "svc-")
+	if instanceName == svcName {
+		// Service name didn't carry our svc-<...> prefix — not an operator-owned
+		// Service. Skip the enqueue.
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{Namespace: slice.Namespace, Name: instanceName},
+	}}
 }
 
 func (r *VLLMInstanceReconciler) mapPresetToInstances(ctx context.Context, obj client.Object) []reconcile.Request {

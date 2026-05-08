@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -364,9 +365,37 @@ func (r *LongContextInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error
 			handler.EnqueueRequestsFromMapFunc(r.mapNodeToInstances),
 			builder.WithPredicates(nodeWatchPredicate()),
 		).
+		// See VLLMInstanceReconciler.SetupWithManager — same rationale: without
+		// an EndpointSlice watch, resolveEndpoint's r.List goes to the API
+		// server uncached every reconcile (issue #83).
+		Watches(
+			&discoveryv1.EndpointSlice{},
+			handler.EnqueueRequestsFromMapFunc(r.mapEndpointSliceToInstance),
+		).
 		// See VLLMInstanceReconciler.SetupWithManager for rationale.
 		WithOptions(controller.Options{MaxConcurrentReconciles: 4}).
 		Complete(r)
+}
+
+// mapEndpointSliceToInstance mirrors VLLMInstanceReconciler's variant — the
+// EndpointSlice's kubernetes.io/service-name label points at svc-<instance>,
+// so trimming the prefix yields the parent LongContextInstance.
+func (r *LongContextInstanceReconciler) mapEndpointSliceToInstance(_ context.Context, obj client.Object) []reconcile.Request {
+	slice, ok := obj.(*discoveryv1.EndpointSlice)
+	if !ok {
+		return nil
+	}
+	svcName := slice.Labels[discoveryv1.LabelServiceName]
+	if svcName == "" {
+		return nil
+	}
+	instanceName := strings.TrimPrefix(svcName, "svc-")
+	if instanceName == svcName {
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{Namespace: slice.Namespace, Name: instanceName},
+	}}
 }
 
 func (r *LongContextInstanceReconciler) mapPresetToInstances(ctx context.Context, obj client.Object) []reconcile.Request {
