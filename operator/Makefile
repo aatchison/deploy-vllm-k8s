@@ -103,6 +103,8 @@ mig-setup:
 	$(KUBECTL) apply -f config/mig-setup/serviceaccount.yaml
 	$(KUBECTL) apply -f config/mig-setup/clusterrole.yaml
 	$(KUBECTL) apply -f config/mig-setup/clusterrolebinding.yaml
+	$(KUBECTL) apply -f config/mig-setup/role.yaml
+	$(KUBECTL) apply -f config/mig-setup/rolebinding.yaml
 	$(KUBECTL) apply -f config/mig-setup/configmap.yaml
 	$(KUBECTL) delete job mig-setup -n kube-system --ignore-not-found
 	$(KUBECTL) apply -f config/mig-setup/job.yaml

@@ -1,0 +1,17 @@
+# Binds the namespace-scoped vllm-mig-setup-pods Role (in
+# gpu-operator-resources) to the vllm-mig-setup ServiceAccount in kube-system.
+# Replaces the cluster-wide pod permissions previously granted via
+# clusterrole.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vllm-mig-setup-pods
+  namespace: gpu-operator-resources
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vllm-mig-setup-pods
+subjects:
+  - kind: ServiceAccount
+    name: vllm-mig-setup
+    namespace: kube-system
