@@ -7,7 +7,7 @@ Design doc: [`../docs/superpowers/specs/2026-04-16-vllm-operator-design.md`](../
 ## CRDs
 
 - `ModelPreset` (`vllm.aatchison.io/v1alpha1`) — reusable vLLM config (model, MIG resource, context length, probes). 7 presets ship in `config/samples/presets/`.
-- `VLLMInstance` (`vllm.aatchison.io/v1alpha1`) — one instance = one Deployment + one NodePort Service. References a preset by name plus optional overrides.
+- `VLLMInstance` (`vllm.aatchison.io/v1alpha1`) — one instance = one Deployment + one Service. References a preset by name plus optional overrides. Service type is configurable (`spec.serviceType`, default `ClusterIP`); see [Network policy](#network-policy).
 
 ## Quick start
 
@@ -70,6 +70,73 @@ gh api -H "Accept: application/vnd.github+json" \
 > [`../docs/multi-tenant-deployment.md`](../docs/multi-tenant-deployment.md) and
 > [`config/storage/pvc-shared-readonly.yaml`](config/storage/pvc-shared-readonly.yaml).
 
+## Network policy
+
+Issue #75 changed the **default Service type to `ClusterIP`** (was `NodePort`)
+and added an opt-in `spec.apiKey` field for HTTP authentication. ClusterIP +
+NetworkPolicy + Ingress with TLS is the recommended production posture;
+NodePort remains available as a dev-cluster shortcut and `LoadBalancer` is
+available for cloud environments.
+
+### Breaking change: ClusterIP default
+
+Existing manifests that depended on the auto-NodePort exposure must add an
+explicit serviceType:
+
+```yaml
+spec:
+  serviceType: NodePort   # was implicit before #75 landed
+  nodePort: 31000         # honored only when serviceType: NodePort
+```
+
+Without this change, `status.endpoint` will publish the in-cluster DNS form
+(`http://svc-<name>.vllm.svc:8000/v1`) and external NodePort access will stop
+working. `status.endpoint` is now derived from `spec.serviceType` directly;
+issue #78's `vllm.aatchison.io/expose-node-ip` annotation has been superseded
+and removed — set `serviceType: NodePort` to opt into the NodeIP form.
+
+### API key authentication
+
+vLLM does not enable per-request auth unless `--api-key` is set. Provide a
+Secret and reference it via `spec.apiKey`:
+
+```bash
+kubectl -n vllm create secret generic vllm-api-key \
+  --from-literal=token=$(openssl rand -hex 32)
+```
+
+```yaml
+spec:
+  apiKey:
+    name: vllm-api-key
+    key: token
+```
+
+The operator projects the Secret as a read-only file at `/var/run/vllm/api-key`
+and exec-wraps the entrypoint so the key value never lands on the rendered
+PodSpec (avoids the `kubectl describe` leak that env-var-based wiring would
+introduce). Clients then send `Authorization: Bearer <token>`.
+
+### NetworkPolicy templates
+
+Three templates ship under `config/networkpolicy/`. They are **not** applied
+by `make deploy` because they require a CNI that enforces NetworkPolicy
+(Calico, Cilium, kube-router, Antrea, etc.). Apply explicitly:
+
+```bash
+make deploy-networkpolicy
+```
+
+| File | Purpose |
+|---|---|
+| `default-deny-vllm-ingress.yaml` | Denies all inbound traffic to pods in the `vllm` namespace. The floor; layered policies grant access by union. |
+| `allow-from-ingress-controller.yaml` | Allows ingress from a designated ingress-controller namespace. **Customise the namespaceSelector** (default targets nginx-ingress in `ingress-nginx`). |
+| `allow-egress-huggingface.yaml` | Allows egress on UDP/TCP 53 (DNS) and TCP 443 (HuggingFace Hub). Excludes RFC1918 ranges so a compromised pod can't pivot internally. |
+
+On a cluster whose CNI does not enforce NetworkPolicy, these manifests apply
+but nothing enforces them — silently insecure. Confirm enforcement before
+relying on the policies.
+
 ## Security operations
 
 This repo uses Dependabot in two distinct modes — **enable both**:
@@ -108,6 +175,7 @@ Issue #80 tracks this. The PR landing this section is documentation-only; the ma
 | `undeploy` | tear down manager + RBAC |
 | `mig-setup` | delete-then-apply the MIG setup Job bundle |
 | `apply-samples` | apply all presets + single-model instances |
+| `deploy-networkpolicy` | apply the issue #75 NetworkPolicy templates (CNI-dependent — see [Network policy](#network-policy)) |
 
 ## Parity with the old shell scripts
 

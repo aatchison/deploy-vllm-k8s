@@ -1,0 +1,60 @@
+# Allow egress from vLLM pods to HuggingFace Hub for model weights pulls.
+#
+# vLLM pods need to reach huggingface.co (and the various CDN hosts the Hub
+# redirects to) on first start — afterward the weights are cached on the PVC
+# and egress can in principle be removed. We provision egress permanently
+# because the PVC may be re-created (storage migration, disk failure) and
+# without DNS + 443 the recovery path silently hangs at "downloading model".
+#
+# Two-rule shape:
+#   1. DNS resolution (UDP/TCP 53) — without this, every outbound request
+#      fails before the TLS handshake.
+#   2. HTTPS (TCP 443) — the actual model download. We don't restrict to
+#      specific peers because Hugging Face's CDN spans multiple IP ranges
+#      that change without notice; locking down by IP would break in production.
+#
+# If your cluster has a more restrictive egress posture (e.g. all traffic
+# tunnelled through a forward proxy), drop this template and instead
+# whitelist the proxy.
+#
+# Apply with: make deploy-networkpolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-huggingface
+  namespace: vllm
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # 1. DNS — UDP 53 is the canonical resolver path; TCP 53 covers
+    #    fallback for large records (DNSSEC, EDNS).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 2. HTTPS — outbound to anywhere on 443. Hugging Face Hub uses a
+    #    CloudFront-fronted CDN whose IPs change without notice, so an
+    #    IP-based whitelist is impractical. Pair with a forward proxy if
+    #    the cluster requires per-host egress control.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              # Block egress back into private RFC1918 ranges so a
+              # compromised pod can't pivot to other workloads.
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443

@@ -113,6 +113,23 @@ deploy-monitoring:
 undeploy-monitoring:
 	$(KUBECTL) delete --ignore-not-found -f config/prometheus/monitor.yaml
 
+# Issue #75: NetworkPolicy templates are kept out of `make deploy` because
+# they require a CNI that enforces NetworkPolicy (Calico, Cilium, kube-router,
+# Antrea, etc.). On a CNI without NP support the manifests apply but nothing
+# enforces them — silently insecure. Apply explicitly only after confirming
+# the cluster's CNI enforces ingress/egress rules.
+#
+# Customise the templates (especially allow-from-ingress-controller.yaml's
+# namespaceSelector) before applying — the defaults assume nginx-ingress in
+# the `ingress-nginx` namespace.
+.PHONY: deploy-networkpolicy
+deploy-networkpolicy:
+	$(KUBECTL) apply -f config/networkpolicy/
+
+.PHONY: undeploy-networkpolicy
+undeploy-networkpolicy:
+	$(KUBECTL) delete --ignore-not-found -f config/networkpolicy/
+
 .PHONY: mig-setup
 mig-setup:
 	$(KUBECTL) apply -f config/mig-setup/serviceaccount.yaml

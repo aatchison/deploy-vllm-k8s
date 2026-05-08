@@ -1,0 +1,36 @@
+# Default-deny ingress to vLLM model pods (issue #75).
+#
+# This policy denies all inbound traffic to pods labeled `app: <instance-name>`
+# in the `vllm` namespace. To grant access to a specific peer, layer
+# additional NetworkPolicies on top — see allow-from-ingress-controller.yaml
+# for the canonical example.
+#
+# Why default-deny rather than allow-from-known-good:
+#   - Layered policies compose by union (any policy that selects the pod and
+#     allows the source grants ingress). A standalone default-deny is the
+#     lower bound that ensures unspecified peers are blocked.
+#   - The vLLM Service is reachable in-cluster as svc-<name>.vllm.svc:8000
+#     by default; without this policy any pod in any namespace can hit
+#     /v1/chat/completions and bypass the operator's authentication layer.
+#
+# Requirements:
+#   - The cluster must run a CNI that enforces NetworkPolicy
+#     (Calico, Cilium, kube-router, Antrea, etc.). On clusters where the CNI
+#     does not support NetworkPolicy (e.g. flannel without an extension), this
+#     manifest is a no-op — the policy is created but nothing enforces it.
+#   - The `vllm` namespace must exist; adjust the metadata.namespace or
+#     duplicate this manifest per-namespace if you serve from elsewhere.
+#
+# Apply with: make deploy-networkpolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-vllm-ingress
+  namespace: vllm
+spec:
+  # Empty podSelector matches every pod in the namespace. Combined with a
+  # policyType of Ingress and no `ingress:` rules, this denies all inbound
+  # traffic to those pods.
+  podSelector: {}
+  policyTypes:
+    - Ingress

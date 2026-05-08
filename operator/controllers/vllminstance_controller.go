@@ -34,14 +34,6 @@ const (
 	presetRefIndexKey = "spec.presetRef.name"
 	fieldOwner        = client.FieldOwner("vllm-operator")
 	transientRequeue  = 15 * time.Second
-
-	// ExposeNodeIPAnnotation opts an instance into the legacy
-	// http://<NodeInternalIP>:<NodePort>/v1 form for status.endpoint.
-	// Default behaviour returns the in-cluster Service DNS form so
-	// namespace tenants with vllminstances:get cannot enumerate Node
-	// InternalIPs (a cluster-scoped permission they typically lack).
-	// See issue #78.
-	ExposeNodeIPAnnotation = "vllm.aatchison.io/expose-node-ip"
 )
 
 // VLLMInstanceReconciler reconciles a VLLMInstance object.
@@ -150,7 +142,11 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// 4. Build + SSA Deployment.
-	dep := vllm.BuildDeployment(instance.Name, instance.Namespace, replicas, effective, instance.Spec.PVCName, instance.Spec.HFToken, ownerRef)
+	apiKey := instance.Spec.APIKey
+	if instance.Spec.Overrides != nil && instance.Spec.Overrides.APIKey != nil {
+		apiKey = instance.Spec.Overrides.APIKey
+	}
+	dep := vllm.BuildDeployment(instance.Name, instance.Namespace, replicas, effective, instance.Spec.PVCName, instance.Spec.HFToken, apiKey, ownerRef)
 	depAC, err := toApplyConfiguration(dep)
 	if err != nil {
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
@@ -168,7 +164,7 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	instance.Status.DeploymentName = dep.Name
 
 	// 5. Build + SSA Service.
-	svc := vllm.BuildService(instance.Name, instance.Namespace, instance.Spec.NodePort, ownerRef)
+	svc := vllm.BuildService(instance.Name, instance.Namespace, instance.Spec.ServiceType, instance.Spec.NodePort, ownerRef)
 	svcAC, err := toApplyConfiguration(svc)
 	if err != nil {
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
@@ -241,12 +237,19 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: time.Minute})
 	}
 
-	// 7a. Endpoint — default to in-cluster Service DNS so we don't leak
-	// Node InternalIPs into a namespace-readable status field (issue #78).
-	// Cluster admins can opt instances into the legacy NodeIP form via
-	// the ExposeNodeIPAnnotation, e.g. for benchmark scripts curling from
-	// outside the cluster.
-	endpoint := r.resolveEndpoint(ctx, instance.Namespace, svc.Name, actualNodePort, instance.Annotations)
+	// 7a. Endpoint. Service-type-aware (issue #75 supersedes the
+	// expose-node-ip annotation introduced in #78):
+	//   - NodePort:     http://<node-internal-ip>:<nodePort>/v1
+	//   - ClusterIP:    http://<svc>.<ns>.svc:<port>/v1 (in-cluster only)
+	//   - LoadBalancer: http://<lb-ip-or-host>:<port>/v1 if assigned, else cluster DNS fallback
+	//
+	// The NodePort path needs an extra EndpointSlice + Node lookup to find the
+	// actual internal IP; only do that when the service is a NodePort.
+	var nodePortEndpoint string
+	if actualSvc.Spec.Type == corev1.ServiceTypeNodePort {
+		nodePortEndpoint = r.resolveEndpoint(ctx, instance.Namespace, svc.Name, actualNodePort)
+	}
+	endpoint := resolveServiceEndpoint(&actualSvc, actualNodePort, nodePortEndpoint)
 	instance.Status.Endpoint = endpoint
 
 	// 8. Ready condition.
@@ -344,32 +347,17 @@ func setVLLMCondition(instance *vllmv1alpha1.VLLMInstance, t string, s metav1.Co
 	return !hadPrior || priorStatus != s
 }
 
-// resolveEndpoint builds the value published in status.endpoint.
-//
-// Default (issue #78): in-cluster Service DNS, i.e.
-//
-//	http://<svcName>.<namespace>.svc.cluster.local:<HTTPPort>/v1
-//
-// This form is reachable only from within the cluster, so it does not
-// surface Node InternalIPs to tenants with vllminstances:get (which they
-// could otherwise use as a cluster-recon primitive — node IP enumeration
-// is normally gated behind cluster-scoped nodes:get RBAC).
-//
-// Opt-in (legacy): when annotations[ExposeNodeIPAnnotation] == "true",
-// fall back to http://<NodeInternalIP>:<NodePort>/v1 where NodeInternalIP
-// is taken from a node hosting a Ready pod (via EndpointSlice). Useful for
-// dev clusters where benchmark/smoke scripts curl the service directly
-// from a laptop. Returns "" when no Ready endpoint exists — the previous
-// "first Ready node" fallback returned a URL pointing at a node with no
-// pod hosting the model, which 503s on every request.
+// resolveEndpoint returns http://<nodeIP>:<nodePort>/v1 where nodeIP is an
+// InternalIP of a node hosting a Ready pod, or "" if no Ready endpoint
+// exists. Used only when spec.serviceType == NodePort (issue #75); the
+// caller routes ClusterIP/LoadBalancer cases through resolveServiceEndpoint.
 //
 // Ready endpoints are sorted by NodeName so multi-replica deployments
 // produce a stable URL across reconciles (EndpointSlice ordering is
-// otherwise unspecified and can flap between reads).
-func (r *VLLMInstanceReconciler) resolveEndpoint(ctx context.Context, namespace, svcName string, nodePort int32, annotations map[string]string) string {
-	if annotations[ExposeNodeIPAnnotation] != "true" {
-		return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d/v1", svcName, namespace, vllm.HTTPPort)
-	}
+// otherwise unspecified and can flap between reads). The previous "first
+// Ready node" fallback returned a URL pointing at a node with no pod
+// hosting the model, which 503s on every request.
+func (r *VLLMInstanceReconciler) resolveEndpoint(ctx context.Context, namespace, svcName string, nodePort int32) string {
 	var slices discoveryv1.EndpointSliceList
 	if err := r.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{discoveryv1.LabelServiceName: svcName}); err != nil {
 		return ""

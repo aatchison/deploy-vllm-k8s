@@ -1,0 +1,37 @@
+# Allow ingress to vLLM pods from a designated Ingress controller namespace.
+#
+# This is a *template* — you MUST customise the namespace selector to match
+# your cluster's Ingress controller (or Gateway, or service-mesh ingress). The
+# default below targets nginx-ingress installed in the `ingress-nginx`
+# namespace; swap the label as needed:
+#
+#   ingress-nginx:    kubernetes.io/metadata.name: ingress-nginx
+#   istio-system:     kubernetes.io/metadata.name: istio-system
+#   gateway:          gateway.networking.k8s.io/<your-gateway>
+#
+# Layered atop default-deny-vllm-ingress.yaml: the deny is the floor; this
+# policy adds a single explicit allow. Together they implement
+# "deny-by-default + named-source allow-list".
+#
+# Apply with: make deploy-networkpolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-ingress-controller
+  namespace: vllm
+spec:
+  # Match every vLLM pod by the operator-stamped `app` label range. If you
+  # deploy other workloads in this namespace (mig-setup, monitoring sidecars),
+  # narrow this to a label managed by the operator (e.g. one that's added
+  # alongside `app`).
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000

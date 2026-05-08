@@ -148,10 +148,12 @@ IPs (issue #78).
 For dev clusters or smoke tests that need to curl the endpoint from
 outside the cluster, three options:
 
-1. **Opt the instance into the legacy NodeIP form** by adding the
-   `vllm.aatchison.io/expose-node-ip: "true"` annotation. The operator
-   will then publish `http://<NodeInternalIP>:<NodePort>/v1` (the same
-   shape as before this change). Use only on trust-bounded clusters.
+1. **Set `spec.serviceType: NodePort`** (issue #75). The operator will then
+   render the Service as a NodePort and publish
+   `http://<NodeInternalIP>:<NodePort>/v1` in `status.endpoint`. Use only on
+   trust-bounded clusters; this supersedes the
+   `vllm.aatchison.io/expose-node-ip` annotation that briefly shipped in
+   #78 (now removed — `serviceType` is the declarative replacement).
 
    ```yaml
    apiVersion: vllm.aatchison.io/v1alpha1
@@ -159,13 +161,12 @@ outside the cluster, three options:
    metadata:
      name: e2b
      namespace: vllm
-     annotations:
-       vllm.aatchison.io/expose-node-ip: "true"
    spec:
+     serviceType: NodePort
      # …
    ```
 
-2. **`kubectl port-forward`** — point at the Service, no annotation needed:
+2. **`kubectl port-forward`** — point at the Service, no spec change needed:
 
    ```bash
    kubectl -n vllm port-forward svc/svc-e2b 8000:8000
@@ -175,7 +176,7 @@ outside the cluster, three options:
    This is what `operator/hack/smoke-test.sh` and `operator/hack/benchmark.sh`
    require — the scripts read `status.endpoint`, which defaults to the
    in-cluster DNS form, so they cannot dial it directly from a laptop.
-   Either add the opt-in annotation above or wrap the curl behind a
+   Either set `serviceType: NodePort` above or wrap the curl behind a
    port-forward.
 
 3. **Ingress** (production pattern) — front the Service with an Ingress
