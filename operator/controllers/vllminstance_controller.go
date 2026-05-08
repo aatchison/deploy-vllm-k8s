@@ -17,8 +17,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	vllmv1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
@@ -325,12 +327,22 @@ func (r *VLLMInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&vllmv1alpha1.ModelPreset{},
 			handler.EnqueueRequestsFromMapFunc(r.mapPresetToInstances),
-			builder.WithPredicates(),
+			// Preset status writes (which we do not perform yet, but might) bump
+			// resourceVersion without changing spec. GenerationChangedPredicate
+			// suppresses the resulting fan-out across every Instance referencing
+			// the preset.
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Watches(
 			&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.mapNodeToInstances),
+			builder.WithPredicates(nodeWatchPredicate()),
 		).
+		// MaxConcurrentReconciles=4 lets the controller drain the workqueue when a
+		// preset edit or node-IP change fans out to many instances.
+		// controller-runtime guarantees per-object-key serialization regardless of
+		// the worker count, so this is safe.
+		WithOptions(controller.Options{MaxConcurrentReconciles: 4}).
 		Complete(r)
 }
 
