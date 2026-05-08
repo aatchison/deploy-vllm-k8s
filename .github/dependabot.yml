@@ -1,0 +1,40 @@
+# Dependabot configuration.
+#
+# Surfaces upgrade PRs for:
+#   - GitHub Actions pinned by SHA (in .github/workflows/*.yaml)
+#   - Go modules under operator/
+#   - Docker base images in operator/Dockerfile and the root Dockerfile
+#
+# When Dependabot bumps a SHA-pinned action, the PR rewrites the SHA + the
+# trailing `# vX.Y.Z` comment in lockstep, preserving the supply-chain pin.
+#
+# See https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+
+updates:
+  # GitHub Actions pinned by commit SHA — Dependabot bumps both the SHA and
+  # the `# vX.Y.Z` comment together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Go modules for the operator.
+  - package-ecosystem: gomod
+    directory: /operator
+    schedule:
+      interval: weekly
+
+  # Operator container base images (golang builder + distroless runtime).
+  - package-ecosystem: docker
+    directory: /operator
+    schedule:
+      interval: weekly
+
+  # Root Dockerfile (vLLM image). The base tag is intentionally floating
+  # (`vllm/vllm-openai:nightly`) — see comment in Dockerfile — but Dependabot
+  # is still useful here for any future digest pins or transitive layers.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

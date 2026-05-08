@@ -1,4 +1,7 @@
-FROM golang:1.22 AS builder
+# Pinned by digest for reproducible builds and supply-chain hardening.
+# Tag/digest pair as of resolution: golang:1.22.12 (the current tip of the
+# 1.22 line). Bump via Dependabot's docker ecosystem (see .github/dependabot.yml).
+FROM golang:1.22.12@sha256:1cf6c45ba39db9fd6db16922041d074a63c935556a05c5ccb62d181034df7f02 AS builder
 WORKDIR /workspace
 
 COPY go.mod go.sum* ./
@@ -11,7 +14,8 @@ COPY internal/ internal/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags="-s -w" -o manager main.go
 
-FROM gcr.io/distroless/static:nonroot
+# Pinned by digest. The `nonroot` tag floats; Dependabot will surface bumps.
+FROM gcr.io/distroless/static:nonroot@sha256:e3f945647ffb95b5839c07038d64f9811adf17308b9121d8a2b87b6a22a80a39
 WORKDIR /
 COPY --from=builder /workspace/manager /manager
 USER 65532:65532

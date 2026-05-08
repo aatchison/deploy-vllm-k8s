@@ -3,6 +3,11 @@ name: PR validation
 on:
   pull_request:
 
+# Default to read-only token for all jobs; no job in this workflow needs
+# elevated permissions (purely a validation/linting workflow).
+permissions:
+  contents: read
+
 jobs:
   # ── Determine which areas changed ─────────────────────────────────────────
   changes:
@@ -12,8 +17,8 @@ jobs:
       operator: ${{ steps.filter.outputs.operator }}
       manifests: ${{ steps.filter.outputs.manifests }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         id: filter
         with:
           filters: |
@@ -40,13 +45,13 @@ jobs:
     steps:
       # Always check out so the `operator/` working-directory exists, even
       # when we're about to short-circuit. The no-op echo runs after this.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: No-op when operator unchanged
         if: needs.changes.outputs.operator != 'true'
         run: echo "No operator changes; skipping generated-code check."
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         if: needs.changes.outputs.operator == 'true'
         with:
           go-version-file: operator/go.mod
@@ -88,7 +93,7 @@ jobs:
     steps:
       # Checkout has no defaults.working-directory issue here, but kept
       # unconditional for symmetry with `generated` above.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: No-op when manifests unchanged
         if: needs.changes.outputs.manifests != 'true'
