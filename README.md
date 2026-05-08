@@ -43,6 +43,7 @@ cd operator && make install && make deploy
 #   - ClusterRole      vllm-operator-role
 #   - ClusterRoleBinding vllm-operator-rolebinding
 #   - Deployment       vllm-operator
+#   - Service          vllm-operator-metrics (ClusterIP :8080)
 # The ClusterRoleBinding is required on hardened RBAC clusters; microk8s
 # grants implicit cluster-admin to ServiceAccounts so the operator runs
 # even without it.
@@ -211,6 +212,32 @@ cd operator && make smoke-test INSTANCE=<name>
 # Works for both VLLMInstance and LongContextInstance — the script tries
 # `vllminstance/<name>` first and falls back to `longcontextinstance/<name>`.
 ```
+
+## Metrics
+
+The operator exposes the controller-runtime default metrics endpoint on
+`:8080/metrics` (reconcile counters, error totals, latency histograms,
+workqueue depth, etc.). `make deploy` creates a ClusterIP Service named
+`vllm-operator-metrics` in the `vllm-system` namespace that targets it.
+
+Quick scrape via port-forward:
+
+```bash
+microk8s kubectl port-forward -n vllm-system svc/vllm-operator-metrics 8080:8080
+curl -s localhost:8080/metrics | head
+```
+
+For Prometheus Operator clusters, apply the bundled `ServiceMonitor`:
+
+```bash
+cd operator && make deploy-monitoring
+```
+
+This is kept out of the default `make deploy` because not every cluster has
+the `monitoring.coreos.com` CRDs installed. If they aren't present, applying
+`config/prometheus/monitor.yaml` fails with `no matches for kind
+"ServiceMonitor"` — install the Prometheus Operator first, or skip this
+target.
 
 ## Repository Layout
 

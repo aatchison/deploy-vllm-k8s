@@ -1,0 +1,19 @@
+# ClusterIP Service exposing the operator's controller-runtime metrics endpoint
+# (issue #40). The selector matches the Deployment's pod template labels in
+# manager.yaml. Kept as ClusterIP because metrics are an in-cluster scrape
+# target — Prometheus (or `kubectl port-forward`) reaches it without NodePort.
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-operator-metrics
+  namespace: vllm-system
+  labels:
+    control-plane: vllm-operator
+spec:
+  selector:
+    control-plane: vllm-operator
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: metrics
+      protocol: TCP

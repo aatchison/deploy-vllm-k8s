@@ -92,11 +92,24 @@ uninstall:
 deploy: manifests
 	$(KUBECTL) apply -f config/rbac
 	$(KUBECTL) apply -f config/manager/manager.yaml
+	$(KUBECTL) apply -f config/manager/service.yaml
 
 .PHONY: undeploy
 undeploy:
+	$(KUBECTL) delete --ignore-not-found -f config/manager/service.yaml
 	$(KUBECTL) delete --ignore-not-found -f config/manager/manager.yaml
 	$(KUBECTL) delete --ignore-not-found -f config/rbac
+
+# Optional: apply the ServiceMonitor for Prometheus Operator scraping.
+# Kept separate from `make deploy` because the monitoring.coreos.com CRDs
+# may not be installed on every cluster (issue #40).
+.PHONY: deploy-monitoring
+deploy-monitoring:
+	$(KUBECTL) apply -f config/prometheus/monitor.yaml
+
+.PHONY: undeploy-monitoring
+undeploy-monitoring:
+	$(KUBECTL) delete --ignore-not-found -f config/prometheus/monitor.yaml
 
 .PHONY: mig-setup
 mig-setup:

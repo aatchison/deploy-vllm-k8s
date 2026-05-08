@@ -47,6 +47,16 @@ spec:
           imagePullPolicy: Always
           args:
             - --leader-elect=false
+          ports:
+            # controller-runtime defaults: metrics on :8080, health on :8081.
+            # Declared explicitly so a Service can target them by name and
+            # so kubectl describe pod surfaces the contract (issue #40).
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
