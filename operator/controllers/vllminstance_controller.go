@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -180,7 +181,20 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		setVLLMCondition(&instance, vllmv1alpha1.ConditionProgressing, metav1.ConditionStatus(prog.Status), prog.Reason, prog.Message)
 	}
 
-	// 7. Endpoint — use the actual assigned NodePort.
+	// 7. Endpoint + Ready. Scale-to-zero is a distinct steady state: no pods are
+	// expected to be Ready, so the avail/progressing flow would either lie
+	// (Ready=True with 0 replicas) or report a misleading "Waiting" reason. Take
+	// the dedicated ScaledToZero exit and clear status.endpoint so consumers
+	// don't dial a phantom URL after scale-down.
+	if replicas == 0 {
+		setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonScaledToZero, "spec.replicas=0; no pods serving")
+		instance.Status.Endpoint = ""
+		logger.V(1).Info("reconciled", "ready", false, "hash", hash, "scaledToZero", true)
+		return r.patchStatus(ctx, &instance, orig, ctrl.Result{RequeueAfter: time.Minute})
+	}
+
+	// 7a. Endpoint — use the actual assigned NodePort.
 	endpoint := r.resolveEndpoint(ctx, instance.Namespace, svc.Name, actualNodePort)
 	instance.Status.Endpoint = endpoint
 
@@ -240,38 +254,50 @@ func setVLLMCondition(instance *vllmv1alpha1.VLLMInstance, t string, s metav1.Co
 }
 
 // resolveEndpoint returns http://<nodeIP>:<nodePort>/v1 where nodeIP is an InternalIP of a
-// Ready node that hosts a Ready pod for this service (via EndpointSlice). Falls back to the
-// first Ready node if the slice lookup turns up empty.
+// node hosting a Ready pod for this service (via EndpointSlice). Returns "" when there is
+// no Ready endpoint — the previous "first Ready node" fallback returned a URL pointing at
+// a node that has no pod hosting the model, which 503s on every request. Honesty beats a
+// phantom URL.
+//
+// Ready endpoints are sorted by NodeName so multi-replica deployments produce a stable URL
+// across reconciles (otherwise EndpointSlice ordering can flap and the published endpoint
+// shuffles between nodes for no observable reason).
 func (r *VLLMInstanceReconciler) resolveEndpoint(ctx context.Context, namespace, svcName string, nodePort int32) string {
 	var slices discoveryv1.EndpointSliceList
-	if err := r.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{discoveryv1.LabelServiceName: svcName}); err == nil {
-		for _, s := range slices.Items {
-			for _, ep := range s.Endpoints {
-				if ep.NodeName == nil || ep.Conditions.Ready == nil || !*ep.Conditions.Ready {
-					continue
-				}
-				if ip := r.nodeInternalIP(ctx, *ep.NodeName); ip != "" {
-					return fmt.Sprintf("http://%s:%d/v1", ip, nodePort)
-				}
-			}
-		}
-	}
-
-	var nodes corev1.NodeList
-	if err := r.List(ctx, &nodes); err != nil {
+	if err := r.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{discoveryv1.LabelServiceName: svcName}); err != nil {
 		return ""
 	}
-	for _, n := range nodes.Items {
-		if !nodeReady(&n) {
-			continue
-		}
-		for _, a := range n.Status.Addresses {
-			if a.Type == corev1.NodeInternalIP {
-				return fmt.Sprintf("http://%s:%d/v1", a.Address, nodePort)
-			}
+	readyNodes := readyNodeNames(slices.Items)
+	for _, name := range readyNodes {
+		if ip := r.nodeInternalIP(ctx, name); ip != "" {
+			return fmt.Sprintf("http://%s:%d/v1", ip, nodePort)
 		}
 	}
 	return ""
+}
+
+// readyNodeNames flattens the Ready endpoints across all slices and returns the
+// hosting NodeNames sorted lexicographically. Sort gives reconciles a stable
+// pick when multiple endpoints are Ready (EndpointSlice ordering is unspecified
+// and can flap between reads).
+func readyNodeNames(slices []discoveryv1.EndpointSlice) []string {
+	var names []string
+	seen := map[string]struct{}{}
+	for _, s := range slices {
+		for _, ep := range s.Endpoints {
+			if ep.NodeName == nil || ep.Conditions.Ready == nil || !*ep.Conditions.Ready {
+				continue
+			}
+			n := *ep.NodeName
+			if _, ok := seen[n]; ok {
+				continue
+			}
+			seen[n] = struct{}{}
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 func (r *VLLMInstanceReconciler) nodeInternalIP(ctx context.Context, name string) string {
@@ -285,15 +311,6 @@ func (r *VLLMInstanceReconciler) nodeInternalIP(ctx context.Context, name string
 		}
 	}
 	return ""
-}
-
-func nodeReady(n *corev1.Node) bool {
-	for _, c := range n.Status.Conditions {
-		if c.Type == corev1.NodeReady {
-			return c.Status == corev1.ConditionTrue
-		}
-	}
-	return false
 }
 
 func conditionFromDeployment(conds []appsv1.DeploymentCondition, t appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
