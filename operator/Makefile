@@ -10,6 +10,14 @@ NAMESPACE ?= vllm-system
 INSTANCE ?= 31b-96
 MODEL_NAMESPACE ?= vllm
 
+# Let the Go toolchain auto-download the version pinned in go.mod (issue #112).
+# Without this, hosts whose system Go is older than the go.mod `go` directive
+# fail every target that invokes go/controller-gen — including `make deploy`
+# via #110's CRD-reapply prerequisite chain. `?=` keeps the override path
+# open for maintainers who deliberately want a strict-local toolchain.
+# `export` ensures controller-gen's internal `go list` subprocess inherits it.
+export GOTOOLCHAIN ?= auto
+
 LOCALBIN := $(CURDIR)/bin
 CONTROLLER_GEN := $(LOCALBIN)/controller-gen
 KUSTOMIZE := $(LOCALBIN)/kustomize
