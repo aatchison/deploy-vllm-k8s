@@ -21,6 +21,15 @@ const (
 	// so $HOME would otherwise be unset and library lookups fall through to
 	// pwd.getpwuid(). /tmp is writable by any uid under restricted PSA.
 	ContainerHome = "/tmp"
+	// ContainerUser is the value injected as $USER for the vLLM container.
+	// Python's getpass.getuser() returns the first non-empty value of
+	// $LOGNAME, $USER, $LNAME, $USERNAME before falling back to getpwuid.
+	// Setting this short-circuits every torch caller of getpass.getuser()
+	// (issue #103), not just the ones that read TORCHINDUCTOR_CACHE_DIR.
+	// The value itself is cosmetic — torch only uses it to build a
+	// per-user cache directory name; "vllm" matches the convention used
+	// by the Dockerfile's passwd entry.
+	ContainerUser = "vllm"
 	// TorchInductorCacheDir is the path set on TORCHINDUCTOR_CACHE_DIR so
 	// torch's cache_dir_utils.py short-circuits its lazy init before calling
 	// getpwuid at module-import time (issue #103). The cache is ephemeral
