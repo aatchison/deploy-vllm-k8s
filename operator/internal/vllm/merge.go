@@ -16,6 +16,17 @@ const (
 	ContainerName          = "vllm"
 	HTTPPort               = 8000
 
+	// ContainerHome is the value injected as $HOME for the vLLM container.
+	// The base image lacks a passwd entry for the running uid (issue #103),
+	// so $HOME would otherwise be unset and library lookups fall through to
+	// pwd.getpwuid(). /tmp is writable by any uid under restricted PSA.
+	ContainerHome = "/tmp"
+	// TorchInductorCacheDir is the path set on TORCHINDUCTOR_CACHE_DIR so
+	// torch's cache_dir_utils.py short-circuits its lazy init before calling
+	// getpwuid at module-import time (issue #103). The cache is ephemeral
+	// and is rebuilt on each pod start, so /tmp is the safe default.
+	TorchInductorCacheDir = "/tmp/torch-inductor"
+
 	// LMCacheImage is the sidecar image used when KVOffloadBackend == "lmcache".
 	// Pin to a specific release tag; bump via separate PR when upstream releases.
 	LMCacheImage = "lmcache/lmcache:v0.4.0"

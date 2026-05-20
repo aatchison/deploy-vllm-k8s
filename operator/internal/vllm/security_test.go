@@ -44,6 +44,45 @@ func TestBuildDeploymentPodSecurityContext(t *testing.T) {
 	}
 }
 
+// TestBuildDeploymentTorchCacheDirEnv is the regression guard for issue #103:
+// a recent torch upgrade calls getpass.getuser() at module-import time
+// (torch._dynamo.package), which falls back to pwd.getpwuid(os.getuid()) and
+// raises KeyError when the running uid has no /etc/passwd entry. The pod runs
+// as uid 1000 (issue #37) and the base image has no matching passwd entry, so
+// every vLLM pod crashes before any vLLM code executes.
+//
+// Setting TORCHINDUCTOR_CACHE_DIR up-front short-circuits the lazy-init in
+// torch's cache_dir_utils.py before it can call getpwuid. HOME is also set so
+// any other code path that reads $HOME has a writable target (the uid-1000
+// passwd entry would point at /home/vllm if it existed; without one, $HOME is
+// unset).
+//
+// Both vars must point at a writable path. /tmp is world-writable and is the
+// safe default for an ephemeral cache; the cache is regenerated on each pod
+// start anyway.
+func TestBuildDeploymentTorchCacheDirEnv(t *testing.T) {
+	dep := buildTestDeployment(baseEffectiveConfig())
+	containers := dep.Spec.Template.Spec.Containers
+	if len(containers) == 0 {
+		t.Fatal("expected at least one container")
+	}
+	env := envMap(containers[0].Env)
+	if got := env["TORCHINDUCTOR_CACHE_DIR"]; got == "" {
+		t.Error("TORCHINDUCTOR_CACHE_DIR must be set so torch._dynamo.package's import-time getpwuid call is bypassed (issue #103)")
+	}
+	if got := env["HOME"]; got == "" {
+		t.Error("HOME must be set so torch and other libraries don't fall back to getpwuid on a uid with no passwd entry (issue #103)")
+	}
+}
+
+func envMap(env []corev1.EnvVar) map[string]string {
+	m := make(map[string]string, len(env))
+	for _, e := range env {
+		m[e.Name] = e.Value
+	}
+	return m
+}
+
 // TestBuildDeploymentNoServiceAccountToken is the regression guard for issue
 // #74: the upstream vllm/vllm-openai container makes zero kube API calls, but
 // the namespace's default ServiceAccount token would otherwise be auto-mounted
