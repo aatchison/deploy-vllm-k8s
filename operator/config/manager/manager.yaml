@@ -49,7 +49,7 @@ spec:
           # pinning is also the security-parity choice (issue #43 pins the
           # base image by digest for the same reason). Maintainers must
           # re-pin this on every release — see issue #64.
-          image: ghcr.io/aatchison/vllm-operator@sha256:852940a65ca1f571bf515f8837c69a1c10b5b14deec137879ffe3b1ea1db87be
+          image: ghcr.io/aatchison/vllm-operator@sha256:f0ad9a0b6e86a46b5c66b0c6e8710967e2f03ad99f414f1a1678997345374626
           imagePullPolicy: Always
           ports:
             # controller-runtime defaults: metrics on :8080, health on :8081.
