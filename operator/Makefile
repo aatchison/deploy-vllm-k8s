@@ -91,7 +91,12 @@ uninstall:
 	$(KUBECTL) delete --ignore-not-found -f config/crd/bases
 
 .PHONY: deploy
-deploy: manifests
+# CRDs are reapplied before manager.yaml so the cluster's OpenAPI schema is
+# always at least as current as the operator binary being rolled out. Without
+# this dependency, a re-pin to a build that added new CRD fields (e.g. #93's
+# spec.serviceType / spec.apiKey) silently leaves stripped fields on user CRs
+# because kubectl warns on unknown fields but does not fail (issue #110).
+deploy: manifests install
 	$(KUBECTL) apply -f config/rbac
 	$(KUBECTL) apply -f config/manager/manager.yaml
 	$(KUBECTL) apply -f config/manager/service.yaml
