@@ -2,7 +2,7 @@ name: Release
 
 # Triggered when a semver tag (vX.Y.Z) is pushed. Builds and publishes a
 # semver-tagged operator image to GHCR with the same supply-chain guarantees
-# as the master-branch publish flow: cosign keyless signature + SBOM
+# as the main-branch publish flow: cosign keyless signature + SBOM
 # attestation + SLSA provenance attestation + Trivy scan.
 #
 # This workflow is intentionally a near-copy of the `publish` job in
