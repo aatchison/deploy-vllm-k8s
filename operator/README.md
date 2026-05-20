@@ -58,6 +58,8 @@ gh api -H "Accept: application/vnd.github+json" \
 # 3. Commit and PR.
 ```
 
+`make deploy` reapplies the CRDs in `config/crd/bases/` before rolling the manager Deployment (issue #110), so a release that introduces new CRD fields lands schema-first and avoids silently stripped fields on user CRs.
+
 ## Multi-tenant security
 
 > ⚠️ **The `vllm-models-pvc` PVC must be per-tenant or per-trust-zone.** Never
