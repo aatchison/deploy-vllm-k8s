@@ -3,12 +3,12 @@ name: Operator image
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - "operator/**"
       - ".github/workflows/operator-image.yaml"
   # No `paths:` filter on pull_request — the `Build & test` job is a required
-  # status check on `master`, and a path-filtered workflow that doesn't trigger
+  # status check on `main`, and a path-filtered workflow that doesn't trigger
   # leaves the context unreported, which branch protection treats as
   # not-satisfied. The job itself short-circuits below when no operator
   # files changed, so docs-only PRs still get a fast SUCCESS.
@@ -74,8 +74,8 @@ jobs:
   publish:
     name: Publish image
     needs: ci
-    # Only publish on pushes to master (not on PRs — forks lack GHCR write access)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # Only publish on pushes to main (not on PRs — forks lack GHCR write access)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read

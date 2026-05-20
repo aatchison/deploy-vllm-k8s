@@ -33,7 +33,7 @@ jobs:
   # NOTE: this job ALWAYS runs so the "Generated code is up-to-date" required
   # status context always reports. When `changes.outputs.operator != 'true'`
   # the work is skipped at the step level and the job reports success.
-  # Don't add a job-level `if:` here — `master` branch protection treats a
+  # Don't add a job-level `if:` here — `main` branch protection treats a
   # SKIPPED required job as not-satisfied.
   generated:
     name: Generated code is up-to-date
