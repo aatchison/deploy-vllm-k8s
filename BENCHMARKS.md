@@ -264,11 +264,12 @@ All benchmarks use this prompt unless noted:
 > Sections 6.1–6.8 below were captured against the pre-operator `deploy.sh`
 > workflow. The numbers and conclusions still describe the underlying hardware
 > behavior accurately, but the *commands* (`./deploy.sh E2B`, `./deploy.sh
-> dual-moe`, etc.) refer to a script that now lives only in `legacy/` and is no
-> longer the recommended path. Treat 6.1–6.8 as historical reference only;
-> the current operator-era workflow is documented in §6.9 ("Operator MIG
-> Profile Combination Sweep") and in the project README. The Appendix at the
-> bottom of this file is also legacy and is annotated accordingly.
+> dual-moe`, etc.) refer to a script that has been removed from the
+> repository — see the git history before this commit if you need to
+> reproduce the exact invocation. Treat 6.1–6.8 as historical reference
+> only; the current operator-era workflow is documented in §6.9 ("Operator
+> MIG Profile Combination Sweep") and in the project README. The Appendix
+> at the bottom of this file is also legacy and is annotated accordingly.
 
 ### 6.1 Single-Model Throughput (5 concurrent requests)
 

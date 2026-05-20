@@ -177,11 +177,3 @@ Issue #80 tracks this. The PR landing this section is documentation-only; the ma
 | `apply-samples` | apply all presets + single-model instances |
 | `deploy-networkpolicy` | apply the issue #75 NetworkPolicy templates (CNI-dependent — see [Network policy](#network-policy)) |
 
-## Parity with the old shell scripts
-
-| Old | New |
-|---|---|
-| `./deploy.sh e2b` | `kubectl apply -f config/samples/instances/e2b.yaml` |
-| `./deploy.sh triple` | `kubectl apply -f config/samples/instances/triple.yaml` |
-| `./deploy.sh undeploy` | `kubectl delete vllminstance --all -n vllm` |
-| `./setup-mig.sh` | `make mig-setup` |
