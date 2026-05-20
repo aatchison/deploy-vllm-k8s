@@ -19,3 +19,14 @@ FROM vllm/vllm-openai:nightly
 # bitsandbytes is also added here — it is not included in the base image
 # and is required for INT8 quantization used by the larger models (26B-A4B, 31B).
 RUN pip install --quiet --upgrade "transformers>=4.51.0" bitsandbytes
+
+# --- Issue #103: passwd entry for the running uid ---
+# Pods run as uid 1000 under the operator's runAsNonRoot security context
+# (issue #37). A recent torch upgrade now calls getpass.getuser() at module
+# import time (torch._dynamo.package), which falls back to
+# pwd.getpwuid(getuid()) and raises KeyError when the uid has no /etc/passwd
+# entry. Adding the entry here fixes the image for any caller, including
+# the legacy hand-managed Deployments in legacy/. The operator also sets
+# TORCHINDUCTOR_CACHE_DIR + HOME as a second layer of defense.
+RUN echo 'vllm:x:1000:1000::/home/vllm:/usr/sbin/nologin' >> /etc/passwd \
+ && mkdir -p /home/vllm && chown 1000:1000 /home/vllm

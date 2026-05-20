@@ -250,6 +250,16 @@ func BuildDeployment(
 			// leak this volume mount exists to avoid.
 			{Name: "HF_TOKEN_PATH", Value: HFTokenMountPath},
 			{Name: "HF_HOME", Value: DefaultHFHome},
+			// Issue #103: torch._dynamo.package calls getpass.getuser() at
+			// module-import time, which falls back to pwd.getpwuid(getuid())
+			// and raises KeyError on a uid with no /etc/passwd entry. The
+			// pod runs as uid 1000 (issue #37) and the base image has no
+			// matching passwd entry. Pre-setting TORCHINDUCTOR_CACHE_DIR
+			// short-circuits the lazy-init in torch's cache_dir_utils.py
+			// before it reaches getpwuid; HOME covers any other library
+			// that consults the user database via $HOME.
+			{Name: "TORCHINDUCTOR_CACHE_DIR", Value: TorchInductorCacheDir},
+			{Name: "HOME", Value: ContainerHome},
 		},
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
