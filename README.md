@@ -313,12 +313,7 @@ Dockerfile             extends vllm/vllm-openai:nightly with Gemma 4 support
 loadtest-all.sh        concurrent load test across vLLM endpoints
 tooluse-demo.sh        function-calling demo across endpoints
 BENCHMARKS.md          full benchmark report
-legacy/                pre-operator deploy.sh workflow (reference only)
 ```
-
-## Legacy Scripts
-
-The old `deploy.sh`-based workflow is preserved in `legacy/` for reference. The operator is the current and recommended approach.
 
 ## License
 
