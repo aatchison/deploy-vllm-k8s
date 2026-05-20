@@ -250,14 +250,23 @@ func BuildDeployment(
 			// leak this volume mount exists to avoid.
 			{Name: "HF_TOKEN_PATH", Value: HFTokenMountPath},
 			{Name: "HF_HOME", Value: DefaultHFHome},
-			// Issue #103: torch._dynamo.package calls getpass.getuser() at
-			// module-import time, which falls back to pwd.getpwuid(getuid())
-			// and raises KeyError on a uid with no /etc/passwd entry. The
-			// pod runs as uid 1000 (issue #37) and the base image has no
-			// matching passwd entry. Pre-setting TORCHINDUCTOR_CACHE_DIR
-			// short-circuits the lazy-init in torch's cache_dir_utils.py
-			// before it reaches getpwuid; HOME covers any other library
-			// that consults the user database via $HOME.
+			// Issue #103: torch calls getpass.getuser() during init, which
+			// falls back to pwd.getpwuid(getuid()) and raises KeyError on
+			// a uid with no /etc/passwd entry. The pod runs as uid 1000
+			// (issue #37) against a base image with no matching passwd
+			// entry, so torch crashes before any vLLM code runs.
+			//
+			// getpass.getuser() honors LOGNAME/USER/LNAME/USERNAME env vars
+			// before falling back to getpwuid. Setting USER short-circuits
+			// every torch caller — both cache_dir() in cache_dir_utils.py
+			// (called at torch._dynamo import) AND default_cache_dir() in
+			// _inductor/codecache.py (called at vLLM model-config build).
+			// TORCHINDUCTOR_CACHE_DIR alone only covered the first caller.
+			//
+			// HOME=/tmp keeps any tool that consults $HOME pointed at a
+			// writable directory; TORCHINDUCTOR_CACHE_DIR is kept so the
+			// cache lands in a predictable, ephemeral location.
+			{Name: "USER", Value: ContainerUser},
 			{Name: "TORCHINDUCTOR_CACHE_DIR", Value: TorchInductorCacheDir},
 			{Name: "HOME", Value: ContainerHome},
 		},

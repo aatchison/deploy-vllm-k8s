@@ -73,6 +73,14 @@ func TestBuildDeploymentTorchCacheDirEnv(t *testing.T) {
 	if got := env["HOME"]; got == "" {
 		t.Error("HOME must be set so torch and other libraries don't fall back to getpwuid on a uid with no passwd entry (issue #103)")
 	}
+	// USER short-circuits getpass.getuser() — the universal upstream of every
+	// torch caller that crashes on uid 1000. Without it, torch._inductor's
+	// default_cache_dir() (called outside the cache_dir_utils.py env-var
+	// guard) still falls through to getpwuid and the pod crashes during
+	// vLLM model-config init.
+	if got := env["USER"]; got == "" {
+		t.Error("USER must be set so getpass.getuser() returns without calling pwd.getpwuid (issue #103, follow-up to first fix)")
+	}
 }
 
 func envMap(env []corev1.EnvVar) map[string]string {
