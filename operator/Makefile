@@ -115,16 +115,37 @@ undeploy:
 	$(KUBECTL) delete --ignore-not-found -f config/manager/manager.yaml
 	$(KUBECTL) delete --ignore-not-found -f config/rbac
 
-# Optional: apply the ServiceMonitor for Prometheus Operator scraping.
-# Kept separate from `make deploy` because the monitoring.coreos.com CRDs
-# may not be installed on every cluster (issue #40).
+# Optional: apply the ServiceMonitors and Grafana dashboard for Prometheus
+# Operator scraping. Kept separate from `make deploy` because the
+# monitoring.coreos.com CRDs may not be installed on every cluster (issue
+# #40), and the grafana sidecar lookup label / namespace are stack-specific.
+#
+# config/prometheus/ contains three ServiceMonitors:
+#   - monitor.yaml         (the operator's own controller-runtime metrics)
+#   - dcgm-exporter.yaml   (NVIDIA DCGM, in gpu-operator-resources ns)
+#   - vllm-instances.yaml  (vLLM /metrics on every operator-managed Service)
+#
+# The Grafana dashboard is committed as JSON in config/grafana/ and wrapped
+# into a ConfigMap at apply time (avoids keeping a 200-line YAML literal
+# block in sync with the JSON). The label/annotation match the kiwigrid
+# sidecar (kube-prometheus-stack default): grafana_dashboard=1 picks the
+# ConfigMap up, grafana_folder controls the folder name.
+GRAFANA_NAMESPACE ?= monitoring
 .PHONY: deploy-monitoring
 deploy-monitoring:
-	$(KUBECTL) apply -f config/prometheus/monitor.yaml
+	$(KUBECTL) apply -f config/prometheus/
+	$(KUBECTL) create configmap vllm-grafana-dashboard \
+	  --namespace $(GRAFANA_NAMESPACE) \
+	  --from-file=config/grafana/vllm-dashboard.json \
+	  --dry-run=client -o yaml \
+	| $(KUBECTL) label --local --dry-run=client -o yaml -f - grafana_dashboard=1 \
+	| $(KUBECTL) annotate --local --dry-run=client -o yaml -f - grafana_folder=vLLM \
+	| $(KUBECTL) apply -f -
 
 .PHONY: undeploy-monitoring
 undeploy-monitoring:
-	$(KUBECTL) delete --ignore-not-found -f config/prometheus/monitor.yaml
+	$(KUBECTL) delete --ignore-not-found -n $(GRAFANA_NAMESPACE) configmap vllm-grafana-dashboard
+	$(KUBECTL) delete --ignore-not-found -f config/prometheus/
 
 # Issue #75: NetworkPolicy templates are kept out of `make deploy` because
 # they require a CNI that enforces NetworkPolicy (Calico, Cilium, kube-router,

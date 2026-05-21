@@ -60,6 +60,36 @@ gh api -H "Accept: application/vnd.github+json" \
 
 `make deploy` reapplies the CRDs in `config/crd/bases/` before rolling the manager Deployment (issue #110), so a release that introduces new CRD fields lands schema-first and avoids silently stripped fields on user CRs.
 
+## Monitoring (Prometheus + Grafana)
+
+`make deploy-monitoring` wires three ServiceMonitors and one Grafana dashboard onto a kube-prometheus-stack cluster:
+
+| Resource | Path | Purpose |
+|---|---|---|
+| `config/prometheus/monitor.yaml` | operator metrics | controller-runtime reconcile / workqueue / leader stats from the operator binary |
+| `config/prometheus/vllm-instances.yaml` | vLLM `/metrics` | per-pod serving stats: request concurrency, throughput, TTFT/ITL histograms, KV cache usage, prefix-cache hit rate |
+| `config/prometheus/dcgm-exporter.yaml` | NVIDIA DCGM | per-GPU utilization, framebuffer, power, temperature, MIG profile labels — fills a gap in the stock gpu-operator ClusterPolicy which ships an SM that only scrapes the operator binary, never DCGM |
+| `config/grafana/vllm-dashboard.json` | Grafana dashboard | two-row dashboard (GPU + vLLM serving) wrapped at apply time into a ConfigMap with the kiwigrid sidecar label `grafana_dashboard=1`; lands in the `vLLM` folder |
+
+The vLLM ServiceMonitor selects every Service with `app.kubernetes.io/managed-by=vllm-operator` (stamped by `BuildService`), so new instances appear in the dashboard without any per-instance configuration.
+
+### Cluster-side egress requirement
+
+If your `monitoring` namespace runs with a default-deny NetworkPolicy and an explicit Prometheus egress allow-list, that allow-list must include the scrape ports:
+
+- **8000/TCP** — vLLM serving + `/metrics` endpoint
+- **9400/TCP** — DCGM exporter
+
+Without these, Prometheus's SYN packets are dropped and the dashboard panels stay empty with `up == 0` for the scrape pools. The operator-side ServiceMonitor (port 8080) typically already works because Prometheus's own metrics endpoint shares that port.
+
+### Override the Grafana namespace
+
+The dashboard ConfigMap is applied to `monitoring` by default. Override for non-default monitoring stacks:
+
+```bash
+make deploy-monitoring GRAFANA_NAMESPACE=observability
+```
+
 ## Multi-tenant security
 
 > ⚠️ **The `vllm-models-pvc` PVC must be per-tenant or per-trust-zone.** Never
