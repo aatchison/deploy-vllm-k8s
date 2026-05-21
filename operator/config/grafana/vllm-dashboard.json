@@ -2,7 +2,7 @@
   "title": "vLLM Serving + GPU",
   "uid": "vllm-serving-gpu",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "graphTooltip": 1,
   "tags": ["vllm", "gpu", "dcgm"],
@@ -263,6 +263,193 @@
           "max": 100,
           "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10},
           "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 95}]}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "row",
+      "id": 102,
+      "title": "Latency Breakdown",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Inter-Token Latency (p50 / p95 / p99)",
+      "description": "Time between consecutive output tokens, in seconds. TTFT covers the first token only; ITL governs everything after. A streaming UX is paced by ITL — sustained p95 above ~50ms is human-perceptible as lag. Rising ITL with flat TTFT usually means decode-batch contention.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 19},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "End-to-End Request Latency (p50 / p95 / p99)",
+      "description": "Total wall time from request acceptance to final token, in seconds. The single number callers actually feel. p99 is the SLO-shaped metric — alerting threshold belongs here, not on TTFT or ITL individually.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 19},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Queue Time (p50 / p95 / p99)",
+      "description": "Time spent in WAITING phase before the request enters a batch, in seconds. The cleanest scale-out signal: rising queue time with flat ITL means the engine is healthy but oversubscribed.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 19},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Preemption Rate",
+      "description": "Sequences bumped out of an in-flight batch per second (1m rate). Any sustained non-zero value means KV-cache pressure forced the scheduler to evict — the strongest signal that gpu-memory-utilization is too low, max-model-len is too high, or max-num-seqs needs reducing.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 19},
+      "targets": [
+        {"refId": "A", "expr": "rate(vllm:num_preemptions_total{namespace=\"vllm\",pod=~\"$pod\"}[1m])", "legendFormat": "{{pod}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 20},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.001}, {"color": "red", "value": 0.1}]}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "row",
+      "id": 103,
+      "title": "Scheduling & Cache Efficiency",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Iteration Tokens per Engine Step (p50 / p99)",
+      "description": "Actual tokens processed in each engine_step (one forward pass). If p99 stays well below the configured --max-num-batched-tokens cap, the cap is unused headroom; if p50 hits the cap continuously, raise it to let the engine pack larger batches.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 28},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:iteration_tokens_total_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:iteration_tokens_total_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Waiting Requests by Reason",
+      "description": "Splits the waiting queue by cause. 'capacity' = engine is at concurrency limit (raise max-num-seqs or scale out). 'deferred' = transient block (LoRA budget, KV transfer, blocked status); sustained 'deferred' means a connector / LoRA config issue, not load.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 28},
+      "targets": [
+        {"refId": "A", "expr": "vllm:num_requests_waiting_by_reason{namespace=\"vllm\",pod=~\"$pod\"}", "legendFormat": "{{pod}} {{reason}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 30, "stacking": {"mode": "normal", "group": "A"}}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Prefix Cache Hit Rate (local + external)",
+      "description": "Cached prompt tokens reused per second, as a fraction of queried tokens. 'local' tracks the engine's own paged-KV prefix cache (--enable-prefix-caching). 'external' tracks KV-connector / LMCache cross-instance sharing. Below ~10% sustained on shared traffic means the cache isn't earning its memory cost.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 28},
+      "targets": [
+        {"refId": "A", "expr": "100 * rate(vllm:prefix_cache_hits_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]) / clamp_min(rate(vllm:prefix_cache_queries_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]), 1)", "legendFormat": "{{pod}} local"},
+        {"refId": "B", "expr": "100 * rate(vllm:external_prefix_cache_hits_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]) / clamp_min(rate(vllm:external_prefix_cache_queries_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]), 1)", "legendFormat": "{{pod}} external"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Prefill vs. Decode Time (p95)",
+      "description": "Per-request time spent in PREFILL vs. DECODE phases (p95 across requests). Prefill-dominated → consider --enable-chunked-prefill or shorter contexts. Decode-dominated → tensor-parallel / smaller model / quantization helps more.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 28},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_prefill_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} prefill p95"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_decode_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} decode p95"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
         },
         "overrides": []
       },
