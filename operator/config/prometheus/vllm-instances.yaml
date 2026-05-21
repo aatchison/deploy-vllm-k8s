@@ -1,0 +1,36 @@
+# ServiceMonitor for vLLM model pods (issue: GPU metrics dashboard).
+#
+# vLLM exposes a rich Prometheus endpoint at /metrics on its serving port
+# (vllm:num_requests_running, vllm:time_to_first_token_seconds histogram,
+# vllm:generation_tokens_total, vllm:kv_cache_usage_perc, etc.). Without
+# this ServiceMonitor, those metrics are visible only to anyone with
+# in-cluster network access to the Service — not Prometheus.
+#
+# The selector matches the `app.kubernetes.io/managed-by=vllm-operator`
+# label that BuildService stamps on every operator-owned Service (issue
+# #83's cache-scoping label, reused here as a stable selector). This way
+# new VLLMInstance / LongContextInstance CRs are scraped automatically
+# without per-instance ServiceMonitor maintenance.
+#
+# namespaceSelector deliberately uses matchNames rather than a label
+# selector: the operator does not stamp the namespace itself, and
+# kube-prometheus-stack's default Prometheus is restricted to selecting
+# ServiceMonitors in known namespaces.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm-instances
+  namespace: vllm-system
+  labels:
+    app.kubernetes.io/managed-by: vllm-operator
+spec:
+  namespaceSelector:
+    matchNames:
+      - vllm
+  selector:
+    matchLabels:
+      app.kubernetes.io/managed-by: vllm-operator
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

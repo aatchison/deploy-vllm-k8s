@@ -1,0 +1,26 @@
+# ServiceMonitor for NVIDIA DCGM exporter (issue: GPU metrics dashboard).
+#
+# The gpu-operator's ClusterPolicy ships its own ServiceMonitor named
+# `gpu-operator`, but it only scrapes the gpu-operator controller binary's
+# `gpu-operator-metrics` port — NOT the DCGM exporter sidecar that emits
+# per-pod GPU utilization, framebuffer, power, and temperature. Without
+# this ServiceMonitor, Prometheus has no DCGM data and any dashboard that
+# joins GPU metrics to vLLM pods returns empty panels.
+#
+# Kept separate from `make deploy` because the monitoring.coreos.com CRDs
+# may not be installed on every cluster. Apply via `make deploy-monitoring`.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nvidia-dcgm-exporter
+  namespace: gpu-operator-resources
+  labels:
+    app: nvidia-dcgm-exporter
+spec:
+  selector:
+    matchLabels:
+      app: nvidia-dcgm-exporter
+  endpoints:
+    - port: gpu-metrics
+      path: /metrics
+      interval: 30s

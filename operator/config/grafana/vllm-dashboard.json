@@ -1,0 +1,273 @@
+{
+  "title": "vLLM Serving + GPU",
+  "uid": "vllm-serving-gpu",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "tags": ["vllm", "gpu", "dcgm"],
+  "time": {"from": "now-1h", "to": "now"},
+  "refresh": "30s",
+  "timepicker": {},
+  "annotations": {"list": []},
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {"text": "Prometheus", "value": "Prometheus"},
+        "hide": 0,
+        "refresh": 1
+      },
+      {
+        "name": "pod",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "${datasource}"},
+        "query": {"qryType": 1, "query": "label_values(vllm:num_requests_running, pod)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "definition": "label_values(vllm:num_requests_running, pod)",
+        "regex": "",
+        "current": {"text": "All", "value": "$__all"},
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "GPU (NVIDIA DCGM)",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "GPU Utilization (%)",
+      "description": "Per-GPU SM utilization for vLLM pods. Sustained ~100% means the GPU is the bottleneck; sustained <50% during load suggests batching or scheduling headroom.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_GPU_UTIL{namespace=\"vllm\",pod=~\"$pod\"}",
+          "legendFormat": "{{pod}} GPU{{gpu}} [{{GPU_I_PROFILE}}]"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "GPU Framebuffer Memory Used",
+      "description": "Per-GPU framebuffer (HBM) usage in MiB. Compare against the MIG profile capacity (e.g. 4g.95gb ≈ 95 GiB). Sudden jumps usually indicate weight load or KV cache growth.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_FB_USED{namespace=\"vllm\",pod=~\"$pod\"}",
+          "legendFormat": "{{pod}} GPU{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mbytes",
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "GPU Power Draw",
+      "description": "Per-GPU power consumption (W). The RTX PRO 6000 Blackwell board total TDP is ~600W; values significantly below the board limit during compute indicate either MIG slicing or under-utilization.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_POWER_USAGE{namespace=\"vllm\",pod=~\"$pod\"}",
+          "legendFormat": "{{pod}} GPU{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "GPU Temperature",
+      "description": "Per-GPU temperature (°C). NVIDIA's slowdown threshold for this generation is typically 90°C; sustained values above ~85°C will throttle clocks and silently degrade throughput.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_GPU_TEMP{namespace=\"vllm\",pod=~\"$pod\"}",
+          "legendFormat": "{{pod}} GPU{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 85}]}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "vLLM Serving",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Request Concurrency (running vs. waiting)",
+      "description": "Running = currently in a model-execution batch. Waiting = queued for scheduling. A growing waiting line at flat running count means the engine is at concurrency limit; a flat waiting line with low running count means traffic isn't filling the GPU.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 10},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "vllm:num_requests_running{namespace=\"vllm\",pod=~\"$pod\"}",
+          "legendFormat": "{{pod}} running"
+        },
+        {
+          "refId": "B",
+          "expr": "vllm:num_requests_waiting{namespace=\"vllm\",pod=~\"$pod\"}",
+          "legendFormat": "{{pod}} waiting"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Throughput (tokens / sec)",
+      "description": "Prompt = prefill rate (tokens of incoming context). Generation = decode rate (tokens emitted). Prompt:Generation ratio tells you whether you're prefill-bound or decode-bound.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 10},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(vllm:prompt_tokens_total{namespace=\"vllm\",pod=~\"$pod\"}[1m])",
+          "legendFormat": "{{pod}} prompt"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(vllm:generation_tokens_total{namespace=\"vllm\",pod=~\"$pod\"}[1m])",
+          "legendFormat": "{{pod}} generation"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Time to First Token (p50 / p95 / p99)",
+      "description": "Latency from request arrival to first emitted token, in seconds. p99 above a few seconds usually means head-of-line blocking from a long batch or a cold prefill.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 10},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))",
+          "legendFormat": "{{pod}} p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))",
+          "legendFormat": "{{pod}} p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))",
+          "legendFormat": "{{pod}} p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "KV Cache Usage (%)",
+      "description": "Fraction of paged-attention KV blocks in use. 100% means the engine can't admit any new sequences without preempting; persistent high values are the clearest signal to scale out, increase gpu-memory-utilization, or shorten max_model_len.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 10},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "vllm:kv_cache_usage_perc{namespace=\"vllm\",pod=~\"$pod\"} * 100",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 95}]}
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    }
+  ]
+}
