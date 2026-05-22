@@ -1,7 +1,14 @@
 # Base image: vLLM nightly with OpenAI-compatible API server
 # We use nightly (not :latest) because :latest lags behind and lacks
 # support for newer model architectures.
-FROM vllm/vllm-openai:nightly
+#
+# Pinned by digest (issue #107) so rebuilds are reproducible and supply-chain
+# attestable. :nightly is mutable; the @sha256: form binds this Dockerfile to
+# a specific upstream build. To roll forward, run:
+#   crane digest vllm/vllm-openai:nightly
+# and update the digest below. The :tag prefix is intentionally dropped since
+# the digest is sufficient and the tag is mutable.
+FROM vllm/vllm-openai@sha256:e5b4913ac5925dca1034492683307259bb7a0efe2dd07a79fe85559f86202a5b
 
 # --- Why this layer is needed ---
 # Gemma 4 (released April 2025) uses a new architecture type ("gemma4")
