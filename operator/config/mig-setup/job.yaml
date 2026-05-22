@@ -12,7 +12,15 @@ spec:
       serviceAccountName: vllm-mig-setup
       containers:
         - name: mig-setup
-          image: bitnami/kubectl:1.29.3
+          # Pinned by digest (issue #111). bitnami/kubectl rotated all version
+          # tags off Docker Hub when Broadcom moved the catalog to "Bitnami
+          # Secure Images"; only :latest remains on docker.io/bitnami/kubectl
+          # (currently kubectl 1.36.1). Archived version tags live at
+          # docker.io/bitnamilegacy/kubectl. Staying on 1.29.x (latest patch
+          # available there: 1.29.11) avoids bumping past the cluster's
+          # microk8s 1.29 control plane and any operator CRD-gen compat risk.
+          # The chart upgrade tracked in #121 will revisit kubectl version.
+          image: bitnamilegacy/kubectl:1.29.11@sha256:d4397a782dcc1e9495c9632a3c7eef1c8b081af357261c5dc25c3c80c5e3649c
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
