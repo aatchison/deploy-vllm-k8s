@@ -5,6 +5,10 @@ metadata:
   namespace: vllm
 spec:
   modelID: google/gemma-4-26B-A4B-it
+  # Per-variant served-model-name: keeps the `model_name` metric label
+  # distinct from sibling presets so dashboards (and capacity planning)
+  # can attribute traffic and latency to the specific tuning knob set.
+  servedModelName: Gemma-4-26B-A4B
   migResource: nvidia.com/mig-4g.96gb
   migResourceCount: 1
   dtype: bfloat16

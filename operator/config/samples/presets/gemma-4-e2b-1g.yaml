@@ -5,6 +5,8 @@ metadata:
   namespace: vllm
 spec:
   modelID: bg-digitalservices/Gemma-4-E2B-it-NVFP4
+  # Per-variant served-model-name; see comment in any sibling preset.
+  servedModelName: Gemma-4-E2B-1g
   migResource: nvidia.com/mig-1g.24gb
   migResourceCount: 1
   quantization: nvfp4

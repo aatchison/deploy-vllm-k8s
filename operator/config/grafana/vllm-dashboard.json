@@ -2,7 +2,7 @@
   "title": "vLLM Serving + GPU",
   "uid": "vllm-serving-gpu",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "editable": true,
   "graphTooltip": 1,
   "tags": ["vllm", "gpu", "dcgm"],
@@ -161,12 +161,12 @@
         {
           "refId": "A",
           "expr": "vllm:num_requests_running{namespace=\"vllm\",pod=~\"$pod\"}",
-          "legendFormat": "{{pod}} running"
+          "legendFormat": "{{model_name}} ({{pod}}) running"
         },
         {
           "refId": "B",
           "expr": "vllm:num_requests_waiting{namespace=\"vllm\",pod=~\"$pod\"}",
-          "legendFormat": "{{pod}} waiting"
+          "legendFormat": "{{model_name}} ({{pod}}) waiting"
         }
       ],
       "fieldConfig": {
@@ -190,12 +190,12 @@
         {
           "refId": "A",
           "expr": "rate(vllm:prompt_tokens_total{namespace=\"vllm\",pod=~\"$pod\"}[1m])",
-          "legendFormat": "{{pod}} prompt"
+          "legendFormat": "{{model_name}} ({{pod}}) prompt"
         },
         {
           "refId": "B",
           "expr": "rate(vllm:generation_tokens_total{namespace=\"vllm\",pod=~\"$pod\"}[1m])",
-          "legendFormat": "{{pod}} generation"
+          "legendFormat": "{{model_name}} ({{pod}}) generation"
         }
       ],
       "fieldConfig": {
@@ -219,17 +219,17 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))",
-          "legendFormat": "{{pod}} p50"
+          "legendFormat": "{{model_name}} ({{pod}}) p50"
         },
         {
           "refId": "B",
           "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))",
-          "legendFormat": "{{pod}} p95"
+          "legendFormat": "{{model_name}} ({{pod}}) p95"
         },
         {
           "refId": "C",
           "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))",
-          "legendFormat": "{{pod}} p99"
+          "legendFormat": "{{model_name}} ({{pod}}) p99"
         }
       ],
       "fieldConfig": {
@@ -253,7 +253,7 @@
         {
           "refId": "A",
           "expr": "vllm:kv_cache_usage_perc{namespace=\"vllm\",pod=~\"$pod\"} * 100",
-          "legendFormat": "{{pod}}"
+          "legendFormat": "{{model_name}} ({{pod}})"
         }
       ],
       "fieldConfig": {
@@ -284,9 +284,9 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 0, "y": 19},
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
-        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p95"},
-        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p99"}
       ],
       "fieldConfig": {
         "defaults": {
@@ -306,9 +306,9 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 6, "y": 19},
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
-        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p95"},
-        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p99"}
       ],
       "fieldConfig": {
         "defaults": {
@@ -328,9 +328,9 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 12, "y": 19},
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
-        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p95"},
-        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p99"}
       ],
       "fieldConfig": {
         "defaults": {
@@ -350,7 +350,7 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 18, "y": 19},
       "targets": [
-        {"refId": "A", "expr": "rate(vllm:num_preemptions_total{namespace=\"vllm\",pod=~\"$pod\"}[1m])", "legendFormat": "{{pod}}"}
+        {"refId": "A", "expr": "rate(vllm:num_preemptions_total{namespace=\"vllm\",pod=~\"$pod\"}[1m])", "legendFormat": "{{model_name}} ({{pod}})"}
       ],
       "fieldConfig": {
         "defaults": {
@@ -379,8 +379,8 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 0, "y": 28},
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:iteration_tokens_total_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p50"},
-        {"refId": "B", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:iteration_tokens_total_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} p99"}
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, pod) (rate(vllm:iteration_tokens_total_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(vllm:iteration_tokens_total_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) p99"}
       ],
       "fieldConfig": {
         "defaults": {
@@ -400,7 +400,7 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 6, "y": 28},
       "targets": [
-        {"refId": "A", "expr": "vllm:num_requests_waiting_by_reason{namespace=\"vllm\",pod=~\"$pod\"}", "legendFormat": "{{pod}} {{reason}}"}
+        {"refId": "A", "expr": "vllm:num_requests_waiting_by_reason{namespace=\"vllm\",pod=~\"$pod\"}", "legendFormat": "{{model_name}} ({{pod}}) {{reason}}"}
       ],
       "fieldConfig": {
         "defaults": {
@@ -420,8 +420,8 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 12, "y": 28},
       "targets": [
-        {"refId": "A", "expr": "100 * rate(vllm:prefix_cache_hits_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]) / clamp_min(rate(vllm:prefix_cache_queries_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]), 1)", "legendFormat": "{{pod}} local"},
-        {"refId": "B", "expr": "100 * rate(vllm:external_prefix_cache_hits_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]) / clamp_min(rate(vllm:external_prefix_cache_queries_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]), 1)", "legendFormat": "{{pod}} external"}
+        {"refId": "A", "expr": "100 * rate(vllm:prefix_cache_hits_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]) / clamp_min(rate(vllm:prefix_cache_queries_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]), 1)", "legendFormat": "{{model_name}} ({{pod}}) local"},
+        {"refId": "B", "expr": "100 * rate(vllm:external_prefix_cache_hits_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]) / clamp_min(rate(vllm:external_prefix_cache_queries_total{namespace=\"vllm\",pod=~\"$pod\"}[5m]), 1)", "legendFormat": "{{model_name}} ({{pod}}) external"}
       ],
       "fieldConfig": {
         "defaults": {
@@ -442,8 +442,8 @@
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
       "gridPos": {"h": 8, "w": 6, "x": 18, "y": 28},
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_prefill_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} prefill p95"},
-        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_decode_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{pod}} decode p95"}
+        {"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_prefill_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) prefill p95"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, pod) (rate(vllm:request_decode_time_seconds_bucket{namespace=\"vllm\",pod=~\"$pod\"}[5m])))", "legendFormat": "{{model_name}} ({{pod}}) decode p95"}
       ],
       "fieldConfig": {
         "defaults": {
