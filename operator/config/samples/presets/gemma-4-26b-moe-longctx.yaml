@@ -5,6 +5,8 @@ metadata:
   namespace: vllm
 spec:
   modelID: google/gemma-4-26B-A4B-it
+  # Per-variant served-model-name; see comment in any sibling preset.
+  servedModelName: Gemma-4-26B-MoE-LongCtx
   migResource: nvidia.com/mig-4g.96gb
   migResourceCount: 1
   dtype: bfloat16

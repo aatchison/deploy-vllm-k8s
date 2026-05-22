@@ -5,10 +5,14 @@ metadata:
   namespace: vllm
 spec:
   modelID: nvidia/Gemma-4-31B-IT-NVFP4
-  # Stable client-facing name shared with the BF16 / TP=2 equivalents so
-  # opencode + Claude Code configs can swap endpoints without changing the
-  # model name.
-  servedModelName: google/gemma-4-31B-it
+  # Per-variant served-model-name. The previous convention was a single
+  # name shared across BF16 / TP=2 / NVFP4 31B variants so opencode +
+  # Claude Code configs could swap endpoints without reconfiguration.
+  # That swap-transparency was traded in for per-variant observability
+  # when the Grafana dashboard expanded — `model_name` now distinguishes
+  # each tuning knob set in metrics and panel legends. Clients must
+  # reference the specific variant by name.
+  servedModelName: Gemma-4-31B-NVFP4-LongCtx
   migResource: nvidia.com/mig-4g.96gb
   migResourceCount: 1
   quantization: nvfp4

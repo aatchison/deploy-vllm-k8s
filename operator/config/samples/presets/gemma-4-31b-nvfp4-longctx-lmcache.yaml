@@ -9,10 +9,8 @@ metadata:
   namespace: vllm
 spec:
   modelID: nvidia/Gemma-4-31B-IT-NVFP4
-  # Stable client-facing name shared with the BF16 / TP=2 equivalents so
-  # opencode + Claude Code configs can swap endpoints without changing the
-  # model name.
-  servedModelName: google/gemma-4-31B-it
+  # Per-variant served-model-name; see comment in any sibling preset.
+  servedModelName: Gemma-4-31B-NVFP4-LongCtx-LMCache
   migResource: nvidia.com/mig-4g.96gb
   migResourceCount: 1
   quantization: nvfp4
