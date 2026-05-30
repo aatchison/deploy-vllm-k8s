@@ -16,7 +16,8 @@ type PresetReference struct {
 type ModelConfigOverrides struct {
 	ModelID                 *string      `json:"modelID,omitempty"`
 	Image                   *string      `json:"image,omitempty"`
-	ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
+		// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+		ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
 	MIGResource             *string      `json:"migResource,omitempty"`
 	MIGResourceCount        *int32       `json:"migResourceCount,omitempty"`
 	Quantization            *string      `json:"quantization,omitempty"`
