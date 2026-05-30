@@ -30,3 +30,15 @@ RUN pip install --quiet --upgrade "transformers>=4.51.0" bitsandbytes
 # of defense.
 RUN echo 'vllm:x:1000:1000::/home/vllm:/usr/sbin/nologin' >> /etc/passwd \
  && mkdir -p /home/vllm && chown 1000:1000 /home/vllm
+
+# --- Anthropic /v1/messages: accept system-role entries in messages[] ---
+# Claude Code talks to the Anthropic Messages API and emits the system prompt
+# as a role="system" entry INSIDE messages[]. vLLM's native Anthropic endpoint
+# validates messages[] against Literal["user","assistant"] and expects system
+# as a top-level field, so it rejects this with HTTP 400 and Claude Code cannot
+# complete a turn. This layer bakes a mode="before" model validator into
+# AnthropicMessagesRequest that hoists role="system" entries into the top-level
+# `system` field before validation. Idempotent; fails the build loudly if the
+# upstream protocol changes. See patches/ for the logic + unit tests.
+COPY patches/ /opt/patches/
+RUN python /opt/patches/apply_patch.py
