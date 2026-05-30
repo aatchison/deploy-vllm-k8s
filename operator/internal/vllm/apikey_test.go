@@ -115,14 +115,14 @@ func TestBuildDeploymentAPIKeyCommandWrapper(t *testing.T) {
 		t.Fatalf("Command shell wrapper must have at least 3 entries; got %v", c.Command)
 	}
 	script := c.Command[2]
-	if !strings.Contains(script, APIKeyMountPath) {
-		t.Errorf("script must reference the projected file path %q; got %q", APIKeyMountPath, script)
+	if !strings.Contains(script, `export VLLM_API_KEY=$(cat `+APIKeyMountPath+`)`) {
+		t.Errorf("script must export VLLM_API_KEY from the projected file path %q; got %q", APIKeyMountPath, script)
 	}
 	if !strings.Contains(script, "exec ") {
 		t.Errorf("script must exec the vLLM entrypoint (signal propagation); got %q", script)
 	}
-	if !strings.Contains(script, `--api-key="$KEY"`) {
-		t.Errorf("script must append --api-key=$KEY (using env var, not literal); got %q", script)
+	if strings.Contains(script, `--api-key=`) {
+		t.Errorf("script must NOT append --api-key (vLLM honors VLLM_API_KEY env); got %q", script)
 	}
 }
 
