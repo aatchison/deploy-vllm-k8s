@@ -16,6 +16,7 @@ jobs:
     outputs:
       operator: ${{ steps.filter.outputs.operator }}
       manifests: ${{ steps.filter.outputs.manifests }}
+      patches: ${{ steps.filter.outputs.patches }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
@@ -28,6 +29,9 @@ jobs:
               - "operator/config/**"
               - "operator/api/**"
               - ".github/workflows/pr-validate.yaml"
+            patches:
+              - "patches/**"
+              - "Dockerfile"
 
   # ── Go: generated files are up-to-date ────────────────────────────────────
   # NOTE: this job ALWAYS runs so the "Generated code is up-to-date" required
@@ -144,3 +148,35 @@ jobs:
           else
             echo "No generated CRDs yet (run make manifests); skipping."
           fi
+
+  # ── Python: build-time patch injection tests ──────────────────────────────
+  # Same always-run pattern as `generated` / `yaml-validate` above — the job
+  # has no job-level `if:` so the required status context always reports; work
+  # is skipped at the step level when `patches` is unchanged. Guards apply_patch.py
+  # against silent anchor drift in vLLM's Anthropic protocol (issue #137).
+  patches-test:
+    name: Patch injection tests
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: No-op when patches unchanged
+        if: needs.changes.outputs.patches != 'true'
+        run: echo "No patch changes; skipping patch tests."
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        if: needs.changes.outputs.patches == 'true'
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        if: needs.changes.outputs.patches == 'true'
+        run: pip install pytest
+
+      - name: Run patch tests
+        if: needs.changes.outputs.patches == 'true'
+        # Run from the repo root so both import styles resolve:
+        #   test_apply_patch.py  -> `import patches.apply_patch`
+        #   test_system_hoist.py -> `from system_hoist import ...` (pytest adds patches/ to sys.path)
+        run: python -m pytest patches/ -q
