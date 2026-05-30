@@ -41,4 +41,5 @@ RUN echo 'vllm:x:1000:1000::/home/vllm:/usr/sbin/nologin' >> /etc/passwd \
 # `system` field before validation. Idempotent; fails the build loudly if the
 # upstream protocol changes. See patches/ for the logic + unit tests.
 COPY patches/ /opt/patches/
-RUN python /opt/patches/apply_patch.py
+# The base image ships python3 only (no `python` on PATH), so invoke python3.
+RUN python3 /opt/patches/apply_patch.py
