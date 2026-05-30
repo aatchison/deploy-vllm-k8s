@@ -1,0 +1,64 @@
+# Egress allow-list for the operator pods (issue #142).
+#
+# Declaring `policyTypes: [Egress]` on the operator pods flips them to
+# default-deny-egress, so this manifest must enumerate EVERY outbound path the
+# operator needs or the control loop wedges. A controller's outbound surface is
+# small and well-known:
+#
+#   1. DNS (UDP/TCP 53) — resolve the kube-apiserver Service and any
+#      operator-managed Services it reconciles. Without this, every API call
+#      fails before the TLS handshake.
+#   2. The Kubernetes API server (TCP 443 and 6443) — the operator's entire job
+#      is watch/list/update against the apiserver. 443 covers managed control
+#      planes (EKS/GKE/AKS) and the in-cluster `kubernetes.default.svc` ClusterIP;
+#      6443 covers kubeadm/self-hosted. We intentionally do NOT `except` the
+#      RFC1918 ranges here (unlike the workload huggingface egress) because the
+#      apiserver ClusterIP and node/LB endpoints commonly live inside those
+#      ranges — excepting them would black-hole the API connection.
+#
+# The operator needs no general internet egress (it pulls no model weights —
+# that's the vLLM workload pods, covered by ../allow-egress-huggingface.yaml).
+# So this list is deliberately tight: DNS + apiserver, nothing else.
+#
+# Narrow further if your apiserver endpoint is known and stable: replace the
+# 0.0.0.0/0 ipBlock with the apiserver's CIDR/port. Left broad by default
+# because that endpoint is cluster-specific and a wrong pin silently breaks the
+# operator on an enforcing CNI.
+#
+# Requirements: a CNI that enforces NetworkPolicy (otherwise a silent no-op).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-operator
+  namespace: vllm-system
+spec:
+  podSelector:
+    matchLabels:
+      control-plane: vllm-operator
+  policyTypes:
+    - Egress
+  egress:
+    # 1. DNS — UDP 53 is the canonical resolver path; TCP 53 covers fallback
+    #    for large records (DNSSEC, EDNS).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 2. Kubernetes API server. Broad by default (see header) — narrow to your
+    #    apiserver endpoint on clusters where it is known and stable.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443

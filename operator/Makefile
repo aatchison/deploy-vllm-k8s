@@ -108,9 +108,20 @@ deploy: manifests install
 	$(KUBECTL) apply -f config/rbac
 	$(KUBECTL) apply -f config/manager/manager.yaml
 	$(KUBECTL) apply -f config/manager/service.yaml
+	# Operator-namespace NetworkPolicies (issue #142). Unlike the workload
+	# templates one directory up (which target the `vllm` namespace and assume a
+	# specific ingress controller, so they stay opt-in via deploy-networkpolicy),
+	# config/networkpolicy/operator/ is self-contained: default-deny ingress for
+	# vllm-system plus a metrics-scrape allow and a DNS+apiserver egress list. No
+	# per-cluster edits are needed, so it ships in the standard deploy path and
+	# the operator namespace is never left unprotected. On a CNI that does not
+	# enforce NetworkPolicy these are a harmless no-op (issue #75). Applied after
+	# manager.yaml so the vllm-system namespace already exists.
+	$(KUBECTL) apply -f config/networkpolicy/operator/
 
 .PHONY: undeploy
 undeploy:
+	$(KUBECTL) delete --ignore-not-found -f config/networkpolicy/operator/
 	$(KUBECTL) delete --ignore-not-found -f config/manager/service.yaml
 	$(KUBECTL) delete --ignore-not-found -f config/manager/manager.yaml
 	$(KUBECTL) delete --ignore-not-found -f config/rbac
@@ -147,15 +158,21 @@ undeploy-monitoring:
 	$(KUBECTL) delete --ignore-not-found -n $(GRAFANA_NAMESPACE) configmap vllm-grafana-dashboard
 	$(KUBECTL) delete --ignore-not-found -f config/prometheus/
 
-# Issue #75: NetworkPolicy templates are kept out of `make deploy` because
-# they require a CNI that enforces NetworkPolicy (Calico, Cilium, kube-router,
-# Antrea, etc.). On a CNI without NP support the manifests apply but nothing
-# enforces them — silently insecure. Apply explicitly only after confirming
-# the cluster's CNI enforces ingress/egress rules.
+# Issue #75: the *workload* NetworkPolicy templates are kept out of `make deploy`
+# because they require a CNI that enforces NetworkPolicy (Calico, Cilium,
+# kube-router, Antrea, etc.) and must be customised per cluster before applying.
+# On a CNI without NP support the manifests apply but nothing enforces them —
+# silently insecure. Apply explicitly only after confirming the cluster's CNI
+# enforces ingress/egress rules.
 #
 # Customise the templates (especially allow-from-ingress-controller.yaml's
 # namespaceSelector) before applying — the defaults assume nginx-ingress in
 # the `ingress-nginx` namespace.
+#
+# Scope note: this target applies only the workload templates in the top of
+# config/networkpolicy/ (kubectl -f is non-recursive, so config/networkpolicy/
+# operator/ is not included here). The operator-namespace policies ship with
+# `make deploy` instead — see that target.
 .PHONY: deploy-networkpolicy
 deploy-networkpolicy:
 	$(KUBECTL) apply -f config/networkpolicy/

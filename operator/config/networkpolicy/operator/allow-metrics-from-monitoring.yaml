@@ -1,0 +1,43 @@
+# Allow Prometheus to scrape the operator's controller-runtime metrics (issue #142).
+#
+# Layered atop default-deny-operator-ingress.yaml: the deny is the floor; this
+# policy adds the single explicit ingress the operator actually needs — a
+# metrics scrape from the monitoring stack to :8080.
+#
+# Port contract (manager.yaml / main.go):
+#   - metrics  :8080  (controller-runtime --metrics-bind-address; named `metrics`)
+#   - health   :8081  (--health-probe-bind-address; kubelet-only, not opened here)
+# The Service `vllm-operator-metrics` (config/manager/service.yaml) and the
+# ServiceMonitor (config/prometheus/monitor.yaml) both target port 8080.
+#
+# This is a *template* for the source namespace: the default selects the
+# `monitoring` namespace (kube-prometheus-stack's convention, and the Makefile's
+# GRAFANA_NAMESPACE default). If your Prometheus runs elsewhere, swap the label:
+#
+#   monitoring:        kubernetes.io/metadata.name: monitoring
+#   prometheus:        kubernetes.io/metadata.name: prometheus
+#   openshift-monitoring: kubernetes.io/metadata.name: openshift-monitoring
+#
+# If Prometheus is not deployed, this policy simply opens a port nothing dials —
+# harmless. The default-deny still blocks every other peer.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-metrics-from-monitoring
+  namespace: vllm-system
+spec:
+  # Scope to the operator pods by their stamped label (manager.yaml), not the
+  # whole namespace, so a future sidecar in vllm-system isn't implicitly exposed.
+  podSelector:
+    matchLabels:
+      control-plane: vllm-operator
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
