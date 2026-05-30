@@ -175,6 +175,10 @@ spec:
                   image:
                     type: string
                   imagePullPolicy:
+                    enum:
+                    - Always
+                    - IfNotPresent
+                    - Never
                     type: string
                   livenessProbe:
                     description: |-
