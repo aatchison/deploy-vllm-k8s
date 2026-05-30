@@ -58,7 +58,7 @@ jobs:
       - name: govulncheck
         if: steps.filter.outputs.operator == 'true'
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
           govulncheck ./...
 
       - name: Lint
