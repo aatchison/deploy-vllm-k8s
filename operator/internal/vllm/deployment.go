@@ -453,7 +453,7 @@ func buildAPIKeyCommand(args []string) ([]string, []string) {
 	// `exec`: replace shell with vLLM so signals (SIGTERM on pod stop) flow
 	// to vLLM rather than being trapped by the shell.
 	script := fmt.Sprintf(
-		`set -e; KEY=$(cat %s); exec python3 -m vllm.entrypoints.openai.api_server "$@" --api-key="$KEY"`,
+		`set -e; export VLLM_API_KEY=$(cat %s); exec python3 -m vllm.entrypoints.openai.api_server "$@"`,
 		APIKeyMountPath,
 	)
 	cmd := []string{"sh", "-c", script, "--"}
