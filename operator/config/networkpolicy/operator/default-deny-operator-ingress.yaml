@@ -1,0 +1,41 @@
+# Default-deny ingress to the operator namespace `vllm-system` (issue #142).
+#
+# The operator namespace previously had NO NetworkPolicy — only the workload
+# (`vllm`) namespace was covered by config/networkpolicy/*.yaml. This manifest
+# is the ingress floor for `vllm-system`: it denies all inbound traffic to
+# every pod in the namespace, so the only reachable surfaces are the ones an
+# accompanying allow-policy explicitly opens (see allow-metrics-from-monitoring.yaml).
+#
+# Why default-deny rather than allow-from-known-good:
+#   - Layered policies compose by union: any policy that selects a pod and
+#     allows a source grants ingress. A standalone default-deny is the lower
+#     bound that ensures unspecified peers are blocked.
+#   - The operator serves no webhooks (main.go binds only metrics :8080 and the
+#     health probe :8081). Nothing in-cluster needs to dial the operator except
+#     a metrics scraper, so the namespace defaults closed.
+#
+# Health probes are unaffected: liveness/readiness on :8081 originate from the
+# kubelet in the node's host network namespace, which standard CNIs (Calico,
+# Cilium, Antrea) exempt from pod NetworkPolicy enforcement. This policy does
+# not select that traffic, and node→pod probe traffic is not blocked.
+#
+# Requirements:
+#   - The cluster must run a CNI that enforces NetworkPolicy (Calico, Cilium,
+#     kube-router, Antrea, etc.). On a CNI without enforcement this manifest is
+#     created but is a silent no-op.
+#   - The `vllm-system` namespace must exist (created by config/manager/manager.yaml).
+#
+# Applied by `make deploy` (operator policies are self-contained and need no
+# per-cluster template edits, unlike the workload templates one directory up).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-operator-ingress
+  namespace: vllm-system
+spec:
+  # Empty podSelector matches every pod in the namespace. Combined with a
+  # policyType of Ingress and no `ingress:` rules, this denies all inbound
+  # traffic to those pods.
+  podSelector: {}
+  policyTypes:
+    - Ingress
