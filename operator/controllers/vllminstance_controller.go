@@ -181,6 +181,13 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	instance.Status.ServiceName = svc.Name
 
+	// Both the Deployment and Service SSA applies have now succeeded, so the
+	// desired state for this spec generation has been realized. Advance
+	// ObservedGeneration here — NOT on the earlier preset/PVC/resolve/apply
+	// failure exits — so that generation == observedGeneration reliably means
+	// "the spec was applied" rather than merely "the controller saw it" (#146).
+	instance.Status.ObservedGeneration = instance.Generation
+
 	// Re-read the Service to get the actual NodePort (may have been auto-assigned by Kubernetes).
 	var actualSvc corev1.Service
 	if err := r.Get(ctx, client.ObjectKey{Namespace: svc.Namespace, Name: svc.Name}, &actualSvc); err != nil {
@@ -287,7 +294,6 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 // reconcile fires from an Owns() watch in parallel. On Conflict we surface the
 // error so the workqueue applies exponential backoff rather than hot-looping.
 func (r *VLLMInstanceReconciler) patchStatus(ctx context.Context, instance, orig *vllmv1alpha1.VLLMInstance, res ctrl.Result) (ctrl.Result, error) {
-	instance.Status.ObservedGeneration = instance.Generation
 	if err := r.Status().Patch(ctx, instance, client.MergeFrom(orig)); err != nil {
 		// Conflicts surface as a normal error so controller-runtime's workqueue
 		// can apply exponential backoff. Returning Result{Requeue: true}, nil

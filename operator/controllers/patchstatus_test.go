@@ -94,8 +94,11 @@ func TestSetLongContextCondition_PreservesLastTransitionTimeOnNoOp(t *testing.T)
 }
 
 // TestPatchStatus_HappyPath verifies patchStatus uses Patch (not Update) and
-// stamps ObservedGeneration. The fake client's status subresource supports
-// Patch, so this exercises the merge-from-orig path end-to-end.
+// flushes staged status mutations through the merge-from-orig path. As of
+// issue #146, patchStatus no longer auto-stamps ObservedGeneration — that is
+// staged by Reconcile only after the desired-state apply succeeds — so here we
+// stage it explicitly (the shape Reconcile uses) and confirm it persists, and
+// separately assert patchStatus does NOT advance it on its own.
 func TestPatchStatus_HappyPath(t *testing.T) {
 	scheme := newScheme(t)
 	inst := &vllmv1alpha1.VLLMInstance{
@@ -117,6 +120,8 @@ func TestPatchStatus_HappyPath(t *testing.T) {
 	orig := got.DeepCopy()
 	setVLLMCondition(&got, vllmv1alpha1.ConditionReady, metav1.ConditionTrue,
 		vllmv1alpha1.ReasonAllReady, "all ready")
+	// Reconcile stages this only after the apply succeeds; mimic that here.
+	got.Status.ObservedGeneration = got.Generation
 
 	res, err := r.patchStatus(context.Background(), &got, orig, ctrl.Result{})
 	if err != nil {
@@ -126,7 +131,7 @@ func TestPatchStatus_HappyPath(t *testing.T) {
 		t.Errorf("Result: got %+v, want zero", res)
 	}
 
-	// Re-Get and verify the condition + ObservedGeneration are persisted.
+	// Re-Get and verify the condition + staged ObservedGeneration are persisted.
 	var stored vllmv1alpha1.VLLMInstance
 	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(inst), &stored); err != nil {
 		t.Fatalf("Get after patch: %v", err)
@@ -136,6 +141,46 @@ func TestPatchStatus_HappyPath(t *testing.T) {
 	}
 	if len(stored.Status.Conditions) != 1 || stored.Status.Conditions[0].Type != vllmv1alpha1.ConditionReady {
 		t.Errorf("Conditions: got %+v", stored.Status.Conditions)
+	}
+}
+
+// TestPatchStatus_DoesNotAutoAdvanceObservedGeneration pins the issue #146
+// invariant at the patchStatus boundary: when nothing stages ObservedGeneration
+// (the early-exit error paths never do), patchStatus must leave it at its prior
+// value rather than auto-stamping metadata.generation.
+func TestPatchStatus_DoesNotAutoAdvanceObservedGeneration(t *testing.T) {
+	scheme := newScheme(t)
+	inst := &vllmv1alpha1.VLLMInstance{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar", Generation: 9},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&vllmv1alpha1.VLLMInstance{}).
+		WithObjects(inst).
+		Build()
+
+	r := &VLLMInstanceReconciler{Client: cl, Scheme: scheme}
+
+	var got vllmv1alpha1.VLLMInstance
+	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(inst), &got); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	orig := got.DeepCopy()
+	// Stage a condition but deliberately NOT ObservedGeneration, mirroring an
+	// early-exit path (e.g. PresetNotFound).
+	setVLLMCondition(&got, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+		vllmv1alpha1.ReasonPresetNotFound, "Preset not found")
+
+	if _, err := r.patchStatus(context.Background(), &got, orig, ctrl.Result{}); err != nil {
+		t.Fatalf("patchStatus: %v", err)
+	}
+
+	var stored vllmv1alpha1.VLLMInstance
+	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(inst), &stored); err != nil {
+		t.Fatalf("Get after patch: %v", err)
+	}
+	if stored.Status.ObservedGeneration != 0 {
+		t.Errorf("ObservedGeneration must stay 0 when unstaged; got %d", stored.Status.ObservedGeneration)
 	}
 }
 

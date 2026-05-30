@@ -178,6 +178,13 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	instance.Status.ServiceName = svc.Name
 
+	// Both the Deployment and Service SSA applies have now succeeded, so the
+	// desired state for this spec generation has been realized. Advance
+	// ObservedGeneration here — NOT on the earlier preset/PVC/resolve/apply
+	// failure exits — so that generation == observedGeneration reliably means
+	// "the spec was applied" rather than merely "the controller saw it" (#146).
+	instance.Status.ObservedGeneration = instance.Generation
+
 	// Re-read the Service to get the actual NodePort.
 	var actualSvc corev1.Service
 	if err := r.Get(ctx, client.ObjectKey{Namespace: svc.Namespace, Name: svc.Name}, &actualSvc); err != nil {
@@ -271,7 +278,6 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 // against the original (pre-mutation) snapshot. See VLLMInstanceReconciler's
 // patchStatus for the rationale on Patch-vs-Update and IsConflict handling.
 func (r *LongContextInstanceReconciler) patchStatus(ctx context.Context, instance, orig *vllmv1alpha1.LongContextInstance, res ctrl.Result) (ctrl.Result, error) {
-	instance.Status.ObservedGeneration = instance.Generation
 	if err := r.Status().Patch(ctx, instance, client.MergeFrom(orig)); err != nil {
 		return ctrl.Result{}, err
 	}
