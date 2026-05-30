@@ -66,3 +66,11 @@ if [[ -z "$CONTENT" ]]; then
 fi
 echo "    response: $CONTENT"
 echo "==> PASS"
+
+# ── 4. /v1/messages system-role hoist test ─────────────────────────────────────────
+echo "==> POST $ENDPOINT/v1/messages (system-role hoist)"
+curl -sf --max-time 30 \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$MODEL_ID\",\"messages\":[{\"role\":\"system\",\"content\":\"Be brief\"},{\"role\":\"user\",\"content\":\"Say hi\"}],\"max_tokens\":5}" \
+    "$ENDPOINT/v1/messages" > /dev/null
+echo "    PASS"
