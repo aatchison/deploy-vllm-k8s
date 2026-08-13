@@ -35,3 +35,21 @@ RUN echo 'vllm:x:1000:1000::/home/vllm:/usr/sbin/nologin' >> /etc/passwd \
 COPY patches/ /opt/patches/
 # The base image ships python3 only (no `python` on PATH), so invoke python3.
 RUN python3 /opt/patches/apply_patch.py
+
+# --- cohere_melody: Cohere Command tool-call + reasoning parsers ---
+# vLLM ships vllm/tool_parsers/cohere_command_tool_parser.py and
+# vllm/reasoning/cohere_command_reasoning_parser.py, but BOTH do
+# `from cohere_melody import PyFilter, PyFilterOptions` and the base image does
+# not install it. Selecting --tool-call-parser cohere_command3/4 (or the
+# matching --reasoning-parser) therefore CrashLoops the server with ImportError.
+#
+# Without this, Cohere-family models (e.g. CohereLabs/North-Mini-Code-1.0-w4a16)
+# cannot emit tool calls at all, which disqualifies them as agentic workers --
+# and, lacking the reasoning parser, they return raw chain-of-thought as visible
+# content, which silently inflates output tokens and corrupts cost measurement.
+#
+# Pinned: the parsers bind to a native (Rust) extension, so an unpinned floating
+# version could change filter behaviour under us. cp312/x86_64 manylinux wheels
+# are published, matching this base image's interpreter.
+RUN python3 -m pip install --no-cache-dir "cohere_melody==0.13.0" \
+ && python3 -c "import cohere_melody; from cohere_melody import PyFilter, PyFilterOptions; print('cohere_melody OK')"

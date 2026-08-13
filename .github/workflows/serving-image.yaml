@@ -1,0 +1,122 @@
+name: Serving image
+
+# Builds the custom vLLM SERVING image (root Dockerfile) and pushes it to the
+# in-cluster Forgejo registry, so Kubernetes can PULL it.
+#
+# Why this exists
+# ---------------
+# Until now the serving image existed ONLY as `vllm-gemma4:local` inside one
+# node's containerd, imported by build.sh with `microk8s ctr images import`
+# (the microk8s registry addon needs sudo). That has three costs:
+#   * not reproducible from git -- nothing rebuilds it, and no digest is recorded;
+#   * `imagePullPolicy: Never` means an image GC or a node re-register STRANDS it
+#     (ErrImageNeverPull -- see forge-runbook FM-85, which names pinning this
+#     image to the in-cluster registry as the DURABLE fix);
+#   * a new dependency (e.g. cohere_melody) cannot be added without hand-building
+#     on the node.
+#
+# Mirrors release.yaml's Forgejo-hardened pattern (same action SHA pins, same
+# REGISTRY_PASSWORD PAT with write:package).
+#
+# DISK: this image is ~25GB uncompressed. The dind builder and the registry share
+# one node LV. The guard step below refuses to start a build that would push the
+# node past its eviction threshold, because a mid-build ENOSPC there takes out
+# unrelated namespaces (forge-runbook FM-87).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "patches/**"
+      - ".github/workflows/serving-image.yaml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra tag to publish (e.g. cohere1)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: forgejo-http.forgejo.svc:3000
+  IMAGE_NAME: aatchison/vllm-gemma4
+
+jobs:
+  serving-image:
+    name: Build and publish serving image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Refuse to build rather than fill the shared LV. The builder is remote
+      # (DOCKER_HOST -> shared-dind), so check the DAEMON's disk, not the
+      # runner's -- they are different filesystems and only the daemon's matters.
+      - name: Guard - builder disk headroom
+        run: |
+          set -euo pipefail
+          NEED_GB=60   # ~25GB base + ~25GB built layers + ~13GB push, rounded up
+          FREE_GB=$(docker info --format '{{json .}}' >/dev/null 2>&1 && \
+            docker run --rm busybox df -PBG /  2>/dev/null | awk 'NR==2{gsub("G","",$4);print $4}')
+          echo "builder free: ${FREE_GB:-unknown} GB (need >= ${NEED_GB} GB)"
+          if [ -n "${FREE_GB:-}" ] && [ "$FREE_GB" -lt "$NEED_GB" ]; then
+            echo "::error::Builder has ${FREE_GB}GB free, need ${NEED_GB}GB."
+            echo "Reclaim first, e.g. time-filtered so warm CI bases survive:"
+            echo "  docker image prune -a -f --filter until=720h"
+            echo "  docker builder prune -f --filter until=720h"
+            exit 1
+          fi
+
+      - name: Log in to Forgejo registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # sha- tag is the one manifests should pin: it is immutable and maps
+          # 1:1 to a commit. `latest` exists for convenience only -- never pin a
+          # serving preset to it, or a rebuild silently changes what runs.
+          tags: |
+            type=sha,format=long,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Report digest
+        run: |
+          echo "### Serving image published" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Pin a LongContextPreset to the sha- tag or the digest above," >> "$GITHUB_STEP_SUMMARY"
+          echo "with imagePullPolicy: IfNotPresent (never Never)." >> "$GITHUB_STEP_SUMMARY"
+
+      # Reclaim the build cache this job created. Time-filtered so the warmed CI
+      # base images (kindest/node, catthehacker) that the prune sidecar
+      # deliberately preserves are NOT touched.
+      - name: Reclaim build cache
+        if: always()
+        run: docker builder prune -f --filter until=24h || true
