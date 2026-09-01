@@ -85,6 +85,9 @@ spec:
                   the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
                   at default. Useful for long-context throughput too.
                 type: boolean
+              enableLora:
+                description: EnableLora enables LoRA adapter support in vLLM.
+                type: boolean
               enablePrefixCaching:
                 default: true
                 description: |-
@@ -148,16 +151,6 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
-              enableLora:
-                description: Enable LoRA adapter support in vLLM.
-                type: boolean
-              loraModules:
-                description: Comma-separated adapter name=path entries under /models/.
-                type: string
-              maxLoraRank:
-                format: int32
-                minimum: 1
-                type: integer
               livenessProbe:
                 description: |-
                   ProbeConfig is the tunable subset of a k8s probe.
@@ -181,6 +174,14 @@ spec:
                 - initialDelaySeconds
                 - periodSeconds
                 type: object
+              loraModules:
+                description: LoraModules maps served adapter names to paths under
+                  /models/.
+                type: string
+              maxLoraRank:
+                format: int32
+                minimum: 1
+                type: integer
               maxModelLen:
                 format: int32
                 minimum: 1024

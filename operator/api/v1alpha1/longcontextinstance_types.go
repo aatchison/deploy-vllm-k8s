@@ -15,10 +15,10 @@ type LongContextPresetReference struct {
 // field is a pointer — non-nil means override. Probe overrides replace the
 // whole ProbeConfig struct.
 type LongContextOverrides struct {
-	ModelID                 *string      `json:"modelID,omitempty"`
-	Image                   *string      `json:"image,omitempty"`
-		// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
-		ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
+	ModelID *string `json:"modelID,omitempty"`
+	Image   *string `json:"image,omitempty"`
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
 	MIGResource             *string      `json:"migResource,omitempty"`
 	MIGResourceCount        *int32       `json:"migResourceCount,omitempty"`
 	Quantization            *string      `json:"quantization,omitempty"`
