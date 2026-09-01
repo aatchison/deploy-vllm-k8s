@@ -249,10 +249,11 @@ func TestReplicaStorageControllerRejectsEveryUnsafeMode(t *testing.T) {
 						t.Fatalf("condition=%+v, want False/%s/%q", cond, vllmv1alpha1.ReasonReplicaStorageUnsafe, wantMsg)
 					}
 				}
-				for _, child := range []client.Object{&appsv1.Deployment{}, &corev1.Service{}} {
-					if err := cl.Get(context.Background(), client.ObjectKey{Namespace: "ns", Name: obj.GetName()}, child); err == nil {
-						t.Fatalf("%T unexpectedly exists", child)
-					}
+				if err := cl.Get(context.Background(), client.ObjectKey{Namespace: "ns", Name: obj.GetName()}, &appsv1.Deployment{}); err == nil {
+					t.Fatal("Deployment unexpectedly exists")
+				}
+				if err := cl.Get(context.Background(), client.ObjectKey{Namespace: "ns", Name: "svc-" + obj.GetName()}, &corev1.Service{}); err == nil {
+					t.Fatal("Service unexpectedly exists")
 				}
 			})
 		}
