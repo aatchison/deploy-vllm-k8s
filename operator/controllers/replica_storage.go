@@ -70,13 +70,13 @@ func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader c
 	// Do not force ownership: an HPA or second manager may legitimately own
 	// replicas. A conflict is surfaced to the caller rather than taking that
 	// ownership; the controller remains unsafe until the conflict is resolved.
+	// The cache can lag the write. An uncached reader is mandatory; never
+	// mutate a Deployment unless the receiver can authoritatively verify it.
+	if apiReader == nil {
+		return false, fmt.Errorf("authoritative API reader is required")
+	}
 	if err := c.Apply(ctx, ac, fieldOwner); err != nil {
 		return false, fmt.Errorf("apply Deployment remediation: %w", err)
-	}
-	// The cache can lag the write. Read back through the uncached API reader.
-	// Unit callers may omit it; that explicitly uses the client as the reader.
-	if apiReader == nil {
-		apiReader = c
 	}
 	var observed appsv1.Deployment
 	if err := apiReader.Get(ctx, key, &observed); err != nil {
