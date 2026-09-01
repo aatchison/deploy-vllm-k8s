@@ -62,7 +62,7 @@ type LongContextOverrides struct {
 //
 // +kubebuilder:validation:XValidation:rule="has(self.presetRef) || (has(self.overrides) && has(self.overrides.modelID) && has(self.overrides.migResource) && has(self.overrides.maxModelLen) && has(self.overrides.kvCacheDtype))",message="presetRef or (overrides.modelID, overrides.migResource, overrides.maxModelLen, overrides.kvCacheDtype) must be set"
 // +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1 || (has(self.overrides.migResourceCount) && self.overrides.migResourceCount == self.overrides.tensorParallelSize)",message="overrides.tensorParallelSize > 1 requires overrides.migResourceCount == tensorParallelSize"
-// +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 1",message="replicas must be 0 or 1 (MIG slice cannot host multiple pods)"
+// +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 2",message="replicas must be 0, 1, or 2 (each replica consumes one independently schedulable MIG slice)"
 // +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.kvOffloadBackend) || self.overrides.kvOffloadBackend != 'lmcache' || ((!has(self.overrides.migResourceCount) || self.overrides.migResourceCount <= 1) && (!has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1))",message="LMCache offload is single-slice only in the current implementation"
 type LongContextInstanceSpec struct {
 	PresetRef *LongContextPresetReference `json:"presetRef,omitempty"`
@@ -96,7 +96,7 @@ type LongContextInstanceSpec struct {
 	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
 
 	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=1
+	// +kubebuilder:validation:Maximum=2
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	// PVCReadOnly, when true, mounts the model PVC at /models with
