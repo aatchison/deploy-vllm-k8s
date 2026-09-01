@@ -39,14 +39,20 @@ func TestRemediationApplyPayloadIsIdentityAndReplicasOnly(t *testing.T) {
 	if payload["apiVersion"] != "apps/v1" || payload["kind"] != "Deployment" {
 		t.Fatalf("identity=%v", payload)
 	}
-	metadata := payload["metadata"].(map[string]interface{})
+	metadata, ok := payload["metadata"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("metadata has unexpected type: %T", payload["metadata"])
+	}
 	if metadata["name"] != "vi" || metadata["namespace"] != "ns" || metadata["resourceVersion"] != "7" {
 		t.Fatalf("metadata=%v", metadata)
 	}
 	if len(metadata) != 3 {
 		t.Fatalf("metadata contains fields beyond identity/resourceVersion: %v", metadata)
 	}
-	spec := payload["spec"].(map[string]interface{})
+	spec, ok := payload["spec"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("spec has unexpected type: %T", payload["spec"])
+	}
 	if len(spec) != 1 || spec["replicas"] != int64(1) {
 		t.Fatalf("spec=%v", spec)
 	}
