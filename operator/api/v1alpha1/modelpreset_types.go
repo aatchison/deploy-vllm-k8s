@@ -85,7 +85,10 @@ type ModelPresetSpec struct {
 	// EnableChunkedPrefill toggles vLLM's chunked-prefill scheduler. Sidesteps
 	// the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
 	// at default. Useful for long-context throughput too.
-	EnableChunkedPrefill bool `json:"enableChunkedPrefill,omitempty"`
+	EnableChunkedPrefill bool   `json:"enableChunkedPrefill,omitempty"`
+	EnableLora          bool   `json:"enableLora,omitempty"`
+	LoraModules         string `json:"loraModules,omitempty"`
+	MaxLoraRank         int32  `json:"maxLoraRank,omitempty"`
 }
 
 // +kubebuilder:object:root=true

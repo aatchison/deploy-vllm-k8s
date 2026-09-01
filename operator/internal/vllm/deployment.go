@@ -501,6 +501,15 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.KVOffloadBackend == "lmcache" {
 		args = append(args, "--kv-transfer-config", buildKVTransferConfig(e.KVOffloadSize))
 	}
+	if e.EnableLora {
+		args = append(args, "--enable-lora")
+	}
+	if e.MaxLoraRank > 0 {
+		args = append(args, "--max-lora-rank", strconv.Itoa(int(e.MaxLoraRank)))
+	}
+	if e.LoraModules != "" {
+		args = append(args, "--lora-modules", e.LoraModules)
+	}
 	return args
 }
 
