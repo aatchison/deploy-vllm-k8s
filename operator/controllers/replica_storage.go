@@ -38,6 +38,10 @@ func validateReplicaStorage(pvc *corev1.PersistentVolumeClaim, replicas int32, r
 // The minimal apply changes only replicas and leaves the normal desired-state
 // apply blocked until the user fixes the CR.
 func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader client.Reader, owner client.Object) (bool, error) {
+	// Authoritative ownership must be established before any mutation.
+	if apiReader == nil {
+		return false, fmt.Errorf("authoritative API reader is required")
+	}
 	var dep appsv1.Deployment
 	key := client.ObjectKeyFromObject(owner)
 	if err := c.Get(ctx, key, &dep); err != nil {
@@ -53,13 +57,23 @@ func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader c
 	if dep.Spec.Replicas == nil || *dep.Spec.Replicas <= 1 {
 		return false, nil
 	}
+	var authoritative appsv1.Deployment
+	if err := apiReader.Get(ctx, key, &authoritative); err != nil {
+		return false, fmt.Errorf("authoritative pre-Apply Deployment read: %w", err)
+	}
+	if authoritative.UID != dep.UID || !metav1.IsControlledBy(&authoritative, owner) {
+		return false, fmt.Errorf("authoritative pre-Apply Deployment identity or ownership changed")
+	}
+	if authoritative.Spec.Replicas == nil || *authoritative.Spec.Replicas <= 1 {
+		return false, nil
+	}
 	ones := int32(1)
 	patch := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            dep.Name,
 			Namespace:       dep.Namespace,
-			ResourceVersion: dep.ResourceVersion,
+			ResourceVersion: authoritative.ResourceVersion,
 		},
 		Spec: appsv1.DeploymentSpec{Replicas: &ones},
 	}
