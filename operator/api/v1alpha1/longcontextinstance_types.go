@@ -15,10 +15,10 @@ type LongContextPresetReference struct {
 // field is a pointer — non-nil means override. Probe overrides replace the
 // whole ProbeConfig struct.
 type LongContextOverrides struct {
-	ModelID                 *string      `json:"modelID,omitempty"`
-	Image                   *string      `json:"image,omitempty"`
-		// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
-		ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
+	ModelID *string `json:"modelID,omitempty"`
+	Image   *string `json:"image,omitempty"`
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
 	MIGResource             *string      `json:"migResource,omitempty"`
 	MIGResourceCount        *int32       `json:"migResourceCount,omitempty"`
 	Quantization            *string      `json:"quantization,omitempty"`
@@ -63,6 +63,7 @@ type LongContextOverrides struct {
 // +kubebuilder:validation:XValidation:rule="has(self.presetRef) || (has(self.overrides) && has(self.overrides.modelID) && has(self.overrides.migResource) && has(self.overrides.maxModelLen) && has(self.overrides.kvCacheDtype))",message="presetRef or (overrides.modelID, overrides.migResource, overrides.maxModelLen, overrides.kvCacheDtype) must be set"
 // +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1 || (has(self.overrides.migResourceCount) && self.overrides.migResourceCount == self.overrides.tensorParallelSize)",message="overrides.tensorParallelSize > 1 requires overrides.migResourceCount == tensorParallelSize"
 // +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 2",message="replicas must be 0, 1, or 2 (each replica consumes one independently schedulable MIG slice)"
+// +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 1 || self.sharedStorage == true",message="replicas > 1 requires sharedStorage=true (PVC must support multi-node access)"
 // +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.kvOffloadBackend) || self.overrides.kvOffloadBackend != 'lmcache' || ((!has(self.overrides.migResourceCount) || self.overrides.migResourceCount <= 1) && (!has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1))",message="LMCache offload is single-slice only in the current implementation"
 type LongContextInstanceSpec struct {
 	PresetRef *LongContextPresetReference `json:"presetRef,omitempty"`
@@ -98,6 +99,10 @@ type LongContextInstanceSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=2
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// SharedStorage acknowledges that PVCName supports multi-node access (RWX/ROX)
+	// when replicas is greater than one. It is required for replicas=2.
+	SharedStorage bool `json:"sharedStorage,omitempty"`
 
 	// PVCReadOnly, when true, mounts the model PVC at /models with
 	// readOnly=true. Set this for any tenant that should consume — but never

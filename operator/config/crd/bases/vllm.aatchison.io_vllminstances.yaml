@@ -332,6 +332,11 @@ spec:
                 - NodePort
                 - LoadBalancer
                 type: string
+              sharedStorage:
+                description: |-
+                  SharedStorage acknowledges that PVCName supports multi-node access (RWX/ROX)
+                  when replicas is greater than one. It is required for replicas=2.
+                type: boolean
             required:
             - hfToken
             - pvcName
@@ -349,6 +354,10 @@ spec:
             - message: replicas must be 0, 1, or 2 (each replica consumes one independently
                 schedulable MIG slice)
               rule: '!has(self.replicas) || self.replicas <= 2'
+            - message: replicas > 1 requires sharedStorage=true (PVC must support
+                multi-node access)
+              rule: '!has(self.replicas) || self.replicas <= 1 || self.sharedStorage
+                == true'
           status:
             description: VLLMInstanceStatus reflects the observed state.
             properties:
