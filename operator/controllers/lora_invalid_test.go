@@ -4,11 +4,13 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -33,10 +35,19 @@ func TestReconcileInvalidLoraModulesFailsClosed(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&vllmv1alpha1.VLLMInstance{}).
 		WithObjects(preset, pvc, inst).Build()
-	r := &VLLMInstanceReconciler{Client: cl, Scheme: scheme}
+	rec := record.NewFakeRecorder(1)
+	r := &VLLMInstanceReconciler{Client: cl, Scheme: scheme, Recorder: rec}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inst)})
 	if err == nil || !strings.Contains(err.Error(), "invalid loraModules") {
 		t.Fatalf("Reconcile error = %v, want invalid loraModules", err)
+	}
+	select {
+	case event := <-rec.Events:
+		if !strings.Contains(event, "Warning") || !strings.Contains(event, vllmv1alpha1.ReasonInvalidConfiguration) {
+			t.Fatalf("invalid LoRA event = %q, want Warning/%s", event, vllmv1alpha1.ReasonInvalidConfiguration)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("invalid LoRA reconcile emitted no Warning event")
 	}
 	var got vllmv1alpha1.VLLMInstance
 	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(inst), &got); err != nil {

@@ -1,6 +1,7 @@
 package vllm
 
 import (
+	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -65,36 +66,19 @@ func TestBuildDeploymentEnableLora(t *testing.T) {
 	}
 	args := containers[0].Args
 
-	// Check for exact lora flags
-	hasEnableLora := false
-	hasMaxLoraRank := false
-	hasLoraModules := false
-	for _, arg := range args {
-		if arg == "--enable-lora" {
-			hasEnableLora = true
-		}
-		if arg == "--max-lora-rank" {
-			hasMaxLoraRank = true
-		}
-		if arg == "--lora-modules" {
-			hasLoraModules = true
-		}
+	wantArgs := []string{
+		"--model", "test/model",
+		"--port", "8000",
+		"--max-model-len", "32768",
+		"--gpu-memory-utilization", "0.90",
+		"--enable-lora",
+		"--max-lora-rank", "16",
+		"--lora-modules", "fleetv1=/models/adapters/test/run-20240101T000000Z-pid123/lora_weights",
+	}
+	if !reflect.DeepEqual(args, wantArgs) {
+		t.Fatalf("container args = %#v, want exact vector %#v", args, wantArgs)
 	}
 
-	t.Logf("Container args: %v", args)
-	t.Logf("has --enable-lora: %v", hasEnableLora)
-	t.Logf("has --max-lora-rank: %v", hasMaxLoraRank)
-	t.Logf("has --lora-modules: %v", hasLoraModules)
-
-	if !hasEnableLora {
-		t.Error("missing --enable-lora in container args")
-	}
-	if !hasMaxLoraRank {
-		t.Error("missing --max-lora-rank in container args")
-	}
-	if !hasLoraModules {
-		t.Error("missing --lora-modules in container args")
-	}
 }
 
 // TestBuildDeploymentEnableLoraFalse asserts that enableLora=false omits the flag.
@@ -341,6 +325,8 @@ func TestValidateLoraModulesMissingAssert(t *testing.T) {
 	}{
 		{"fleetv1", false}, // missing '='
 		{"name", false},    // missing '='
+		{"", true},         // empty string means no modules
+		{"name=", false},   // empty path
 		{"=path", false},   // empty name
 	}
 
