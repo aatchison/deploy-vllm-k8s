@@ -215,6 +215,15 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		if overrides.EnableChunkedPrefill != nil {
 			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
 		}
+		if overrides.EnableLora != nil {
+			e.EnableLora = *overrides.EnableLora
+		}
+		if overrides.LoraModules != nil {
+			e.LoraModules = *overrides.LoraModules
+		}
+		if overrides.MaxLoraRank != nil {
+			e.MaxLoraRank = *overrides.MaxLoraRank
+		}
 		if overrides.PVCReadOnly != nil {
 			e.PVCReadOnly = *overrides.PVCReadOnly
 		}
@@ -276,6 +285,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
 			KVOffloadBackend:        preset.KVOffloadBackend,
 			KVOffloadSize:           preset.KVOffloadSize,
+			EnableLora:              preset.EnableLora,
+			LoraModules:             preset.LoraModules,
+			MaxLoraRank:             preset.MaxLoraRank,
 		}
 		if preset.EnablePrefixCaching != nil {
 			v := *preset.EnablePrefixCaching
@@ -359,6 +371,15 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if overrides.KVOffloadSize != nil {
 			e.KVOffloadSize = *overrides.KVOffloadSize
+		}
+		if overrides.EnableLora != nil {
+			e.EnableLora = *overrides.EnableLora
+		}
+		if overrides.LoraModules != nil {
+			e.LoraModules = *overrides.LoraModules
+		}
+		if overrides.MaxLoraRank != nil {
+			e.MaxLoraRank = *overrides.MaxLoraRank
 		}
 		if overrides.PVCReadOnly != nil {
 			e.PVCReadOnly = *overrides.PVCReadOnly

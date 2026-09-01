@@ -15,10 +15,10 @@ type LongContextPresetReference struct {
 // field is a pointer — non-nil means override. Probe overrides replace the
 // whole ProbeConfig struct.
 type LongContextOverrides struct {
-	ModelID                 *string      `json:"modelID,omitempty"`
-	Image                   *string      `json:"image,omitempty"`
-		// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
-		ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
+	ModelID *string `json:"modelID,omitempty"`
+	Image   *string `json:"image,omitempty"`
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
 	MIGResource             *string      `json:"migResource,omitempty"`
 	MIGResourceCount        *int32       `json:"migResourceCount,omitempty"`
 	Quantization            *string      `json:"quantization,omitempty"`
@@ -44,6 +44,11 @@ type LongContextOverrides struct {
 	KVOffloadBackend *string `json:"kvOffloadBackend,omitempty"`
 	// +kubebuilder:validation:Minimum=0
 	KVOffloadSize *int32 `json:"kvOffloadSize,omitempty"`
+
+	EnableLora  *bool   `json:"enableLora,omitempty"`
+	LoraModules *string `json:"loraModules,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	MaxLoraRank *int32 `json:"maxLoraRank,omitempty"`
 
 	// PVCReadOnly, when true, mounts the model PVC at /models with
 	// readOnly=true. Set this for any tenant that should consume — but never

@@ -272,6 +272,21 @@ func (in *LongContextOverrides) DeepCopyInto(out *LongContextOverrides) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.EnableLora != nil {
+		in, out := &in.EnableLora, &out.EnableLora
+		*out = new(bool)
+		**out = **in
+	}
+	if in.LoraModules != nil {
+		in, out := &in.LoraModules, &out.LoraModules
+		*out = new(string)
+		**out = **in
+	}
+	if in.MaxLoraRank != nil {
+		in, out := &in.MaxLoraRank, &out.MaxLoraRank
+		*out = new(int32)
+		**out = **in
+	}
 	if in.PVCReadOnly != nil {
 		in, out := &in.PVCReadOnly, &out.PVCReadOnly
 		*out = new(bool)
@@ -495,6 +510,21 @@ func (in *ModelConfigOverrides) DeepCopyInto(out *ModelConfigOverrides) {
 	if in.EnableChunkedPrefill != nil {
 		in, out := &in.EnableChunkedPrefill, &out.EnableChunkedPrefill
 		*out = new(bool)
+		**out = **in
+	}
+	if in.EnableLora != nil {
+		in, out := &in.EnableLora, &out.EnableLora
+		*out = new(bool)
+		**out = **in
+	}
+	if in.LoraModules != nil {
+		in, out := &in.LoraModules, &out.LoraModules
+		*out = new(string)
+		**out = **in
+	}
+	if in.MaxLoraRank != nil {
+		in, out := &in.MaxLoraRank, &out.MaxLoraRank
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PVCReadOnly != nil {

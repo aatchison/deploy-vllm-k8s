@@ -105,12 +105,9 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}
 	instance.Status.ResolvedConfigHash = hash
-
 	if err := vllm.ValidateEffectiveConfig(effective); err != nil {
-		msg := err.Error()
-		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
-			vllmv1alpha1.ReasonInvalidConfiguration, msg) {
-			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonInvalidConfiguration, "%s", msg)
+		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonInvalidConfiguration, err.Error()) {
+			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonInvalidConfiguration, "%v", err)
 		}
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 		return ctrl.Result{}, errors.Join(err, perr)

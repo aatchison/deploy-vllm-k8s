@@ -88,6 +88,7 @@ type ModelPresetSpec struct {
 	EnableChunkedPrefill bool   `json:"enableChunkedPrefill,omitempty"`
 	EnableLora          bool   `json:"enableLora,omitempty"`
 	LoraModules         string `json:"loraModules,omitempty"`
+	// +kubebuilder:validation:Minimum=1
 	MaxLoraRank         int32  `json:"maxLoraRank,omitempty"`
 }
 

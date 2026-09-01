@@ -170,6 +170,8 @@ spec:
                     type: boolean
                   enableChunkedPrefill:
                     type: boolean
+                  enableLora:
+                    type: boolean
                   gpuMemoryUtilization:
                     type: string
                   image:
@@ -203,6 +205,12 @@ spec:
                     - initialDelaySeconds
                     - periodSeconds
                     type: object
+                  loraModules:
+                    type: string
+                  maxLoraRank:
+                    format: int32
+                    minimum: 1
+                    type: integer
                   maxModelLen:
                     format: int32
                     type: integer
