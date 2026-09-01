@@ -109,6 +109,16 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	instance.Status.ResolvedConfigHash = hash
 
+	if err := vllm.ValidateEffectiveConfig(effective); err != nil {
+		msg := err.Error()
+		if setVLLMCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonInvalidConfiguration, msg) {
+			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonInvalidConfiguration, "%s", msg)
+		}
+		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+		return ctrl.Result{}, errors.Join(err, perr)
+	}
+
 	// 2. Storage probe.
 	var pvc corev1.PersistentVolumeClaim
 	if err := r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.PVCName}, &pvc); err != nil {

@@ -97,6 +97,9 @@ type EffectiveConfig struct {
 	EnableChunkedPrefill    bool                      `json:"enableChunkedPrefill,omitempty"`
 	KVOffloadBackend        string                    `json:"kvOffloadBackend,omitempty"`
 	KVOffloadSize           int32                     `json:"kvOffloadSize,omitempty"`
+	EnableLora              bool                      `json:"enableLora,omitempty"`
+	LoraModules             string                    `json:"loraModules,omitempty"`
+	MaxLoraRank             int32                     `json:"maxLoraRank,omitempty"`
 	// PVCReadOnly, when true, causes BuildDeployment to mark the /models
 	// VolumeMount readOnly. Default false preserves current write-cache
 	// behavior. omitempty keeps the resolved-config-hash stable for instances
@@ -145,6 +148,9 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			StartupProbe:            preset.StartupProbe,
 			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
 			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
+			EnableLora:              preset.EnableLora,
+			LoraModules:             preset.LoraModules,
+			MaxLoraRank:             preset.MaxLoraRank,
 		}
 	}
 

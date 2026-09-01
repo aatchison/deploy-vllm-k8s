@@ -3,6 +3,7 @@ package vllm
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -460,6 +461,72 @@ func buildAPIKeyCommand(args []string) ([]string, []string) {
 	return cmd, args
 }
 
+// validateLoraModules parses and validates a LoraModules CRD string.
+// Expected format: "name1=path1,name2=path2"
+// Returns (valid, errorMessage). If valid==false, the errorMessage should be
+// surfaced as a reconcile error and the --lora-modules flag MUST NOT be rendered.
+func validateLoraModules(s string) (bool, string) {
+	if s == "" {
+		return true, ""
+	}
+	entries := strings.Split(s, ",")
+	for i, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		// Reject empty entries
+		if entry == "" {
+			return false, fmt.Sprintf("loraModules entry %d is empty", i+1)
+		}
+		// Must contain exactly one '='
+		eqIdx := strings.Index(entry, "=")
+		if eqIdx < 0 {
+			return false, fmt.Sprintf("loraModules entry %d missing '=': %s", i+1, entry)
+		}
+		name := entry[:eqIdx]
+		path := entry[eqIdx+1:]
+		// Reject empty name
+		if name == "" {
+			return false, fmt.Sprintf("loraModules entry %d has empty name: %s", i+1, entry)
+		}
+		// Reject empty path
+		if path == "" {
+			return false, fmt.Sprintf("loraModules entry %d has empty path: %s", i+1, entry)
+		}
+		// Clean the path and verify it's strictly under /models/
+		cleaned := filepath.Clean(path)
+		// Must be absolute and start with /models/
+		if !filepath.IsAbs(cleaned) {
+			return false, fmt.Sprintf("loraModules entry %d path is not absolute: %s", i+1, path)
+		}
+		if !strings.HasPrefix(cleaned, "/models/") {
+			return false, fmt.Sprintf("loraModules entry %d path must be under /models/, got: %s", i+1, cleaned)
+		}
+		// Reject path traversal: check for .. components in the relative part
+		modelsPrefix := "/models/"
+		relPart := cleaned[len(modelsPrefix):]
+		if strings.Contains(relPart, "..") {
+			return false, fmt.Sprintf("loraModules entry %d path contains traversal: %s", i+1, path)
+		}
+		// Also reject if the original path started with . or had .. components
+		if strings.HasPrefix(path, "..") || path == ".." {
+			return false, fmt.Sprintf("loraModules entry %d path starts with '..': %s", i+1, path)
+		}
+	}
+	return true, ""
+}
+
+// ValidateEffectiveConfig validates renderer inputs before a controller applies
+// any generated Kubernetes objects.
+func ValidateEffectiveConfig(e EffectiveConfig) error {
+	if e.LoraModules == "" {
+		return nil
+	}
+	valid, msg := validateLoraModules(e.LoraModules)
+	if !valid {
+		return fmt.Errorf("invalid loraModules: %s", msg)
+	}
+	return nil
+}
+
 func buildArgs(e EffectiveConfig) []string {
 	args := []string{"--model", e.ModelID}
 	if e.DType != "" {
@@ -500,6 +567,19 @@ func buildArgs(e EffectiveConfig) []string {
 	}
 	if e.KVOffloadBackend == "lmcache" {
 		args = append(args, "--kv-transfer-config", buildKVTransferConfig(e.KVOffloadSize))
+	}
+	if e.EnableLora {
+		args = append(args, "--enable-lora")
+	}
+	if e.MaxLoraRank > 0 {
+		args = append(args, "--max-lora-rank", strconv.Itoa(int(e.MaxLoraRank)))
+	}
+	if e.LoraModules != "" {
+		valid, _ := validateLoraModules(e.LoraModules)
+		if valid {
+			args = append(args, "--lora-modules", e.LoraModules)
+		}
+		// Invalid loraModules: omit --lora-modules flag; reconcile error is surfaced by caller
 	}
 	return args
 }

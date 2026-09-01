@@ -67,6 +67,8 @@ spec:
                   the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
                   at default. Useful for long-context throughput too.
                 type: boolean
+              enableLora:
+                type: boolean
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$
                 type: string
@@ -103,6 +105,11 @@ spec:
                 - initialDelaySeconds
                 - periodSeconds
                 type: object
+              loraModules:
+                type: string
+              maxLoraRank:
+                format: int32
+                type: integer
               maxModelLen:
                 format: int32
                 minimum: 1024
