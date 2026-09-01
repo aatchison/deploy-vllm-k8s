@@ -73,6 +73,34 @@ func TestResolveOverridesReplace(t *testing.T) {
 	}
 }
 
+func TestResolveStandardLoraOverridesAndDeepCopy(t *testing.T) {
+	p := basePreset()
+	p.EnableLora = true
+	p.LoraModules = "preset=/models/preset"
+	p.MaxLoraRank = 8
+	modules := "override=/models/override"
+	o := &vllmv1alpha1.ModelConfigOverrides{
+		EnableLora:  boolPtr(false),
+		LoraModules: &modules,
+		MaxLoraRank: int32Ptr(32),
+	}
+	e, _, err := Resolve(p, o)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if e.EnableLora || e.LoraModules != modules || e.MaxLoraRank != 32 {
+		t.Fatalf("standard LoRA overrides not applied: %+v", e)
+	}
+	copy := o.DeepCopy()
+	if copy == o || copy.EnableLora == o.EnableLora || copy.LoraModules == o.LoraModules || copy.MaxLoraRank == o.MaxLoraRank {
+		t.Fatal("ModelConfigOverrides deepcopy did not copy LoRA pointers")
+	}
+	*copy.LoraModules = "changed=/models/changed"
+	if *o.LoraModules == *copy.LoraModules {
+		t.Fatal("deepcopy LoRA module pointer aliases original")
+	}
+}
+
 func TestResolveDefaultsWhenOverridesOnly(t *testing.T) {
 	o := &vllmv1alpha1.ModelConfigOverrides{
 		ModelID:                 strPtr("custom/model"),

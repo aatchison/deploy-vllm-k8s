@@ -215,6 +215,15 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		if overrides.EnableChunkedPrefill != nil {
 			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
 		}
+		if overrides.EnableLora != nil {
+			e.EnableLora = *overrides.EnableLora
+		}
+		if overrides.LoraModules != nil {
+			e.LoraModules = *overrides.LoraModules
+		}
+		if overrides.MaxLoraRank != nil {
+			e.MaxLoraRank = *overrides.MaxLoraRank
+		}
 		if overrides.PVCReadOnly != nil {
 			e.PVCReadOnly = *overrides.PVCReadOnly
 		}
