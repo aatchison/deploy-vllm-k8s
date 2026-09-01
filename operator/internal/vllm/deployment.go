@@ -118,6 +118,12 @@ func BuildDeployment(
 	apiKey *corev1.SecretKeySelector,
 	ownerRef metav1.OwnerReference,
 ) *appsv1.Deployment {
+	// BuildDeployment has no error return for compatibility. Return nil rather
+	// than silently omitting an invalid adapter flag; controllers validate
+	// before apply, and direct callers must fail closed too.
+	if err := ValidateEffectiveConfig(e); err != nil {
+		return nil
+	}
 	podLabels := map[string]string{
 		"app":   name,
 		"model": SanitizeLabel(e.ModelID),
@@ -461,67 +467,56 @@ func buildAPIKeyCommand(args []string) ([]string, []string) {
 	return cmd, args
 }
 
-// validateLoraModules parses and validates a LoraModules CRD string.
-// Expected format: "name1=path1,name2=path2"
-// Returns (valid, errorMessage). If valid==false, the errorMessage should be
-// surfaced as a reconcile error and the --lora-modules flag MUST NOT be rendered.
+// validateLoraModules accepts comma-separated name=/models/... entries and rejects traversal.
 func validateLoraModules(s string) (bool, string) {
 	if s == "" {
 		return true, ""
 	}
-	entries := strings.Split(s, ",")
-	for i, entry := range entries {
-		entry = strings.TrimSpace(entry)
-		// Reject empty entries
+	for i, raw := range strings.Split(s, ",") {
+		entry := strings.TrimSpace(raw)
 		if entry == "" {
 			return false, fmt.Sprintf("loraModules entry %d is empty", i+1)
 		}
-		// Must contain exactly one '='
-		eqIdx := strings.Index(entry, "=")
-		if eqIdx < 0 {
+		eq := strings.Index(entry, "=")
+		if eq < 0 {
 			return false, fmt.Sprintf("loraModules entry %d missing '=': %s", i+1, entry)
 		}
-		name := entry[:eqIdx]
-		path := entry[eqIdx+1:]
-		// Reject empty name
+		name, path := entry[:eq], entry[eq+1:]
 		if name == "" {
 			return false, fmt.Sprintf("loraModules entry %d has empty name: %s", i+1, entry)
 		}
-		// Reject empty path
 		if path == "" {
 			return false, fmt.Sprintf("loraModules entry %d has empty path: %s", i+1, entry)
 		}
-		// Clean the path and verify it's strictly under /models/
+		// Reject traversal components before normalization; cleaning first would
+		// turn /models/foo/../bar into an apparently safe path.
+		for _, component := range strings.Split(path, "/") {
+			if component == ".." {
+				return false, fmt.Sprintf("loraModules entry %d path contains traversal: %s", i+1, path)
+			}
+		}
+		// Reject traversal components before normalization.
+		for _, component := range strings.Split(path, "/") {
+			if component == ".." {
+				return false, fmt.Sprintf("loraModules entry %d path contains traversal: %s", i+1, path)
+			}
+		}
 		cleaned := filepath.Clean(path)
-		// Must be absolute and start with /models/
 		if !filepath.IsAbs(cleaned) {
 			return false, fmt.Sprintf("loraModules entry %d path is not absolute: %s", i+1, path)
 		}
 		if !strings.HasPrefix(cleaned, "/models/") {
 			return false, fmt.Sprintf("loraModules entry %d path must be under /models/, got: %s", i+1, cleaned)
 		}
-		// Reject path traversal: check for .. components in the relative part
-		modelsPrefix := "/models/"
-		relPart := cleaned[len(modelsPrefix):]
-		if strings.Contains(relPart, "..") {
+		if strings.Contains(cleaned[len("/models/"):], "..") || strings.HasPrefix(path, "..") {
 			return false, fmt.Sprintf("loraModules entry %d path contains traversal: %s", i+1, path)
-		}
-		// Also reject if the original path started with . or had .. components
-		if strings.HasPrefix(path, "..") || path == ".." {
-			return false, fmt.Sprintf("loraModules entry %d path starts with '..': %s", i+1, path)
 		}
 	}
 	return true, ""
 }
 
-// ValidateEffectiveConfig validates renderer inputs before a controller applies
-// any generated Kubernetes objects.
 func ValidateEffectiveConfig(e EffectiveConfig) error {
-	if e.LoraModules == "" {
-		return nil
-	}
-	valid, msg := validateLoraModules(e.LoraModules)
-	if !valid {
+	if ok, msg := validateLoraModules(e.LoraModules); !ok {
 		return fmt.Errorf("invalid loraModules: %s", msg)
 	}
 	return nil
@@ -565,9 +560,6 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.EnableChunkedPrefill {
 		args = append(args, "--enable-chunked-prefill")
 	}
-	if e.KVOffloadBackend == "lmcache" {
-		args = append(args, "--kv-transfer-config", buildKVTransferConfig(e.KVOffloadSize))
-	}
 	if e.EnableLora {
 		args = append(args, "--enable-lora")
 	}
@@ -575,11 +567,12 @@ func buildArgs(e EffectiveConfig) []string {
 		args = append(args, "--max-lora-rank", strconv.Itoa(int(e.MaxLoraRank)))
 	}
 	if e.LoraModules != "" {
-		valid, _ := validateLoraModules(e.LoraModules)
-		if valid {
+		if ok, _ := validateLoraModules(e.LoraModules); ok {
 			args = append(args, "--lora-modules", e.LoraModules)
 		}
-		// Invalid loraModules: omit --lora-modules flag; reconcile error is surfaced by caller
+	}
+	if e.KVOffloadBackend == "lmcache" {
+		args = append(args, "--kv-transfer-config", buildKVTransferConfig(e.KVOffloadSize))
 	}
 	return args
 }

@@ -4,6 +4,9 @@ import (
 	v1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
 	"strings"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestResolveLongContextLoraAndRenderArgs(t *testing.T) {
@@ -37,5 +40,38 @@ func TestResolveLongContextRejectsInvalidLoraModules(t *testing.T) {
 		if a == "--lora-modules" {
 			t.Fatal("invalid config rendered --lora-modules")
 		}
+	}
+}
+
+func TestLoraModulesMalformedFixtures(t *testing.T) {
+	for _, input := range []string{"", "adapter", "adapter=", "= /models/a", "adapter=relative", "adapter=/models/foo/../bar", "adapter=/etc/a", "adapter=/models/a,,b=/models/b"} {
+		e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{ModelID: "m", LoraModules: input}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if input == "" {
+			if err := ValidateEffectiveConfig(e); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		if err := ValidateEffectiveConfig(e); err == nil {
+			t.Fatalf("%q accepted", input)
+		}
+		if BuildDeployment("x", "ns", 1, e, "pvc", corev1.SecretKeySelector{}, nil, metav1.OwnerReference{}) != nil {
+			t.Fatalf("%q rendered deployment", input)
+		}
+	}
+}
+
+func TestLongContextLoraOverridePrecedence(t *testing.T) {
+	presetModules := "preset=/models/preset"
+	overrideModules := "override=/models/override"
+	e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{ModelID: "m", LoraModules: presetModules, MaxLoraRank: 8}, &v1alpha1.LongContextOverrides{LoraModules: &overrideModules})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.LoraModules != overrideModules || e.MaxLoraRank != 8 {
+		t.Fatalf("override precedence: %+v", e)
 	}
 }
