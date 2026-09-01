@@ -129,6 +129,9 @@ func TestReplicaStorageGateRejectsBeforeApplyForBothKinds(t *testing.T) {
 			if err := cl.Get(context.Background(), client.ObjectKey{Namespace: "ns", Name: tc.object.GetName()}, &appsv1.Deployment{}); err == nil {
 				t.Fatal("Deployment unexpectedly exists")
 			}
+			if err := cl.Get(context.Background(), client.ObjectKey{Namespace: "ns", Name: "svc-" + tc.object.GetName()}, &corev1.Service{}); err == nil {
+				t.Fatal("Service unexpectedly exists")
+			}
 		})
 	}
 }
@@ -321,7 +324,10 @@ func TestReplicaStorageControllerRecoversAfterScaleDown(t *testing.T) {
 				return nil
 			}}
 			cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithStatusSubresource(obj).WithObjects(obj, preset, pvc,
-				&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: obj.GetName(), Namespace: "ns"}},
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{Name: obj.GetName(), Namespace: "ns", Generation: 1},
+					Status:     appsv1.DeploymentStatus{ObservedGeneration: 1, ReadyReplicas: 1, Conditions: []appsv1.DeploymentCondition{{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue, Reason: "Available", Message: "deployment available"}}},
+				},
 				&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "svc-" + obj.GetName(), Namespace: "ns"}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{NodePort: 32000}}}},
 			).WithInterceptorFuncs(inter).Build()
 			if _, err := reconcileStorageTestObject(cl, kind, obj); err != nil {
@@ -329,6 +335,14 @@ func TestReplicaStorageControllerRecoversAfterScaleDown(t *testing.T) {
 			}
 			if applies != 0 {
 				t.Fatalf("unsafe state applied %d resources", applies)
+			}
+			unsafe := newStorageTestObject(kind)
+			if err := cl.Get(context.Background(), client.ObjectKeyFromObject(obj), unsafe); err != nil {
+				t.Fatal(err)
+			}
+			storage, ready := storageAndReady(unsafe)
+			if storage == nil || ready == nil || storage.Reason != vllmv1alpha1.ReasonReplicaStorageUnsafe || ready.Reason != vllmv1alpha1.ReasonReplicaStorageUnsafe {
+				t.Fatalf("initial unsafe conditions: StorageReady=%+v Ready=%+v", storage, ready)
 			}
 			fresh := newStorageTestObject(kind)
 			if err := cl.Get(context.Background(), client.ObjectKeyFromObject(obj), fresh); err != nil {
@@ -343,6 +357,20 @@ func TestReplicaStorageControllerRecoversAfterScaleDown(t *testing.T) {
 			}
 			if applies != 2 {
 				t.Fatalf("recovered state apply calls=%d, want Deployment and Service", applies)
+			}
+			recovered := newStorageTestObject(kind)
+			if err := cl.Get(context.Background(), client.ObjectKeyFromObject(obj), recovered); err != nil {
+				t.Fatal(err)
+			}
+			storage, ready = storageAndReady(recovered)
+			if storage == nil || storage.Status != metav1.ConditionTrue || storage.Reason != vllmv1alpha1.ReasonPVCFound || storage.Message != "PVC exists" {
+				t.Fatalf("recovered StorageReady=%+v, want True/PVCFound/PVC exists", storage)
+			}
+			if ready == nil || ready.Status != metav1.ConditionTrue || ready.Reason != vllmv1alpha1.ReasonAllReady || ready.Message != "Deployment available, pods ready" {
+				t.Fatalf("recovered Ready=%+v, want True/AllReady/Deployment available, pods ready", ready)
+			}
+			if storage.Reason == vllmv1alpha1.ReasonReplicaStorageUnsafe || ready.Reason == vllmv1alpha1.ReasonReplicaStorageUnsafe {
+				t.Fatal("prior unsafe condition was not cleared")
 			}
 		})
 	}
