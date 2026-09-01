@@ -196,6 +196,9 @@ func TestReplicaStorageControllerRemediatesExistingUnsafeDeployment(t *testing.T
 					t.Fatalf("condition=%+v, want False/%s", cond, vllmv1alpha1.ReasonReplicaStorageUnsafe)
 				}
 			}
+			if storage.Message != ready.Message || !strings.Contains(storage.Message, "existing Deployment remediated to replicas=1") {
+				t.Fatalf("remediation messages differ or omit outcome: storage=%q ready=%q", storage.Message, ready.Message)
+			}
 		})
 	}
 }
@@ -238,6 +241,24 @@ func TestRemediateExistingUnsafeDeployment(t *testing.T) {
 				t.Fatalf("applied replicas=%v, want 1", spec["replicas"])
 			}
 		})
+	}
+}
+
+func TestRemediateUsesAuthoritativeReader(t *testing.T) {
+	owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+	cachedDep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	authoritativeDep := cachedDep.DeepCopy()
+	authoritativeDep.Spec.Replicas = ptr(int32(1))
+	var applies int
+	inter := interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+		applies++
+		return nil
+	}}
+	cached := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(cachedDep).WithInterceptorFuncs(inter).Build()
+	authoritative := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(authoritativeDep).Build()
+	changed, err := remediateUnsafeDeployment(context.Background(), cached, authoritative, owner)
+	if err != nil || !changed || applies != 1 {
+		t.Fatalf("changed=%v applies=%d err=%v, want authoritative readback success", changed, applies, err)
 	}
 }
 
