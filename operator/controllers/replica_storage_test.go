@@ -165,7 +165,12 @@ func (r *orderingReader) Get(ctx context.Context, key client.ObjectKey, obj clie
 	r.gets++
 	if *r.applyStarted {
 		if r.postApply != nil {
-			*obj.(*appsv1.Deployment) = *r.postApply.DeepCopy()
+			dep, ok := obj.(*appsv1.Deployment)
+			if !ok {
+				return fmt.Errorf("unexpected readback type %T", obj)
+			}
+			copy := r.postApply.DeepCopy()
+			*dep = *copy
 			return nil
 		}
 		return fmt.Errorf("authoritative read occurred after Apply")
