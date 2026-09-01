@@ -38,7 +38,7 @@ type ModelConfigOverrides struct {
 	EnableChunkedPrefill *bool   `json:"enableChunkedPrefill,omitempty"`
 	EnableLora           *bool   `json:"enableLora,omitempty"`
 	LoraModules          *string `json:"loraModules,omitempty"`
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=1
 	MaxLoraRank *int32 `json:"maxLoraRank,omitempty"`
 
 	// PVCReadOnly, when true, mounts the model PVC at /models with

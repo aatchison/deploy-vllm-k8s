@@ -44,7 +44,7 @@ func TestResolveLongContextRejectsInvalidLoraModules(t *testing.T) {
 }
 
 func TestLoraModulesMalformedFixtures(t *testing.T) {
-	for _, input := range []string{"", "adapter", "adapter=", "= /models/a", "adapter=relative", "adapter=/models/foo/../bar", "adapter=/etc/a", "adapter=/models/a,,b=/models/b"} {
+	for _, input := range []string{"", "adapter", "adapter=", "= /models/a", "adapter=relative", "adapter=/models/foo/../bar", "adapter=/models/a=b", "adapter=/etc/a", "adapter=/models/a,,b=/models/b"} {
 		e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{ModelID: "m", LoraModules: input}, nil)
 		if err != nil {
 			t.Fatal(err)

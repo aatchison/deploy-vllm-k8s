@@ -109,6 +109,7 @@ spec:
                 type: string
               maxLoraRank:
                 format: int32
+                minimum: 1
                 type: integer
               maxModelLen:
                 format: int32

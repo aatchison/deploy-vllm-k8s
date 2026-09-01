@@ -28,7 +28,7 @@ func TestReconcileLongContextInvalidLoraWarnsStatusAndDoesNotApply(t *testing.T)
 	}
 	select {
 	case ev := <-rec.Events:
-		if !strings.Contains(ev, "Warning") || !strings.Contains(ev, v1alpha1.ReasonInvalidConfig) {
+		if !strings.Contains(ev, "Warning") || !strings.Contains(ev, v1alpha1.ReasonInvalidConfiguration) {
 			t.Fatalf("event=%q", ev)
 		}
 	default:
@@ -38,7 +38,7 @@ func TestReconcileLongContextInvalidLoraWarnsStatusAndDoesNotApply(t *testing.T)
 	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(inst), &got); err != nil {
 		t.Fatal(err)
 	}
-	if c := findCond(got.Status.Conditions, v1alpha1.ConditionReady); c == nil || c.Status != metav1.ConditionFalse || c.Reason != v1alpha1.ReasonInvalidConfig {
+	if c := findCond(got.Status.Conditions, v1alpha1.ConditionReady); c == nil || c.Status != metav1.ConditionFalse || c.Reason != v1alpha1.ReasonInvalidConfiguration {
 		t.Fatalf("ready condition=%+v", c)
 	}
 	var deployments appsv1.DeploymentList

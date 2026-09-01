@@ -471,10 +471,10 @@ func validateLoraModules(s string) (bool, string) {
 		if entry == "" {
 			return false, fmt.Sprintf("loraModules entry %d is empty", i+1)
 		}
-		eq := strings.Index(entry, "=")
-		if eq < 0 {
-			return false, fmt.Sprintf("loraModules entry %d missing '=': %s", i+1, entry)
+		if strings.Count(entry, "=") != 1 {
+			return false, fmt.Sprintf("loraModules entry %d must contain exactly one '=': %s", i+1, entry)
 		}
+		eq := strings.IndexByte(entry, '=')
 		name, path := entry[:eq], entry[eq+1:]
 		if name == "" {
 			return false, fmt.Sprintf("loraModules entry %d has empty name: %s", i+1, entry)
@@ -484,12 +484,6 @@ func validateLoraModules(s string) (bool, string) {
 		}
 		// Reject traversal components before normalization; cleaning first would
 		// turn /models/foo/../bar into an apparently safe path.
-		for _, component := range strings.Split(path, "/") {
-			if component == ".." {
-				return false, fmt.Sprintf("loraModules entry %d path contains traversal: %s", i+1, path)
-			}
-		}
-		// Reject traversal components before normalization.
 		for _, component := range strings.Split(path, "/") {
 			if component == ".." {
 				return false, fmt.Sprintf("loraModules entry %d path contains traversal: %s", i+1, path)
