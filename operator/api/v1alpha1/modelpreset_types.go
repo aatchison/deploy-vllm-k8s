@@ -86,10 +86,10 @@ type ModelPresetSpec struct {
 	// the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
 	// at default. Useful for long-context throughput too.
 	EnableChunkedPrefill bool   `json:"enableChunkedPrefill,omitempty"`
-	EnableLora          bool   `json:"enableLora,omitempty"`
-	LoraModules         string `json:"loraModules,omitempty"`
+	EnableLora           bool   `json:"enableLora,omitempty"`
+	LoraModules          string `json:"loraModules,omitempty"`
 	// +kubebuilder:validation:Minimum=1
-	MaxLoraRank         int32  `json:"maxLoraRank,omitempty"`
+	MaxLoraRank int32 `json:"maxLoraRank,omitempty"`
 }
 
 // +kubebuilder:object:root=true
