@@ -39,8 +39,10 @@ const (
 // VLLMInstanceReconciler reconciles a VLLMInstance object.
 type VLLMInstanceReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	// APIReader is the uncached reader used to verify corrective writes.
+	APIReader client.Reader
+	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=modelpresets,verbs=get;list;watch
@@ -142,7 +144,7 @@ func (r *VLLMInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		replicas = *instance.Spec.Replicas
 	}
 	if err := validateReplicaStorage(&pvc, replicas, effective.PVCReadOnly); err != nil {
-		remediated, remediationErr := remediateUnsafeDeployment(ctx, r.Client, &instance)
+		remediated, remediationErr := remediateUnsafeDeployment(ctx, r.Client, r.APIReader, &instance)
 		if remediationErr != nil {
 			setVLLMCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
 				vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error()+"; remediation failed: "+remediationErr.Error())

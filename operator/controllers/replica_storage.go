@@ -37,7 +37,7 @@ func validateReplicaStorage(pvc *corev1.PersistentVolumeClaim, replicas int32, r
 // Deployment to one replica before reporting an unsafe multi-replica request.
 // The minimal apply changes only replicas and leaves the normal desired-state
 // apply blocked until the user fixes the CR.
-func remediateUnsafeDeployment(ctx context.Context, c client.Client, owner client.Object) (bool, error) {
+func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader client.Reader, owner client.Object) (bool, error) {
 	var dep appsv1.Deployment
 	key := client.ObjectKeyFromObject(owner)
 	if err := c.Get(ctx, key, &dep); err != nil {
@@ -63,13 +63,19 @@ func remediateUnsafeDeployment(ctx context.Context, c client.Client, owner clien
 	if err != nil {
 		return false, fmt.Errorf("encode Deployment remediation: %w", err)
 	}
-	// Do not force ownership: another manager may legitimately own replicas.
-	// A conflict is surfaced to the caller rather than taking that ownership.
+	// Do not force ownership: an HPA or second manager may legitimately own
+	// replicas. A conflict is surfaced to the caller rather than taking that
+	// ownership; the controller remains unsafe until the conflict is resolved.
 	if err := c.Apply(ctx, ac, fieldOwner); err != nil {
 		return false, fmt.Errorf("apply Deployment remediation: %w", err)
 	}
+	// The cache can lag the write. Read back through the uncached API reader.
+	// Unit callers may omit it; that explicitly uses the client as the reader.
+	if apiReader == nil {
+		apiReader = c
+	}
 	var observed appsv1.Deployment
-	if err := c.Get(ctx, key, &observed); err != nil {
+	if err := apiReader.Get(ctx, key, &observed); err != nil {
 		return false, fmt.Errorf("read back remediated Deployment: %w", err)
 	}
 	if observed.Spec.Replicas == nil || *observed.Spec.Replicas != 1 {
