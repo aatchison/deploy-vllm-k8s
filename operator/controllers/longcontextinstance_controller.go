@@ -135,6 +135,12 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 	if instance.Spec.Replicas != nil {
 		replicas = *instance.Spec.Replicas
 	}
+	if err := validateReplicaStorage(&pvc, replicas, effective.PVCReadOnly); err != nil {
+		setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
+			vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error())
+		r.setReadyFalse(&instance, vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error())
+		return r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+	}
 
 	ownerRef := metav1.OwnerReference{
 		APIVersion:         vllmv1alpha1.GroupVersion.String(),

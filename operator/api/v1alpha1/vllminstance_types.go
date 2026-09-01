@@ -148,6 +148,7 @@ const (
 	ReasonOverridesUsed         = "OverridesUsed"
 	ReasonPVCNotFound           = "PVCNotFound"
 	ReasonPVCFound              = "PVCFound"
+	ReasonReplicaStorageUnsafe  = "ReplicaStorageUnsafe"
 	ReasonDeploymentProgressing = "DeploymentProgressing"
 	ReasonDeploymentAvailable   = "DeploymentAvailable"
 	ReasonDeploymentUnavailable = "DeploymentUnavailable"
