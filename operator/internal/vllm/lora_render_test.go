@@ -300,6 +300,8 @@ func TestValidateLoraModulesTraversal(t *testing.T) {
 		{"fleetv1=/models/../../etc/passwd", false},
 		{"fleetv1=/models/../etc/passwd", false},
 		{"fleetv1=../../../etc/passwd", false},
+		{"name=../../etc", false},
+		{"name=/abs/outside", false},
 		{"fleetv1=/tmp/secrets", false},
 		{"fleetv1=/etc/shadow", false},
 	}
