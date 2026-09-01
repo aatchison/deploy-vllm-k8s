@@ -6,7 +6,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -78,10 +77,18 @@ func TestReplicaStorageGateRejectsBeforeApplyForBothKinds(t *testing.T) {
 		getCondition   func(client.Object) *metav1.Condition
 	}{
 		{"VLLMInstance", &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", Generation: 1}, Spec: vllmv1alpha1.VLLMInstanceSpec{PresetRef: &vllmv1alpha1.PresetReference{Name: "p"}, PVCName: "pvc", HFToken: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"}, Replicas: ptr(int32(2))}}, &vllmv1alpha1.ModelPreset{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"}, Spec: presetSpec()}, func(c client.Client) reconcileRunner { return &VLLMInstanceReconciler{Client: c} }, func(o client.Object) *metav1.Condition {
-			return apimeta.FindStatusCondition(o.(*vllmv1alpha1.VLLMInstance).Status.Conditions, vllmv1alpha1.ConditionStorageReady)
+			instance, ok := o.(*vllmv1alpha1.VLLMInstance)
+			if !ok {
+				return nil
+			}
+			return findStorageCondition(instance.Status.Conditions)
 		}},
 		{"LongContextInstance", &vllmv1alpha1.LongContextInstance{ObjectMeta: metav1.ObjectMeta{Name: "lci", Namespace: "ns", Generation: 1}, Spec: vllmv1alpha1.LongContextInstanceSpec{PresetRef: &vllmv1alpha1.LongContextPresetReference{Name: "p"}, PVCName: "pvc", HFToken: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"}, Replicas: ptr(int32(2))}}, &vllmv1alpha1.LongContextPreset{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"}, Spec: longContextPresetSpec()}, func(c client.Client) reconcileRunner { return &LongContextInstanceReconciler{Client: c} }, func(o client.Object) *metav1.Condition {
-			return apimeta.FindStatusCondition(o.(*vllmv1alpha1.LongContextInstance).Status.Conditions, vllmv1alpha1.ConditionStorageReady)
+			instance, ok := o.(*vllmv1alpha1.LongContextInstance)
+			if !ok {
+				return nil
+			}
+			return findStorageCondition(instance.Status.Conditions)
 		}},
 	}
 	for _, tc := range tests {
@@ -112,7 +119,10 @@ func TestReplicaStorageGateRejectsBeforeApplyForBothKinds(t *testing.T) {
 				t.Fatal(err)
 			}
 			cond := tc.getCondition(got)
-			if cond == nil || cond.Status != metav1.ConditionFalse || cond.Reason != vllmv1alpha1.ReasonReplicaStorageUnsafe {
+			if cond == nil {
+				t.Fatal("StorageReady condition not found")
+			}
+			if cond.Status != metav1.ConditionFalse || cond.Reason != vllmv1alpha1.ReasonReplicaStorageUnsafe {
 				t.Fatalf("StorageReady=%+v", cond)
 			}
 			if cond.Message != "replicas=2 requires PVC access mode ReadWriteMany (or ReadOnlyMany with pvcReadOnly=true); got [ReadWriteOnce]" {
@@ -123,6 +133,15 @@ func TestReplicaStorageGateRejectsBeforeApplyForBothKinds(t *testing.T) {
 			}
 		})
 	}
+}
+
+func findStorageCondition(conditions []metav1.Condition) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == vllmv1alpha1.ConditionStorageReady {
+			return &conditions[i]
+		}
+	}
+	return nil
 }
 
 type reconcileRunner interface {
