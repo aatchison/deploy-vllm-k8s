@@ -188,6 +188,14 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  enableLora:
+                    type: boolean
+                  loraModules:
+                    type: string
+                  maxLoraRank:
+                    format: int32
+                    minimum: 1
+                    type: integer
                   livenessProbe:
                     description: |-
                       ProbeConfig is the tunable subset of a k8s probe.

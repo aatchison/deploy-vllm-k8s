@@ -45,6 +45,11 @@ type LongContextOverrides struct {
 	// +kubebuilder:validation:Minimum=0
 	KVOffloadSize *int32 `json:"kvOffloadSize,omitempty"`
 
+	EnableLora  *bool   `json:"enableLora,omitempty"`
+	LoraModules *string `json:"loraModules,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	MaxLoraRank *int32 `json:"maxLoraRank,omitempty"`
+
 	// PVCReadOnly, when true, mounts the model PVC at /models with
 	// readOnly=true. Set this for any tenant that should consume — but never
 	// poison — a shared model cache. See docs/multi-tenant-deployment.md and

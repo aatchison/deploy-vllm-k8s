@@ -148,6 +148,16 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              enableLora:
+                description: Enable LoRA adapter support in vLLM.
+                type: boolean
+              loraModules:
+                description: Comma-separated adapter name=path entries under /models/.
+                type: string
+              maxLoraRank:
+                format: int32
+                minimum: 1
+                type: integer
               livenessProbe:
                 description: |-
                   ProbeConfig is the tunable subset of a k8s probe.

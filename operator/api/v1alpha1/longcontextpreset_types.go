@@ -114,6 +114,15 @@ type LongContextPresetSpec struct {
 	// 0 = backend default.
 	// +kubebuilder:validation:Minimum=0
 	KVOffloadSize int32 `json:"kvOffloadSize,omitempty"`
+
+	// EnableLora enables LoRA adapter support in vLLM.
+	EnableLora bool `json:"enableLora,omitempty"`
+
+	// LoraModules maps served adapter names to paths under /models/.
+	LoraModules string `json:"loraModules,omitempty"`
+
+	// +kubebuilder:validation:Minimum=1
+	MaxLoraRank int32 `json:"maxLoraRank,omitempty"`
 }
 
 // +kubebuilder:object:root=true
