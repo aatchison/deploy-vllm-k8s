@@ -1,9 +1,14 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // validateReplicaStorage permits multiple pods only when the bound claim
@@ -26,4 +31,53 @@ func validateReplicaStorage(pvc *corev1.PersistentVolumeClaim, replicas int32, r
 		return nil
 	}
 	return fmt.Errorf("replicas=%d requires PVC access mode ReadWriteMany (or ReadOnlyMany with pvcReadOnly=true); got %v", replicas, pvc.Spec.AccessModes)
+}
+
+// remediateUnsafeDeployment reduces an already-existing operator-owned
+// Deployment to one replica before reporting an unsafe multi-replica request.
+// The minimal apply changes only replicas and leaves the normal desired-state
+// apply blocked until the user fixes the CR.
+func remediateUnsafeDeployment(ctx context.Context, c client.Client, owner client.Object) (bool, error) {
+	var dep appsv1.Deployment
+	key := client.ObjectKeyFromObject(owner)
+	if err := c.Get(ctx, key, &dep); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("get existing Deployment for remediation: %w", err)
+	}
+	if !metav1.IsControlledBy(&dep, owner) {
+		// Never mutate a same-named workload that is not owned by this CR.
+		return false, nil
+	}
+	if dep.Spec.Replicas == nil || *dep.Spec.Replicas <= 1 {
+		return false, nil
+	}
+	ones := int32(1)
+	patch := &appsv1.Deployment{
+		TypeMeta:   metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
+		ObjectMeta: metav1.ObjectMeta{Name: dep.Name, Namespace: dep.Namespace},
+		Spec:       appsv1.DeploymentSpec{Replicas: &ones},
+	}
+	ac, err := toApplyConfiguration(patch)
+	if err != nil {
+		return false, fmt.Errorf("encode Deployment remediation: %w", err)
+	}
+	// Do not force ownership: another manager may legitimately own replicas.
+	// A conflict is surfaced to the caller rather than taking that ownership.
+	if err := c.Apply(ctx, ac, fieldOwner); err != nil {
+		return false, fmt.Errorf("apply Deployment remediation: %w", err)
+	}
+	var observed appsv1.Deployment
+	if err := c.Get(ctx, key, &observed); err != nil {
+		return false, fmt.Errorf("read back remediated Deployment: %w", err)
+	}
+	if observed.Spec.Replicas == nil || *observed.Spec.Replicas != 1 {
+		var got any = observed.Spec.Replicas
+		if observed.Spec.Replicas != nil {
+			got = *observed.Spec.Replicas
+		}
+		return false, fmt.Errorf("read back remediated Deployment replicas=%v, want 1", got)
+	}
+	return true, nil
 }

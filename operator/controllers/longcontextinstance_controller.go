@@ -136,8 +136,20 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		replicas = *instance.Spec.Replicas
 	}
 	if err := validateReplicaStorage(&pvc, replicas, effective.PVCReadOnly); err != nil {
+		remediated, remediationErr := remediateUnsafeDeployment(ctx, r.Client, &instance)
+		if remediationErr != nil {
+			setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
+				vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error()+"; remediation failed: "+remediationErr.Error())
+			r.setReadyFalse(&instance, vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error())
+			_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+			return ctrl.Result{}, errors.Join(remediationErr, perr)
+		}
+		message := err.Error()
+		if remediated {
+			message += "; existing Deployment remediated to replicas=1"
+		}
 		setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
-			vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error())
+			vllmv1alpha1.ReasonReplicaStorageUnsafe, message)
 		r.setReadyFalse(&instance, vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error())
 		return r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 	}
