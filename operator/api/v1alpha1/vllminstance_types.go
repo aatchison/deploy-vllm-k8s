@@ -55,7 +55,7 @@ type ModelConfigOverrides struct {
 //
 // +kubebuilder:validation:XValidation:rule="has(self.presetRef) || (has(self.overrides) && has(self.overrides.modelID) && has(self.overrides.migResource) && has(self.overrides.maxModelLen))",message="presetRef or (overrides.modelID, overrides.migResource, overrides.maxModelLen) must be set"
 // +kubebuilder:validation:XValidation:rule="!has(self.overrides) || !has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize <= 1 || (has(self.overrides.migResourceCount) && self.overrides.migResourceCount == self.overrides.tensorParallelSize)",message="overrides.tensorParallelSize > 1 requires overrides.migResourceCount == tensorParallelSize"
-// +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 1",message="replicas must be 0 or 1 (MIG slice cannot host multiple pods)"
+// +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 2",message="replicas must be 0, 1, or 2 (each replica consumes one independently schedulable MIG slice)"
 type VLLMInstanceSpec struct {
 	PresetRef *PresetReference      `json:"presetRef,omitempty"`
 	Overrides *ModelConfigOverrides `json:"overrides,omitempty"`
@@ -104,7 +104,7 @@ type VLLMInstanceSpec struct {
 	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
 
 	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=1
+	// +kubebuilder:validation:Maximum=2
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	// PVCReadOnly, when true, mounts the model PVC at /models with

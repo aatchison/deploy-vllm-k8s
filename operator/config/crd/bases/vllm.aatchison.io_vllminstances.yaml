@@ -312,7 +312,7 @@ spec:
                 type: boolean
               replicas:
                 format: int32
-                maximum: 1
+                maximum: 2
                 minimum: 0
                 type: integer
               serviceType:
@@ -346,8 +346,9 @@ spec:
               rule: '!has(self.overrides) || !has(self.overrides.tensorParallelSize)
                 || self.overrides.tensorParallelSize <= 1 || (has(self.overrides.migResourceCount)
                 && self.overrides.migResourceCount == self.overrides.tensorParallelSize)'
-            - message: replicas must be 0 or 1 (MIG slice cannot host multiple pods)
-              rule: '!has(self.replicas) || self.replicas <= 1'
+            - message: replicas must be 0, 1, or 2 (each replica consumes one independently
+                schedulable MIG slice)
+              rule: '!has(self.replicas) || self.replicas <= 2'
           status:
             description: VLLMInstanceStatus reflects the observed state.
             properties:
