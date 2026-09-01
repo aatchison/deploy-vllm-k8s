@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -67,20 +68,21 @@ func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader c
 	if authoritative.Spec.Replicas == nil || *authoritative.Spec.Replicas <= 1 {
 		return false, nil
 	}
-	ones := int32(1)
-	patch := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            dep.Name,
-			Namespace:       dep.Namespace,
-			ResourceVersion: authoritative.ResourceVersion,
+	// Build the SSA payload explicitly. Converting a typed Deployment would
+	// serialize zero-value selector/strategy/template fields and widen the
+	// remediation ownership surface. This payload intentionally contains only
+	// identity, resourceVersion, and replicas.
+	patch := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": appsv1.SchemeGroupVersion.String(),
+		"kind":       "Deployment",
+		"metadata": map[string]interface{}{
+			"name":            dep.Name,
+			"namespace":       dep.Namespace,
+			"resourceVersion": authoritative.ResourceVersion,
 		},
-		Spec: appsv1.DeploymentSpec{Replicas: &ones},
-	}
-	ac, err := toApplyConfiguration(patch)
-	if err != nil {
-		return false, fmt.Errorf("encode Deployment remediation: %w", err)
-	}
+		"spec": map[string]interface{}{"replicas": int64(1)},
+	}}
+	ac := client.ApplyConfigurationFromUnstructured(patch)
 	// Do not force ownership: an HPA or second manager may legitimately own
 	// replicas. A conflict is surfaced to the caller rather than taking that
 	// ownership; the controller remains unsafe until the conflict is resolved.
