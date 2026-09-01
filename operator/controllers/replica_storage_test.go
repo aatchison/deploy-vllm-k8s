@@ -361,6 +361,32 @@ func TestRemediateRequiresAuthoritativeReaderBeforeApply(t *testing.T) {
 	}
 }
 
+func TestRemediateRejectsIdentityAndOwnerChangesIndependently(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		uid   types.UID
+		owner types.UID
+	}{
+		{"uid changed", types.UID("new-dep"), types.UID("owner-uid")},
+		{"owner changed", types.UID("dep-uid"), types.UID("other-owner")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+			cached := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("dep-uid"), OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+			replaced := cached.DeepCopy()
+			replaced.UID, replaced.OwnerReferences[0].UID, replaced.Spec.Replicas = tc.uid, tc.owner, ptr(int32(1))
+			cachedClient := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(cached).WithInterceptorFuncs(interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+				return nil
+			}}).Build()
+			authoritative := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(replaced).Build()
+			changed, err := remediateUnsafeDeployment(context.Background(), cachedClient, authoritative, owner)
+			if changed || err == nil || !strings.Contains(err.Error(), "identity or ownership changed") {
+				t.Fatalf("changed=%v err=%v, want identity/ownership error", changed, err)
+			}
+		})
+	}
+}
+
 func TestRemediateUnsafeDeploymentConflictAndReadbackErrors(t *testing.T) {
 	newFixture := func(t *testing.T) (client.Object, *appsv1.Deployment) {
 		t.Helper()
