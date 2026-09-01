@@ -279,6 +279,23 @@ func TestRemediateRejectsReplacedDeploymentOnAuthoritativeReadback(t *testing.T)
 	}
 }
 
+func TestRemediateRequiresAuthoritativeReaderBeforeApply(t *testing.T) {
+	owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	applies := 0
+	cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+		applies++
+		return nil
+	}}).Build()
+	changed, err := remediateUnsafeDeployment(context.Background(), cl, nil, owner)
+	if changed || err == nil || !strings.Contains(err.Error(), "authoritative API reader is required") {
+		t.Fatalf("changed=%v err=%v, want required-reader error", changed, err)
+	}
+	if applies != 0 {
+		t.Fatalf("apply calls=%d, want 0 when reader is nil", applies)
+	}
+}
+
 func TestRemediateUnsafeDeploymentConflictAndReadbackErrors(t *testing.T) {
 	newFixture := func(t *testing.T) (client.Object, *appsv1.Deployment) {
 		t.Helper()
@@ -600,9 +617,9 @@ func storageTestObjects(t *testing.T, kind string, replicas *int32, specRO, over
 func reconcileStorageTestObject(cl client.Client, kind string, obj client.Object) (ctrl.Result, error) {
 	key := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)}
 	if kind == "VLLMInstance" {
-		return (&VLLMInstanceReconciler{Client: cl}).Reconcile(context.Background(), key)
+		return (&VLLMInstanceReconciler{Client: cl, APIReader: cl}).Reconcile(context.Background(), key)
 	}
-	return (&LongContextInstanceReconciler{Client: cl}).Reconcile(context.Background(), key)
+	return (&LongContextInstanceReconciler{Client: cl, APIReader: cl}).Reconcile(context.Background(), key)
 }
 
 func setReplicas(obj client.Object, replicas int32) {
