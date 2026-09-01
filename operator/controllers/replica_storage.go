@@ -55,9 +55,13 @@ func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader c
 	}
 	ones := int32(1)
 	patch := &appsv1.Deployment{
-		TypeMeta:   metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
-		ObjectMeta: metav1.ObjectMeta{Name: dep.Name, Namespace: dep.Namespace},
-		Spec:       appsv1.DeploymentSpec{Replicas: &ones},
+		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            dep.Name,
+			Namespace:       dep.Namespace,
+			ResourceVersion: dep.ResourceVersion,
+		},
+		Spec: appsv1.DeploymentSpec{Replicas: &ones},
 	}
 	ac, err := toApplyConfiguration(patch)
 	if err != nil {
@@ -77,6 +81,9 @@ func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader c
 	var observed appsv1.Deployment
 	if err := apiReader.Get(ctx, key, &observed); err != nil {
 		return false, fmt.Errorf("read back remediated Deployment: %w", err)
+	}
+	if observed.UID != dep.UID || !metav1.IsControlledBy(&observed, owner) {
+		return false, fmt.Errorf("read back remediated Deployment identity or ownership changed")
 	}
 	if observed.Spec.Replicas == nil || *observed.Spec.Replicas != 1 {
 		var got any = observed.Spec.Replicas
