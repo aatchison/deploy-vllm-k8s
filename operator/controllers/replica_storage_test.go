@@ -187,6 +187,9 @@ func TestRemediateChecksAuthoritativeOwnershipBeforeApply(t *testing.T) {
 	if _, err := remediateUnsafeDeployment(context.Background(), cl, reader, owner); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
+	if reader.gets != 2 {
+		t.Fatalf("authoritative reader calls=%d, want pre-Apply and post-Apply reads", reader.gets)
+	}
 }
 
 func TestReplicaStorageControllerUsesAuthoritativeReader(t *testing.T) {
