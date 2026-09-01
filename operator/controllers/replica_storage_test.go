@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	appsv1apply "k8s.io/client-go/applyconfigurations/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -242,14 +243,12 @@ func TestReplicaStorageControllerRemediatesExistingUnsafeDeployment(t *testing.T
 			if len(applied) != 1 {
 				t.Fatalf("apply calls=%d, want one corrective Deployment apply", len(applied))
 			}
-			uProvider, ok := applied[0].(interface{ UnstructuredContent() map[string]any })
+			config, ok := applied[0].(*appsv1apply.DeploymentApplyConfiguration)
 			if !ok {
 				t.Fatalf("unexpected apply config type %T", applied[0])
 			}
-			u := uProvider.UnstructuredContent()
-			spec, _ := u["spec"].(map[string]any)
-			if got, _ := spec["replicas"].(int64); got != 1 {
-				t.Fatalf("corrective replicas=%v, want 1", spec["replicas"])
+			if config.Spec == nil || config.Spec.Replicas == nil || *config.Spec.Replicas != 1 {
+				t.Fatalf("corrective replicas=%v, want 1", config.Spec)
 			}
 			got := newStorageTestObject(kind)
 			if err := cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got); err != nil {
@@ -295,15 +294,12 @@ func TestRemediateExistingUnsafeDeployment(t *testing.T) {
 			if applied == nil {
 				t.Fatal("corrective Deployment apply was not captured")
 			}
-			uProvider, ok := applied.(interface{ UnstructuredContent() map[string]any })
+			config, ok := applied.(*appsv1apply.DeploymentApplyConfiguration)
 			if !ok {
 				t.Fatalf("unexpected apply config type %T", applied)
 			}
-			u := uProvider.UnstructuredContent()
-			spec, _ := u["spec"].(map[string]any)
-			got, ok := spec["replicas"].(int64)
-			if !ok || got != 1 {
-				t.Fatalf("applied replicas=%v, want 1", spec["replicas"])
+			if config.Spec == nil || config.Spec.Replicas == nil || *config.Spec.Replicas != 1 {
+				t.Fatalf("applied replicas=%v, want 1", config.Spec)
 			}
 		})
 	}
@@ -341,6 +337,28 @@ func TestRemediateRejectsReplacedDeploymentOnAuthoritativeReadback(t *testing.T)
 	changed, err := remediateUnsafeDeployment(context.Background(), cachedClient, authoritative, owner)
 	if changed || err == nil || !strings.Contains(err.Error(), "identity or ownership changed") {
 		t.Fatalf("changed=%v err=%v, want replacement identity error", changed, err)
+	}
+}
+
+func TestRemediateRejectsReplacementAfterAuthoritativePreRead(t *testing.T) {
+	owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("dep-uid"), ResourceVersion: "7", OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	replaced := dep.DeepCopy()
+	replaced.UID = types.UID("replacement-uid")
+	replaced.OwnerReferences = []metav1.OwnerReference{{UID: types.UID("other-owner"), Controller: ptrBool(true)}}
+	replaced.Spec.Replicas = ptr(int32(1))
+	applyStarted := false
+	cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+		applyStarted = true
+		return nil
+	}}).Build()
+	reader := &orderingReader{Reader: cl, applyStarted: &applyStarted, postApply: replaced}
+	changed, err := remediateUnsafeDeployment(context.Background(), cl, reader, owner)
+	if changed || err == nil || !strings.Contains(err.Error(), "read back remediated Deployment identity or ownership changed") {
+		t.Fatalf("changed=%v err=%v, want post-Apply replacement error", changed, err)
+	}
+	if reader.gets != 2 {
+		t.Fatalf("authoritative reader calls=%d, want pre-Apply and post-Apply reads", reader.gets)
 	}
 }
 

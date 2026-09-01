@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1apply "k8s.io/client-go/applyconfigurations/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -67,20 +68,9 @@ func remediateUnsafeDeployment(ctx context.Context, c client.Client, apiReader c
 	if authoritative.Spec.Replicas == nil || *authoritative.Spec.Replicas <= 1 {
 		return false, nil
 	}
-	ones := int32(1)
-	patch := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            dep.Name,
-			Namespace:       dep.Namespace,
-			ResourceVersion: authoritative.ResourceVersion,
-		},
-		Spec: appsv1.DeploymentSpec{Replicas: &ones},
-	}
-	ac, err := toApplyConfiguration(patch)
-	if err != nil {
-		return false, fmt.Errorf("encode Deployment remediation: %w", err)
-	}
+	ac := appsv1apply.Deployment(dep.Name, dep.Namespace).
+		WithResourceVersion(authoritative.ResourceVersion).
+		WithSpec(appsv1apply.DeploymentSpec().WithReplicas(1))
 	// Do not force ownership: an HPA or second manager may legitimately own
 	// replicas. A conflict is surfaced to the caller rather than taking that
 	// ownership; the controller remains unsafe until the conflict is resolved.
