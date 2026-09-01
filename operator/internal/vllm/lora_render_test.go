@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 
 	vllmv1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
 )
@@ -49,11 +51,11 @@ func TestBuildDeploymentEnableLora(t *testing.T) {
 			LocalObjectReference: corev1.LocalObjectReference{Name: "test-hf-token"},
 		},
 		nil,
-		vllmv1alpha1.OwnerReference{
-			APIVersion: "v1",
-			Kind:       "Pod",
-			Name:       "test",
-			UID:        1,
+		metav1.OwnerReference{
+			APIVersion:         "vllm.aatchison.io/v1alpha1",
+			Kind:               "VLLMInstance",
+			Name:               "test-instance",
+			UID:                types.UID("1"),
 		},
 	)
 
@@ -129,11 +131,11 @@ func TestBuildDeploymentEnableLoraFalse(t *testing.T) {
 			LocalObjectReference: corev1.LocalObjectReference{Name: "test-hf-token"},
 		},
 		nil,
-		vllmv1alpha1.OwnerReference{
-			APIVersion: "v1",
-			Kind:       "Pod",
-			Name:       "test",
-			UID:        1,
+		metav1.OwnerReference{
+			APIVersion:         "vllm.aatchison.io/v1alpha1",
+			Kind:               "VLLMInstance",
+			Name:               "test-instance",
+			UID:                types.UID("1"),
 		},
 	)
 
@@ -189,11 +191,11 @@ func TestBuildDeploymentMaxLoraRank(t *testing.T) {
 			LocalObjectReference: corev1.LocalObjectReference{Name: "test-hf-token"},
 		},
 		nil,
-		vllmv1alpha1.OwnerReference{
-			APIVersion: "v1",
-			Kind:       "Pod",
-			Name:       "test",
-			UID:        1,
+		metav1.OwnerReference{
+			APIVersion:         "vllm.aatchison.io/v1alpha1",
+			Kind:               "VLLMInstance",
+			Name:               "test-instance",
+			UID:                types.UID("1"),
 		},
 	)
 
@@ -250,11 +252,11 @@ func TestBuildDeploymentLoraModules(t *testing.T) {
 			LocalObjectReference: corev1.LocalObjectReference{Name: "test-hf-token"},
 		},
 		nil,
-		vllmv1alpha1.OwnerReference{
-			APIVersion: "v1",
-			Kind:       "Pod",
-			Name:       "test",
-			UID:        1,
+		metav1.OwnerReference{
+			APIVersion:         "vllm.aatchison.io/v1alpha1",
+			Kind:               "VLLMInstance",
+			Name:               "test-instance",
+			UID:                types.UID("1"),
 		},
 	)
 
