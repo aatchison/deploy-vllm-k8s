@@ -220,7 +220,7 @@ func TestRemediateExistingUnsafeDeployment(t *testing.T) {
 				return c.Update(ctx, dep)
 			}}
 			cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(inter).Build()
-			changed, err := remediateUnsafeDeployment(context.Background(), cl, owner)
+			changed, err := remediateUnsafeDeployment(context.Background(), cl, cl, owner)
 			if err != nil || !changed {
 				t.Fatalf("remediate changed=%v err=%v, want changed with no error", changed, err)
 			}
@@ -263,7 +263,7 @@ func TestRemediateUnsafeDeploymentConflictAndReadbackErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			owner, dep := newFixture(t)
 			cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(tc.apply).Build()
-			changed, err := remediateUnsafeDeployment(context.Background(), cl, owner)
+			changed, err := remediateUnsafeDeployment(context.Background(), cl, cl, owner)
 			if changed || err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("changed=%v err=%v, want error containing %q", changed, err, tc.want)
 			}

@@ -36,8 +36,10 @@ const (
 // LongContextInstanceReconciler reconciles a LongContextInstance object.
 type LongContextInstanceReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	// APIReader is the uncached reader used to verify corrective writes.
+	APIReader client.Reader
+	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=longcontextpresets,verbs=get;list;watch
@@ -136,7 +138,7 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		replicas = *instance.Spec.Replicas
 	}
 	if err := validateReplicaStorage(&pvc, replicas, effective.PVCReadOnly); err != nil {
-		remediated, remediationErr := remediateUnsafeDeployment(ctx, r.Client, &instance)
+		remediated, remediationErr := remediateUnsafeDeployment(ctx, r.Client, r.APIReader, &instance)
 		if remediationErr != nil {
 			setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
 				vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error()+"; remediation failed: "+remediationErr.Error())
