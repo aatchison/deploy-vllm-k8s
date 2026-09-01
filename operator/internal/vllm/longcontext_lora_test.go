@@ -58,8 +58,17 @@ func TestLoraModulesMalformedFixtures(t *testing.T) {
 		if err := ValidateEffectiveConfig(e); err == nil {
 			t.Fatalf("%q accepted", input)
 		}
-		if BuildDeployment("x", "ns", 1, e, "pvc", corev1.SecretKeySelector{}, nil, metav1.OwnerReference{}) != nil {
-			t.Fatalf("%q rendered deployment", input)
+		// Invalid modules are rejected before controllers apply; direct rendering
+		// preserves the historical deployment shape while omitting the flag.
+		e.SHMSizeLimit = "8Gi"
+		dep := BuildDeployment("x", "ns", 1, e, "pvc", corev1.SecretKeySelector{}, nil, metav1.OwnerReference{})
+		if dep == nil {
+			t.Fatalf("%q unexpectedly returned nil deployment", input)
+		}
+		for _, arg := range dep.Spec.Template.Spec.Containers[0].Args {
+			if arg == "--lora-modules" {
+				t.Fatalf("%q rendered --lora-modules", input)
+			}
 		}
 	}
 }

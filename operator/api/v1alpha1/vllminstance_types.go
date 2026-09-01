@@ -150,6 +150,7 @@ const (
 	ReasonAllReady              = "AllReady"
 	ReasonScaledToZero          = "ScaledToZero"
 	ReasonApplyFailed           = "ApplyFailed"
+	ReasonInvalidConfiguration  = "InvalidConfiguration"
 	ReasonInvalidConfig         = "InvalidConfig"
 )
 

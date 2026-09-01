@@ -118,12 +118,6 @@ func BuildDeployment(
 	apiKey *corev1.SecretKeySelector,
 	ownerRef metav1.OwnerReference,
 ) *appsv1.Deployment {
-	// BuildDeployment has no error return for compatibility. Return nil rather
-	// than silently omitting an invalid adapter flag; controllers validate
-	// before apply, and direct callers must fail closed too.
-	if err := ValidateEffectiveConfig(e); err != nil {
-		return nil
-	}
 	podLabels := map[string]string{
 		"app":   name,
 		"model": SanitizeLabel(e.ModelID),
