@@ -3,8 +3,8 @@ package vllm
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -461,7 +461,6 @@ func buildAPIKeyCommand(args []string) ([]string, []string) {
 	return cmd, args
 }
 
-
 // validateLoraModules parses and validates a LoraModules CRD string.
 // Expected format: "name1=path1,name2=path2"
 // Returns (valid, errorMessage). If valid==false, the errorMessage should be
@@ -513,6 +512,19 @@ func validateLoraModules(s string) (bool, string) {
 		}
 	}
 	return true, ""
+}
+
+// ValidateEffectiveConfig validates renderer inputs before a controller applies
+// any generated Kubernetes objects.
+func ValidateEffectiveConfig(e EffectiveConfig) error {
+	if e.LoraModules == "" {
+		return nil
+	}
+	valid, msg := validateLoraModules(e.LoraModules)
+	if !valid {
+		return fmt.Errorf("invalid loraModules: %s", msg)
+	}
+	return nil
 }
 
 func buildArgs(e EffectiveConfig) []string {
