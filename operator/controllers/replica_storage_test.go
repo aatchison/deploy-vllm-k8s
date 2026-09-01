@@ -154,6 +154,28 @@ type reconcileRunner interface {
 	Reconcile(context.Context, ctrl.Request) (ctrl.Result, error)
 }
 
+func TestReplicaStorageControllerUsesAuthoritativeReader(t *testing.T) {
+	obj, preset := storageTestObjects(t, "VLLMInstance", ptr(int32(2)), nil, nil)
+	obj.SetUID(types.UID("owner-uid"))
+	cachedDep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: obj.GetName(), Namespace: obj.GetNamespace(), UID: types.UID("dep-uid"), OwnerReferences: []metav1.OwnerReference{{UID: obj.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	authoritativeDep := cachedDep.DeepCopy()
+	authoritativeDep.Spec.Replicas = ptr(int32(1))
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "pvc", Namespace: "ns"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}}}
+	applies := 0
+	inter := interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+		applies++
+		return nil
+	}}
+	cached := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithStatusSubresource(obj).WithObjects(obj, preset, pvc, cachedDep).WithInterceptorFuncs(inter).Build()
+	authoritative := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(authoritativeDep).Build()
+	if _, err := (&VLLMInstanceReconciler{Client: cached, APIReader: authoritative}).Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if applies != 1 {
+		t.Fatalf("apply calls=%d, want one remediation apply", applies)
+	}
+}
+
 func TestReplicaStorageControllerRemediatesExistingUnsafeDeployment(t *testing.T) {
 	for _, kind := range []string{"VLLMInstance", "LongContextInstance"} {
 		t.Run(kind, func(t *testing.T) {
