@@ -149,18 +149,20 @@ func main() {
 	recorder := broadcaster.NewRecorder(rtscheme, corev1.EventSource{Component: "vllm-operator"})
 
 	if err := (&controllers.VLLMInstanceReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: recorder,
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Scheme:    mgr.GetScheme(),
+		Recorder:  recorder,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "VLLMInstance")
 		os.Exit(1)
 	}
 
 	if err := (&controllers.LongContextInstanceReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: recorder,
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Scheme:    mgr.GetScheme(),
+		Recorder:  recorder,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "LongContextInstance")
 		os.Exit(1)

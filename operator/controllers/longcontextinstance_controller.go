@@ -36,8 +36,10 @@ const (
 // LongContextInstanceReconciler reconciles a LongContextInstance object.
 type LongContextInstanceReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	// APIReader is the uncached reader used to verify corrective writes.
+	APIReader client.Reader
+	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=longcontextpresets,verbs=get;list;watch
@@ -136,9 +138,22 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		replicas = *instance.Spec.Replicas
 	}
 	if err := validateReplicaStorage(&pvc, replicas, effective.PVCReadOnly); err != nil {
+		remediated, remediationErr := remediateUnsafeDeployment(ctx, r.Client, r.APIReader, &instance)
+		if remediationErr != nil {
+			message := err.Error() + "; remediation failed: " + remediationErr.Error()
+			setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
+				vllmv1alpha1.ReasonReplicaStorageUnsafe, message)
+			r.setReadyFalse(&instance, vllmv1alpha1.ReasonReplicaStorageUnsafe, message)
+			_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
+			return ctrl.Result{}, errors.Join(remediationErr, perr)
+		}
+		message := err.Error()
+		if remediated {
+			message += "; existing Deployment remediated to replicas=1"
+		}
 		setLongContextCondition(&instance, vllmv1alpha1.ConditionStorageReady, metav1.ConditionFalse,
-			vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error())
-		r.setReadyFalse(&instance, vllmv1alpha1.ReasonReplicaStorageUnsafe, err.Error())
+			vllmv1alpha1.ReasonReplicaStorageUnsafe, message)
+		r.setReadyFalse(&instance, vllmv1alpha1.ReasonReplicaStorageUnsafe, message)
 		return r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 	}
 

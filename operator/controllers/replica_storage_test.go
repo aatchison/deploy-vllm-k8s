@@ -2,13 +2,18 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -77,14 +82,14 @@ func TestReplicaStorageGateRejectsBeforeApplyForBothKinds(t *testing.T) {
 		makeReconciler func(client.Client) reconcileRunner
 		getCondition   func(client.Object) *metav1.Condition
 	}{
-		{"VLLMInstance", &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", Generation: 1}, Spec: vllmv1alpha1.VLLMInstanceSpec{PresetRef: &vllmv1alpha1.PresetReference{Name: "p"}, PVCName: "pvc", HFToken: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"}, Replicas: ptr(int32(2))}}, &vllmv1alpha1.ModelPreset{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"}, Spec: presetSpec()}, func(c client.Client) reconcileRunner { return &VLLMInstanceReconciler{Client: c} }, func(o client.Object) *metav1.Condition {
+		{"VLLMInstance", &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", Generation: 1}, Spec: vllmv1alpha1.VLLMInstanceSpec{PresetRef: &vllmv1alpha1.PresetReference{Name: "p"}, PVCName: "pvc", HFToken: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"}, Replicas: ptr(int32(2))}}, &vllmv1alpha1.ModelPreset{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"}, Spec: presetSpec()}, func(c client.Client) reconcileRunner { return &VLLMInstanceReconciler{Client: c, APIReader: c} }, func(o client.Object) *metav1.Condition {
 			instance, ok := o.(*vllmv1alpha1.VLLMInstance)
 			if !ok {
 				return nil
 			}
 			return findStorageCondition(instance.Status.Conditions)
 		}},
-		{"LongContextInstance", &vllmv1alpha1.LongContextInstance{ObjectMeta: metav1.ObjectMeta{Name: "lci", Namespace: "ns", Generation: 1}, Spec: vllmv1alpha1.LongContextInstanceSpec{PresetRef: &vllmv1alpha1.LongContextPresetReference{Name: "p"}, PVCName: "pvc", HFToken: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"}, Replicas: ptr(int32(2))}}, &vllmv1alpha1.LongContextPreset{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"}, Spec: longContextPresetSpec()}, func(c client.Client) reconcileRunner { return &LongContextInstanceReconciler{Client: c} }, func(o client.Object) *metav1.Condition {
+		{"LongContextInstance", &vllmv1alpha1.LongContextInstance{ObjectMeta: metav1.ObjectMeta{Name: "lci", Namespace: "ns", Generation: 1}, Spec: vllmv1alpha1.LongContextInstanceSpec{PresetRef: &vllmv1alpha1.LongContextPresetReference{Name: "p"}, PVCName: "pvc", HFToken: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"}, Replicas: ptr(int32(2))}}, &vllmv1alpha1.LongContextPreset{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"}, Spec: longContextPresetSpec()}, func(c client.Client) reconcileRunner { return &LongContextInstanceReconciler{Client: c, APIReader: c} }, func(o client.Object) *metav1.Condition {
 			instance, ok := o.(*vllmv1alpha1.LongContextInstance)
 			if !ok {
 				return nil
@@ -147,6 +152,269 @@ func findStorageCondition(conditions []metav1.Condition) *metav1.Condition {
 
 type reconcileRunner interface {
 	Reconcile(context.Context, ctrl.Request) (ctrl.Result, error)
+}
+
+type orderingReader struct {
+	client.Reader
+	applyStarted *bool
+	postApply    *appsv1.Deployment
+	gets         int
+}
+
+func (r *orderingReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	r.gets++
+	if *r.applyStarted {
+		if r.postApply != nil {
+			dep, ok := obj.(*appsv1.Deployment)
+			if !ok {
+				return fmt.Errorf("unexpected readback type %T", obj)
+			}
+			copy := r.postApply.DeepCopy()
+			*dep = *copy
+			return nil
+		}
+		return fmt.Errorf("authoritative read occurred after Apply")
+	}
+	return r.Reader.Get(ctx, key, obj, opts...)
+}
+
+func TestRemediateChecksAuthoritativeOwnershipBeforeApply(t *testing.T) {
+	owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("dep-uid"), ResourceVersion: "7", OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	applyStarted := false
+	cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+		applyStarted = true
+		return nil
+	}}).Build()
+	post := dep.DeepCopy()
+	post.Spec.Replicas = ptr(int32(1))
+	reader := &orderingReader{Reader: cl, applyStarted: &applyStarted, postApply: post}
+	if _, err := remediateUnsafeDeployment(context.Background(), cl, reader, owner); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if reader.gets != 2 {
+		t.Fatalf("authoritative reader calls=%d, want pre-Apply and post-Apply reads", reader.gets)
+	}
+}
+
+func TestReplicaStorageControllerUsesAuthoritativeReader(t *testing.T) {
+	obj, preset := storageTestObjects(t, "VLLMInstance", ptr(int32(2)), nil, nil)
+	obj.SetUID(types.UID("owner-uid"))
+	cachedDep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: obj.GetName(), Namespace: obj.GetNamespace(), UID: types.UID("dep-uid"), OwnerReferences: []metav1.OwnerReference{{UID: obj.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	authoritativeDep := cachedDep.DeepCopy()
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "pvc", Namespace: "ns"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}}}
+	authoritative := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(authoritativeDep).Build()
+	applies := 0
+	inter := interceptor.Funcs{Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+		applies++
+		authoritativeDep.Spec.Replicas = ptr(int32(1))
+		return authoritative.Update(ctx, authoritativeDep)
+	}}
+	cached := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithStatusSubresource(obj).WithObjects(obj, preset, pvc, cachedDep).WithInterceptorFuncs(inter).Build()
+	if _, err := (&VLLMInstanceReconciler{Client: cached, APIReader: authoritative}).Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if applies != 1 {
+		t.Fatalf("apply calls=%d, want one remediation apply", applies)
+	}
+}
+
+func TestReplicaStorageControllerRemediatesExistingUnsafeDeployment(t *testing.T) {
+	for _, kind := range []string{"VLLMInstance", "LongContextInstance"} {
+		t.Run(kind, func(t *testing.T) {
+			obj, preset := storageTestObjects(t, kind, ptr(int32(2)), nil, nil)
+			obj.SetUID(types.UID("owner-uid"))
+			dep := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: obj.GetName(), Namespace: obj.GetNamespace(), OwnerReferences: []metav1.OwnerReference{{UID: obj.GetUID(), Controller: ptrBool(true)}}},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr(int32(2))},
+			}
+			pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "pvc", Namespace: "ns"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}}}
+			var applied []runtime.ApplyConfiguration
+			inter := interceptor.Funcs{Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+				applied = append(applied, obj)
+				dep.Spec.Replicas = ptr(int32(1))
+				return c.Update(ctx, dep)
+			}}
+			cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithStatusSubresource(obj).WithObjects(obj, preset, pvc, dep).WithInterceptorFuncs(inter).Build()
+			if _, err := reconcileStorageTestObject(cl, kind, obj); err != nil {
+				t.Fatalf("Reconcile: %v", err)
+			}
+			if len(applied) != 1 {
+				t.Fatalf("apply calls=%d, want one corrective Deployment apply", len(applied))
+			}
+			uProvider, ok := applied[0].(interface{ UnstructuredContent() map[string]any })
+			if !ok {
+				t.Fatalf("unexpected apply config type %T", applied[0])
+			}
+			u := uProvider.UnstructuredContent()
+			spec, _ := u["spec"].(map[string]any)
+			if got, _ := spec["replicas"].(int64); got != 1 {
+				t.Fatalf("corrective replicas=%v, want 1", spec["replicas"])
+			}
+			got := newStorageTestObject(kind)
+			if err := cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got); err != nil {
+				t.Fatal(err)
+			}
+			storage, ready := storageAndReady(got)
+			for _, cond := range []*metav1.Condition{storage, ready} {
+				if cond == nil || cond.Status != metav1.ConditionFalse || cond.Reason != vllmv1alpha1.ReasonReplicaStorageUnsafe {
+					t.Fatalf("condition=%+v, want False/%s", cond, vllmv1alpha1.ReasonReplicaStorageUnsafe)
+				}
+			}
+			if storage.Message != ready.Message || !strings.Contains(storage.Message, "existing Deployment remediated to replicas=1") {
+				t.Fatalf("remediation messages differ or omit outcome: storage=%q ready=%q", storage.Message, ready.Message)
+			}
+		})
+	}
+}
+
+func TestRemediateExistingUnsafeDeployment(t *testing.T) {
+	for _, kind := range []string{"VLLMInstance", "LongContextInstance"} {
+		t.Run(kind, func(t *testing.T) {
+			var owner client.Object
+			if kind == "VLLMInstance" {
+				owner = &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+			} else {
+				owner = &vllmv1alpha1.LongContextInstance{ObjectMeta: metav1.ObjectMeta{Name: "lci", Namespace: "ns", UID: types.UID("owner-uid")}}
+			}
+			dep := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: owner.GetName(), Namespace: owner.GetNamespace(), OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr(int32(2))},
+			}
+			var applied runtime.ApplyConfiguration
+			inter := interceptor.Funcs{Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+				applied = obj
+				dep.Spec.Replicas = ptr(int32(1))
+				return c.Update(ctx, dep)
+			}}
+			cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(inter).Build()
+			changed, err := remediateUnsafeDeployment(context.Background(), cl, cl, owner)
+			if err != nil || !changed {
+				t.Fatalf("remediate changed=%v err=%v, want changed with no error", changed, err)
+			}
+			if applied == nil {
+				t.Fatal("corrective Deployment apply was not captured")
+			}
+			uProvider, ok := applied.(interface{ UnstructuredContent() map[string]any })
+			if !ok {
+				t.Fatalf("unexpected apply config type %T", applied)
+			}
+			u := uProvider.UnstructuredContent()
+			spec, _ := u["spec"].(map[string]any)
+			got, ok := spec["replicas"].(int64)
+			if !ok || got != 1 {
+				t.Fatalf("applied replicas=%v, want 1", spec["replicas"])
+			}
+		})
+	}
+}
+
+func TestRemediateUsesAuthoritativeReader(t *testing.T) {
+	owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+	cachedDep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("dep-uid"), OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	authoritativeDep := cachedDep.DeepCopy()
+	var applies int
+	authoritative := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(authoritativeDep).Build()
+	inter := interceptor.Funcs{Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+		applies++
+		authoritativeDep.Spec.Replicas = ptr(int32(1))
+		return authoritative.Update(ctx, authoritativeDep)
+	}}
+	cached := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(cachedDep).WithInterceptorFuncs(inter).Build()
+	changed, err := remediateUnsafeDeployment(context.Background(), cached, authoritative, owner)
+	if err != nil || !changed || applies != 1 {
+		t.Fatalf("changed=%v applies=%d err=%v, want authoritative readback success", changed, applies, err)
+	}
+}
+
+func TestRemediateRejectsReplacedDeploymentOnAuthoritativeReadback(t *testing.T) {
+	owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+	cached := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("old-dep"), ResourceVersion: "7", OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	replaced := cached.DeepCopy()
+	replaced.UID = types.UID("new-dep")
+	replaced.OwnerReferences = []metav1.OwnerReference{{UID: types.UID("other-owner"), Controller: ptrBool(true)}}
+	replaced.Spec.Replicas = ptr(int32(1))
+	cachedClient := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(cached).WithInterceptorFuncs(interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+		return nil
+	}}).Build()
+	authoritative := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(replaced).Build()
+	changed, err := remediateUnsafeDeployment(context.Background(), cachedClient, authoritative, owner)
+	if changed || err == nil || !strings.Contains(err.Error(), "identity or ownership changed") {
+		t.Fatalf("changed=%v err=%v, want replacement identity error", changed, err)
+	}
+}
+
+func TestRemediateRequiresAuthoritativeReaderBeforeApply(t *testing.T) {
+	owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+	applies := 0
+	cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+		applies++
+		return nil
+	}}).Build()
+	changed, err := remediateUnsafeDeployment(context.Background(), cl, nil, owner)
+	if changed || err == nil || !strings.Contains(err.Error(), "authoritative API reader is required") {
+		t.Fatalf("changed=%v err=%v, want required-reader error", changed, err)
+	}
+	if applies != 0 {
+		t.Fatalf("apply calls=%d, want 0 when reader is nil", applies)
+	}
+}
+
+func TestRemediateRejectsIdentityAndOwnerChangesIndependently(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		uid   types.UID
+		owner types.UID
+	}{
+		{"uid changed", types.UID("new-dep"), types.UID("owner-uid")},
+		{"owner changed", types.UID("dep-uid"), types.UID("other-owner")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+			cached := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("dep-uid"), OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+			replaced := cached.DeepCopy()
+			replaced.UID, replaced.OwnerReferences[0].UID, replaced.Spec.Replicas = tc.uid, tc.owner, ptr(int32(1))
+			cachedClient := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(cached).WithInterceptorFuncs(interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+				return nil
+			}}).Build()
+			authoritative := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(replaced).Build()
+			changed, err := remediateUnsafeDeployment(context.Background(), cachedClient, authoritative, owner)
+			if changed || err == nil || !strings.Contains(err.Error(), "identity or ownership changed") {
+				t.Fatalf("changed=%v err=%v, want identity/ownership error", changed, err)
+			}
+		})
+	}
+}
+
+func TestRemediateUnsafeDeploymentConflictAndReadbackErrors(t *testing.T) {
+	newFixture := func(t *testing.T) (client.Object, *appsv1.Deployment) {
+		t.Helper()
+		owner := &vllmv1alpha1.VLLMInstance{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", UID: types.UID("owner-uid")}}
+		dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "vi", Namespace: "ns", OwnerReferences: []metav1.OwnerReference{{UID: owner.GetUID(), Controller: ptrBool(true)}}}, Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(2))}}
+		return owner, dep
+	}
+	for _, tc := range []struct {
+		name  string
+		apply interceptor.Funcs
+		want  string
+	}{
+		{"conflict", interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+			return apierrors.NewConflict(schema.GroupResource{Group: "apps", Resource: "deployments"}, "vi", errors.New("replicas owned"))
+		}}, "apply Deployment remediation"},
+		{"readback mismatch", interceptor.Funcs{Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+			return nil
+		}}, "read back remediated Deployment replicas=2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			owner, dep := newFixture(t)
+			cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(tc.apply).Build()
+			changed, err := remediateUnsafeDeployment(context.Background(), cl, cl, owner)
+			if changed || err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("changed=%v err=%v, want error containing %q", changed, err, tc.want)
+			}
+		})
+	}
 }
 
 func TestReplicaStorageScaleDownRecovery(t *testing.T) {
@@ -440,9 +708,9 @@ func storageTestObjects(t *testing.T, kind string, replicas *int32, specRO, over
 func reconcileStorageTestObject(cl client.Client, kind string, obj client.Object) (ctrl.Result, error) {
 	key := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)}
 	if kind == "VLLMInstance" {
-		return (&VLLMInstanceReconciler{Client: cl}).Reconcile(context.Background(), key)
+		return (&VLLMInstanceReconciler{Client: cl, APIReader: cl}).Reconcile(context.Background(), key)
 	}
-	return (&LongContextInstanceReconciler{Client: cl}).Reconcile(context.Background(), key)
+	return (&LongContextInstanceReconciler{Client: cl, APIReader: cl}).Reconcile(context.Background(), key)
 }
 
 func setReplicas(obj client.Object, replicas int32) {
