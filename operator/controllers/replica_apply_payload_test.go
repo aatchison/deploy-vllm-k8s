@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,11 +23,13 @@ func TestRemediationApplyPayloadIsIdentityAndReplicasOnly(t *testing.T) {
 	var payload map[string]interface{}
 	inter := interceptor.Funcs{Apply: func(_ context.Context, _ client.WithWatch, ac runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
 		applyStarted = true
-		u, ok := ac.(interface{ UnstructuredContent() map[string]interface{} })
-		if !ok {
-			t.Fatalf("unexpected apply config %T", ac)
+		raw, err := json.Marshal(ac)
+		if err != nil {
+			t.Fatalf("marshal apply config %T: %v", ac, err)
 		}
-		payload = u.UnstructuredContent()
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			t.Fatalf("unmarshal apply config payload: %v", err)
+		}
 		return nil
 	}}
 	cl := fake.NewClientBuilder().WithScheme(fullScheme(t)).WithObjects(dep).WithInterceptorFuncs(inter).Build()
@@ -53,7 +56,7 @@ func TestRemediationApplyPayloadIsIdentityAndReplicasOnly(t *testing.T) {
 	if !ok {
 		t.Fatalf("spec has unexpected type: %T", payload["spec"])
 	}
-	if len(spec) != 1 || spec["replicas"] != int64(1) {
+	if len(spec) != 1 || spec["replicas"] != float64(1) {
 		t.Fatalf("spec=%v", spec)
 	}
 }
