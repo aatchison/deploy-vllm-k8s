@@ -38,7 +38,14 @@ func TestGeneratedCRDReplicaLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			schema := loadGeneratedSchema(t, tt.crdFile)
-			for _, replicas := range []int64{2, 3} {
+			for _, tc := range []struct {
+				replicas      int64
+				sharedStorage bool
+			}{
+				{replicas: 2, sharedStorage: false},
+				{replicas: 2, sharedStorage: true},
+				{replicas: 3, sharedStorage: true},
+			} {
 				obj := map[string]interface{}{
 					"apiVersion": "vllm.aatchison.io/v1alpha1",
 					"kind":       tt.kind,
@@ -53,15 +60,21 @@ func TestGeneratedCRDReplicaLimit(t *testing.T) {
 							"name": "hf-token",
 							"key":  "token",
 						},
-						"replicas": replicas,
+						"replicas":      tc.replicas,
+						"sharedStorage": tc.sharedStorage,
 					},
 				}
 
 				errs := validateGeneratedSchema(t, schema, obj)
-				if replicas == 2 && len(errs) != 0 {
-					t.Fatalf("replicas=2 must be accepted by generated CRD schema: %v", errs)
+				if tc.replicas == 2 && tc.sharedStorage && len(errs) != 0 {
+					t.Fatalf("replicas=2 with sharedStorage=true must be accepted by generated CRD schema: %v", errs)
 				}
-				if replicas == 3 {
+				if tc.replicas == 2 && !tc.sharedStorage {
+					if len(errs) == 0 || !strings.Contains(errs.ToAggregate().Error(), "sharedStorage") {
+						t.Fatalf("replicas=2 without sharedStorage must be rejected: %v", errs)
+					}
+				}
+				if tc.replicas == 3 {
 					if len(errs) == 0 {
 						t.Fatal("replicas=3 must be rejected by generated CRD schema")
 					}
