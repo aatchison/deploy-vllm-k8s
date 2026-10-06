@@ -403,7 +403,7 @@ func (r *VLLMInstanceReconciler) resolveEndpoint(ctx context.Context, namespace,
 	readyNodes := readyNodeNames(slices.Items)
 	for _, name := range readyNodes {
 		if ip := r.nodeInternalIP(ctx, name); ip != "" {
-			return fmt.Sprintf("http://%s:%d/v1", ip, nodePort)
+			return endpointURL(ip, nodePort)
 		}
 	}
 	return ""

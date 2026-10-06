@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -55,6 +57,10 @@ func toApplyConfiguration(obj runtime.Object) (runtime.ApplyConfiguration, error
 // The function takes the actual Service (re-read after SSA apply) so the
 // branch decision matches what's on the API server, not what we tried to
 // SSA-apply.
+func endpointURL(host string, port int32) string {
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(int(port))) + "/v1"
+}
+
 func resolveServiceEndpoint(svc *corev1.Service, actualNodePort int32, nodePortFallback string) string {
 	if svc == nil {
 		return ""
@@ -63,10 +69,10 @@ func resolveServiceEndpoint(svc *corev1.Service, actualNodePort int32, nodePortF
 	case corev1.ServiceTypeLoadBalancer:
 		for _, ing := range svc.Status.LoadBalancer.Ingress {
 			if ing.IP != "" {
-				return fmt.Sprintf("http://%s:%d/v1", ing.IP, vllm.HTTPPort)
+				return endpointURL(ing.IP, vllm.HTTPPort)
 			}
 			if ing.Hostname != "" {
-				return fmt.Sprintf("http://%s:%d/v1", ing.Hostname, vllm.HTTPPort)
+				return endpointURL(ing.Hostname, vllm.HTTPPort)
 			}
 		}
 		// Cloud LB still provisioning. Fall through to cluster-DNS form so

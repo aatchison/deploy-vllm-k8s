@@ -60,3 +60,46 @@ func TestResolveEndpoint_NodeIP(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveEndpoint_IPv6(t *testing.T) {
+	scheme := fullScheme(t)
+	ready := true
+	slice := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-foo-abc",
+			Namespace: "vllm",
+			Labels:    map[string]string{discoveryv1.LabelServiceName: "svc-foo"},
+		},
+		AddressType: discoveryv1.AddressTypeIPv6,
+		Endpoints: []discoveryv1.Endpoint{{
+			Addresses:  []string{"fd00::5"},
+			NodeName:   ptr("node-a"),
+			Conditions: discoveryv1.EndpointConditions{Ready: &ready},
+		}},
+	}
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "node-a"},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{{Type: corev1.NodeInternalIP, Address: "2001:db8::42"}},
+		},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(slice, node).Build()
+
+	t.Run("VLLMInstance", func(t *testing.T) {
+		r := &VLLMInstanceReconciler{Client: cl, Scheme: scheme}
+		got := r.resolveEndpoint(context.Background(), "vllm", "svc-foo", 32000)
+		want := "http://[2001:db8::42]:32000/v1"
+		if got != want {
+			t.Errorf("NodePort endpoint: got %q want %q", got, want)
+		}
+	})
+
+	t.Run("LongContextInstance", func(t *testing.T) {
+		r := &LongContextInstanceReconciler{Client: cl, Scheme: scheme}
+		got := r.resolveEndpoint(context.Background(), "vllm", "svc-foo", 32000)
+		want := "http://[2001:db8::42]:32000/v1"
+		if got != want {
+			t.Errorf("NodePort endpoint: got %q want %q", got, want)
+		}
+	})
+}
