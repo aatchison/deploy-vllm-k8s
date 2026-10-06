@@ -43,8 +43,7 @@ echo "    endpoint: $ENDPOINT"
 # ── 2. Models list ────────────────────────────────────────────────────────────
 echo "==> GET $ENDPOINT/models"
 MODELS=$(curl -sf --max-time 10 "$ENDPOINT/models")
-MODEL_ID=$(echo "$MODELS" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-if [[ -z "$MODEL_ID" ]]; then
+if ! MODEL_ID=$(jq -er '.data[0].id | select(type == "string" and length > 0)' <<< "$MODELS"); then
     echo "ERROR: /models returned no model IDs" >&2
     echo "$MODELS" >&2
     exit 1
@@ -53,12 +52,13 @@ echo "    model: $MODEL_ID"
 
 # ── 3. Minimal chat completion ────────────────────────────────────────────────
 echo "==> POST $ENDPOINT/chat/completions (max_tokens=5)"
+BODY=$(jq -cn --arg model "$MODEL_ID" '{model: $model, messages: [{role: "user", content: "Say hi"}], max_tokens: 5}')
 RESPONSE=$(curl -sf --max-time 30 \
     -H "Content-Type: application/json" \
-    -d "{\"model\":\"$MODEL_ID\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hi\"}],\"max_tokens\":5}" \
+    -d "$BODY" \
     "$ENDPOINT/chat/completions")
 
-CONTENT=$(echo "$RESPONSE" | grep -o '"content":"[^"]*"' | head -1 | cut -d'"' -f4)
+CONTENT=$(jq -er ' .choices[0].message.content | select(type == "string" and length > 0)' <<< "$RESPONSE")
 if [[ -z "$CONTENT" ]]; then
     echo "ERROR: chat completion returned no content" >&2
     echo "$RESPONSE" >&2
@@ -69,8 +69,9 @@ echo "==> PASS"
 
 # ── 4. /v1/messages system-role hoist test ─────────────────────────────────────────
 echo "==> POST $ENDPOINT/v1/messages (system-role hoist)"
+BODY=$(jq -cn --arg model "$MODEL_ID" '{model: $model, messages: [{role: "system", content: "Be brief"}, {role: "user", content: "Say hi"}], max_tokens: 5}')
 curl -sf --max-time 30 \
     -H "Content-Type: application/json" \
-    -d "{\"model\":\"$MODEL_ID\",\"messages\":[{\"role\":\"system\",\"content\":\"Be brief\"},{\"role\":\"user\",\"content\":\"Say hi\"}],\"max_tokens\":5}" \
+    -d "$BODY" \
     "$ENDPOINT/v1/messages" > /dev/null
 echo "    PASS"
