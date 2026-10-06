@@ -272,6 +272,7 @@ spec:
                   servedModelName:
                     type: string
                   shmSizeLimit:
+                    pattern: ^[0-9]+[KMGT]i?$
                     type: string
                   startupProbe:
                     description: |-

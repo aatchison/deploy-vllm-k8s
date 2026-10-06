@@ -102,6 +102,7 @@ func SanitizeLabel(s string) string {
 }
 
 // BuildDeployment renders a vLLM Deployment from the resolved config.
+// Callers must reject errors from ValidateEffectiveConfig before rendering.
 // `name` is the VLLMInstance name; it's used as both the Deployment name
 // and the pod label selector.
 //
@@ -506,6 +507,13 @@ func validateLoraModules(s string) (bool, string) {
 func ValidateEffectiveConfig(e EffectiveConfig) error {
 	if ok, msg := validateLoraModules(e.LoraModules); !ok {
 		return fmt.Errorf("invalid loraModules: %s", msg)
+	}
+	shmSize, err := resource.ParseQuantity(e.SHMSizeLimit)
+	if err != nil {
+		return fmt.Errorf("invalid shmSizeLimit: %w", err)
+	}
+	if shmSize.Sign() <= 0 {
+		return fmt.Errorf("invalid shmSizeLimit: must be positive")
 	}
 	return nil
 }

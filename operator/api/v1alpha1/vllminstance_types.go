@@ -28,6 +28,7 @@ type ModelConfigOverrides struct {
 	TensorParallelSize      *int32       `json:"tensorParallelSize,omitempty"`
 	EnableAutoToolChoice    *bool        `json:"enableAutoToolChoice,omitempty"`
 	ToolCallParser          *string      `json:"toolCallParser,omitempty"`
+	// +kubebuilder:validation:Pattern=`^[0-9]+[KMGT]i?$`
 	SHMSizeLimit            *string      `json:"shmSizeLimit,omitempty"`
 	ProgressDeadlineSeconds *int32       `json:"progressDeadlineSeconds,omitempty"`
 	LivenessProbe           *ProbeConfig `json:"livenessProbe,omitempty"`
