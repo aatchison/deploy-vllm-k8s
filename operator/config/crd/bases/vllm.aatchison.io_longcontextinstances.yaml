@@ -170,6 +170,7 @@ spec:
                   enablePrefixCaching:
                     type: boolean
                   gpuMemoryUtilization:
+                    pattern: ^0?\.[0-9]+$|^1\.0$
                     type: string
                   image:
                     type: string
@@ -227,9 +228,12 @@ spec:
                     minimum: 0
                     type: integer
                   migResource:
+                    pattern: ^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$
                     type: string
                   migResourceCount:
                     format: int32
+                    maximum: 8
+                    minimum: 1
                     type: integer
                   modelID:
                     type: string

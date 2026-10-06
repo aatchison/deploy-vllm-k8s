@@ -18,17 +18,21 @@ type LongContextOverrides struct {
 	ModelID *string `json:"modelID,omitempty"`
 	Image   *string `json:"image,omitempty"`
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
-	ImagePullPolicy         *string      `json:"imagePullPolicy,omitempty"`
-	MIGResource             *string      `json:"migResource,omitempty"`
-	MIGResourceCount        *int32       `json:"migResourceCount,omitempty"`
-	Quantization            *string      `json:"quantization,omitempty"`
-	DType                   *string      `json:"dtype,omitempty"`
-	ServedModelName         *string      `json:"servedModelName,omitempty"`
-	MaxModelLen             *int32       `json:"maxModelLen,omitempty"`
-	GPUMemoryUtilization    *string      `json:"gpuMemoryUtilization,omitempty"`
-	TensorParallelSize      *int32       `json:"tensorParallelSize,omitempty"`
-	EnableAutoToolChoice    *bool        `json:"enableAutoToolChoice,omitempty"`
-	ToolCallParser          *string      `json:"toolCallParser,omitempty"`
+	ImagePullPolicy *string `json:"imagePullPolicy,omitempty"`
+	// +kubebuilder:validation:Pattern=`^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$`
+	MIGResource *string `json:"migResource,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=8
+	MIGResourceCount *int32  `json:"migResourceCount,omitempty"`
+	Quantization     *string `json:"quantization,omitempty"`
+	DType            *string `json:"dtype,omitempty"`
+	ServedModelName  *string `json:"servedModelName,omitempty"`
+	MaxModelLen      *int32  `json:"maxModelLen,omitempty"`
+	// +kubebuilder:validation:Pattern=`^0?\.[0-9]+$|^1\.0$`
+	GPUMemoryUtilization *string `json:"gpuMemoryUtilization,omitempty"`
+	TensorParallelSize   *int32  `json:"tensorParallelSize,omitempty"`
+	EnableAutoToolChoice *bool   `json:"enableAutoToolChoice,omitempty"`
+	ToolCallParser       *string `json:"toolCallParser,omitempty"`
 	// +kubebuilder:validation:Pattern=`^[0-9]+[KMGT]i?$`
 	SHMSizeLimit            *string      `json:"shmSizeLimit,omitempty"`
 	ProgressDeadlineSeconds *int32       `json:"progressDeadlineSeconds,omitempty"`
