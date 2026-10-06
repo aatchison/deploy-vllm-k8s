@@ -85,6 +85,7 @@ func main() {
 		HealthProbeBindAddress:     probeAddr,
 		LeaderElection:             enableLeader,
 		LeaderElectionID:           "vllm-operator-leader",
+		LeaderElectionNamespace:    "vllm-system",
 		LeaderElectionResourceLock: "leases",
 		// Conservative-but-snappy lease tuning. 15s/10s/2s matches the
 		// kube-controller-manager defaults: ~10s typical failover, ~15s worst
