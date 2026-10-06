@@ -74,7 +74,7 @@ ci: generate fmt vet lint test
 
 .PHONY: build
 build: generate fmt vet
-	go build -o bin/manager main.go
+	go build -o bin/manager .
 
 .PHONY: test
 test: generate fmt vet

@@ -9,37 +9,37 @@ tenant or trust zone.
 > across mutually distrusting tenants**. Single-tenant clusters can keep using
 > the simple recipe; multi-tenant clusters must follow the pattern below.
 
-## Threat model — cross-tenant model poisoning
+## Threat model: cross-tenant model poisoning
 
 A `VLLMInstance` mounts its model PVC at `/models` with the HF cache home set
 to `/models/huggingface`. By default the mount is read-write (so vLLM can
 populate the cache from HuggingFace on first pull).
 
-If two tenants — say `tenant-a` and `tenant-b` — share the same writable
+If two tenants, say `tenant-a` and `tenant-b`, share the same writable
 `vllm-models-pvc`, the following attack is straightforward:
 
 1. Tenant A's pod (with full filesystem access to `/models`) replaces a file
-   under `/models/huggingface/hub/<repo>/snapshots/<revision>/` — for example
+   under `/models/huggingface/hub/<repo>/snapshots/<revision>/`, for example
    the `*.safetensors` weights, the `tokenizer_config.json`, or a custom
    `modeling_*.py`.
 2. Tenant B's pod loads that model on next pull / next pod restart.
 3. Tenant B's vLLM container executes attacker-controlled code:
-   - **Poisoned safetensors** — a backdoored model that emits attacker-chosen
+   - **Poisoned safetensors**: a backdoored model that emits attacker-chosen
      outputs for trigger prompts. Subtle, hard to detect.
-   - **Poisoned `tokenizer_config.json`** — alters tokenization in ways that
+   - **Poisoned `tokenizer_config.json`**: alters tokenization in ways that
      change downstream behavior.
-   - **Poisoned `modeling_*.py`** — when `trust_remote_code=True` (or any HF
+   - **Poisoned `modeling_*.py`**: when `trust_remote_code=True` (or any HF
      repo that ships custom modeling code), this is **arbitrary code
      execution** inside tenant B's pod, with the ServiceAccount's
      credentials.
 
 The same attack applies in reverse, and to any third tenant on the same PVC.
 
-This is not a bug in vLLM or in this operator — it's the unavoidable
+This is not a bug in vLLM or in this operator; it's the unavoidable
 consequence of giving every tenant write access to a filesystem every other
 tenant reads from. The fix is at the storage layer.
 
-## Recommended pattern — shared RO cache + per-tenant RWO download PVC
+## Recommended pattern: shared RO cache + per-tenant RWO download PVC
 
 Two PVCs:
 
@@ -80,7 +80,7 @@ typical workflow:
    admin's HF token.
 3. Tear the seeding pod down.
 4. Reapply the PVC with `accessModes: [ReadOnlyMany]` if your storage class
-   distinguishes the two — for NFS the same RWX backing volume is fine since
+   distinguishes the two; for NFS the same RWX backing volume is fine since
    the access enforcement happens at the mount.
 
 A reference manifest lives at
@@ -93,11 +93,38 @@ shared cache should be seeded under the *admin's* token (which decides which
 gated models the trust zone has access to). Tenant tokens never need to write
 to the shared cache because the cache is read-only at mount time.
 
+## Bound the operator cache
+
+The manager watches only the `vllm` namespace by default. Set
+`WATCH_NAMESPACES=tenant-a,tenant-b` on the manager Deployment to manage other
+namespaces. The `--watch-namespaces` flag overrides that environment variable.
+Empty names and wildcard lists are rejected. Include every namespace that
+contains instances and their presets, PVCs, Services, and Deployments.
+Instances outside this list are not reconciled. Cluster-scoped Node reads
+remain available for endpoint resolution.
+
+This setting requires the operator binary from the security-fix release.
+Publish and re-pin the manager image through the normal release process
+before relying on it. The previously pinned binary ignores `WATCH_NAMESPACES`.
+When upgrading a cluster that used cluster-wide watching, list all managed
+namespaces before rolling out the new binary.
+
+The public `app.kubernetes.io/managed-by=vllm-operator` label is only a cache
+filter. Tenants can copy it, so it does not prove ownership. Namespace limits
+exclude unrelated namespaces, but tenants inside a managed namespace can
+still fill its cache. Set a `ResourceQuota` in each managed namespace before
+granting tenants object-create permissions. Bound object counts with
+`count/deployments.apps`, `count/services`, `count/endpointslices.discovery.k8s.io`,
+`count/persistentvolumeclaims`, and counts for the four operator CRDs.
+Also bound workload CPU, memory, and storage. Choose counts for the expected
+instance total and measure operator RSS under that load. Namespace scoping
+and quotas reduce exposure; they do not provide a fixed cache-memory ceiling.
+
 ## Single-tenant clusters
 
 If you operate the whole cluster (or every tenant trusts every other tenant
 with arbitrary-code-execution-equivalent privilege), the simple recipe in the
-top-level `README.md` is fine — leave `pvcReadOnly` unset (default false) and
+top-level `README.md` is fine; leave `pvcReadOnly` unset (default false) and
 let vLLM populate the cache on first pull.
 
 ## What `pvcReadOnly` does NOT defend against
@@ -132,13 +159,13 @@ name: models
 readOnly: true
 ```
 
-If `readOnly: true` is missing, the field did not propagate — re-check the
+If `readOnly: true` is missing, the field did not propagate; re-check the
 spec, regenerate CRDs, and reapply.
 
 ## Related issues
 
-- [#76](https://github.com/aatchison/deploy-vllm-k8s/issues/76) — the parent
+- [#76](https://github.com/aatchison/deploy-vllm-k8s/issues/76), the parent
   issue documenting cross-tenant model poisoning.
-- [#37](https://github.com/aatchison/deploy-vllm-k8s/issues/37) — pod-level
+- [#37](https://github.com/aatchison/deploy-vllm-k8s/issues/37), pod-level
   hardening (runAsNonRoot, dropped capabilities). `pvcReadOnly` is a
   storage-layer complement to the pod-layer hardening landed in #37.
