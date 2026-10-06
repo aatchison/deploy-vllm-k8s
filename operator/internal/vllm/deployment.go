@@ -18,6 +18,8 @@ import (
 )
 
 var labelSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+var migResourcePattern = regexp.MustCompile(`^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$`)
+var gpuMemoryPattern = regexp.MustCompile(`^0?\.[0-9]+$|^1\.0$`)
 
 // HF token file mount constants. The token is projected into the pod as a
 // read-only file rather than an env var: env vars leak through `kubectl
@@ -102,6 +104,7 @@ func SanitizeLabel(s string) string {
 }
 
 // BuildDeployment renders a vLLM Deployment from the resolved config.
+// Callers must reject errors from ValidateEffectiveConfig before rendering.
 // `name` is the VLLMInstance name; it's used as both the Deployment name
 // and the pod label selector.
 //
@@ -506,6 +509,22 @@ func validateLoraModules(s string) (bool, string) {
 func ValidateEffectiveConfig(e EffectiveConfig) error {
 	if ok, msg := validateLoraModules(e.LoraModules); !ok {
 		return fmt.Errorf("invalid loraModules: %s", msg)
+	}
+	shmSize, err := resource.ParseQuantity(e.SHMSizeLimit)
+	if err != nil {
+		return fmt.Errorf("invalid shmSizeLimit: %w", err)
+	}
+	if shmSize.Sign() <= 0 {
+		return fmt.Errorf("invalid shmSizeLimit: must be positive")
+	}
+	if !migResourcePattern.MatchString(e.MIGResource) {
+		return fmt.Errorf("invalid migResource: must name an NVIDIA MIG slice")
+	}
+	if e.MIGResourceCount < 1 || e.MIGResourceCount > 8 {
+		return fmt.Errorf("invalid migResourceCount: must be between 1 and 8")
+	}
+	if e.GPUMemoryUtilization != "" && !gpuMemoryPattern.MatchString(e.GPUMemoryUtilization) {
+		return fmt.Errorf("invalid gpuMemoryUtilization: must match the preset decimal format between 0 and 1")
 	}
 	return nil
 }

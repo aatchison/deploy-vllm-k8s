@@ -1,11 +1,4 @@
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: vllm-system
-  labels:
-    control-plane: vllm-operator
----
-apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: vllm-operator
@@ -84,6 +77,10 @@ spec:
           # would be runtime.NumCPU() (e.g. 32 on a 32-core host vs the
           # 1 we actually have headroom for).
           env:
+            # Only explicit workload namespaces enter the informer cache.
+            # Takes effect after the operator image is re-pinned to this build.
+            - name: WATCH_NAMESPACES
+              value: "vllm"
             - name: GOMEMLIMIT
               value: "230MiB"
           # requests = limits → Guaranteed QoS class, so the kubelet won't

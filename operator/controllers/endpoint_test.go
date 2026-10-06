@@ -99,3 +99,14 @@ func TestResolveServiceEndpoint_NilSafe(t *testing.T) {
 		t.Errorf("nil svc: got %q, want empty string", got)
 	}
 }
+
+func TestResolveServiceEndpoint_LoadBalancerIPv6(t *testing.T) {
+	svc := &corev1.Service{
+		Spec:   corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+		Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "2001:db8::5"}}}},
+	}
+	got := resolveServiceEndpoint(svc, 0, "")
+	if got != "http://[2001:db8::5]:8000/v1" {
+		t.Fatalf("IPv6 LB endpoint=%q", got)
+	}
+}

@@ -362,7 +362,7 @@ func (r *LongContextInstanceReconciler) resolveEndpoint(ctx context.Context, nam
 	}
 	for _, name := range readyNodeNames(slices.Items) {
 		if ip := r.nodeInternalIP(ctx, name); ip != "" {
-			return fmt.Sprintf("http://%s:%d/v1", ip, nodePort)
+			return endpointURL(ip, nodePort)
 		}
 	}
 	return ""

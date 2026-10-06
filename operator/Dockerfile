@@ -7,12 +7,12 @@ WORKDIR /workspace
 COPY go.mod go.sum* ./
 RUN go mod download
 
-COPY main.go main.go
+COPY main.go cache_scope.go ./
 COPY api/ api/
 COPY controllers/ controllers/
 COPY internal/ internal/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags="-s -w" -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags="-s -w" -o manager .
 
 # Pinned by digest. The `nonroot` tag floats; Dependabot will surface bumps.
 FROM gcr.io/distroless/static:nonroot@sha256:e3f945647ffb95b5839c07038d64f9811adf17308b9121d8a2b87b6a22a80a39

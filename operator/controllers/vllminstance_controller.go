@@ -45,6 +45,7 @@ type VLLMInstanceReconciler struct {
 	Recorder  record.EventRecorder
 }
 
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;create;update;watch,namespace=vllm-system
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=modelpresets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=vllminstances,verbs=get;list;watch;patch
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=vllminstances/status,verbs=get;update;patch
@@ -402,7 +403,7 @@ func (r *VLLMInstanceReconciler) resolveEndpoint(ctx context.Context, namespace,
 	readyNodes := readyNodeNames(slices.Items)
 	for _, name := range readyNodes {
 		if ip := r.nodeInternalIP(ctx, name); ip != "" {
-			return fmt.Sprintf("http://%s:%d/v1", ip, nodePort)
+			return endpointURL(ip, nodePort)
 		}
 	}
 	return ""

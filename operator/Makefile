@@ -74,7 +74,7 @@ ci: generate fmt vet lint test
 
 .PHONY: build
 build: generate fmt vet
-	go build -o bin/manager main.go
+	go build -o bin/manager .
 
 .PHONY: test
 test: generate fmt vet
@@ -105,6 +105,7 @@ uninstall:
 # spec.serviceType / spec.apiKey) silently leaves stripped fields on user CRs
 # because kubectl warns on unknown fields but does not fail (issue #110).
 deploy: manifests install
+	$(KUBECTL) apply -f config/manager/namespace.yaml
 	$(KUBECTL) apply -f config/rbac
 	$(KUBECTL) apply -f config/manager/manager.yaml
 	$(KUBECTL) apply -f config/manager/service.yaml
@@ -125,6 +126,7 @@ undeploy:
 	$(KUBECTL) delete --ignore-not-found -f config/manager/service.yaml
 	$(KUBECTL) delete --ignore-not-found -f config/manager/manager.yaml
 	$(KUBECTL) delete --ignore-not-found -f config/rbac
+	$(KUBECTL) delete --ignore-not-found -f config/manager/namespace.yaml
 
 # Optional: apply the ServiceMonitors and Grafana dashboard for Prometheus
 # Operator scraping. Kept separate from `make deploy` because the

@@ -13,7 +13,7 @@ func TestResolveLongContextLoraAndRenderArgs(t *testing.T) {
 	enabled := true
 	modules := "adapter=/models/adapters/lora"
 	rank := int32(16)
-	e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{ModelID: "m", LoraModules: modules, EnableLora: true, MaxLoraRank: rank}, &v1alpha1.LongContextOverrides{EnableLora: &enabled, LoraModules: &modules, MaxLoraRank: &rank})
+	e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{SHMSizeLimit: "8Gi", MIGResource: "nvidia.com/mig-1g.5gb", MIGResourceCount: 1, ModelID: "m", LoraModules: modules, EnableLora: true, MaxLoraRank: rank}, &v1alpha1.LongContextOverrides{EnableLora: &enabled, LoraModules: &modules, MaxLoraRank: &rank})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestResolveLongContextRejectsInvalidLoraModules(t *testing.T) {
 
 func TestLoraModulesMalformedFixtures(t *testing.T) {
 	for _, input := range []string{"", "adapter", "adapter=", "= /models/a", "adapter=relative", "adapter=/models/foo/../bar", "adapter=/models/a=b", "adapter=/etc/a", "adapter=/models/a,,b=/models/b"} {
-		e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{ModelID: "m", LoraModules: input}, nil)
+		e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{SHMSizeLimit: "8Gi", MIGResource: "nvidia.com/mig-1g.5gb", MIGResourceCount: 1, ModelID: "m", LoraModules: input}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
