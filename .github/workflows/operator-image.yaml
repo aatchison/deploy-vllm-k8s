@@ -97,6 +97,7 @@ jobs:
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: latest=false
           # `latest` is intentionally NOT applied — it is a mutable tag and
           # downstream consumers should pin to either the short-SHA tag or
           # the immutable image digest. Semver tags (v*) come from the
@@ -122,21 +123,7 @@ jobs:
           provenance: true
           sbom: true
 
-      - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      - name: Sign image with cosign (keyless via GitHub OIDC)
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-          TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          # `cosign sign` with --yes accepts the Sigstore TUF terms non-interactively.
-          # OIDC identity comes from the workflow's `id-token: write` permission.
-          # We sign each tag-qualified reference at the immutable digest so the
-          # signature is bound to the bytes we just pushed, not a mutable tag.
-          echo "${TAGS}" | xargs -I{} cosign sign --yes "{}@${DIGEST}"
-
-      - name: Trivy vulnerability scan (fail on CRITICAL)
+      - name: Trivy vulnerability scan (fail on fixable HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           # Scan the freshly-pushed image at its immutable digest.
@@ -146,3 +133,27 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: os,library
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign scanned image with cosign (keyless via GitHub OIDC)
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Report verified publish digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          test -n "$DIGEST"
+          {
+            echo "## Operator image"
+            echo "Image: \`${IMAGE}@${DIGEST}\`"
+            echo "Digest: \`${DIGEST}\`"
+            echo "Trivy passed for fixable HIGH/CRITICAL vulnerabilities."
+            echo "Keyless cosign signature, BuildKit SBOM and provenance attached."
+            echo "Use this digest only after verifying this run and its signature."
+          } >> "$GITHUB_STEP_SUMMARY"
