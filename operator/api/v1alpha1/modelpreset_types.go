@@ -20,7 +20,17 @@ type ProbeConfig struct {
 
 // ModelPresetSpec holds a reusable bundle of vLLM args.
 // ModelPreset has no controller — it's consumed by VLLMInstance at reconcile time.
+// +kubebuilder:validation:XValidation:rule="!has(self.memoryRequest) || (isQuantity(self.memoryRequest) && quantity(self.memoryRequest).isGreaterThan(quantity('0')))",message="memoryRequest must be a positive Kubernetes quantity"
+// +kubebuilder:validation:XValidation:rule="!has(self.memoryLimit) || (isQuantity(self.memoryLimit) && quantity(self.memoryLimit).isGreaterThan(quantity('0')))",message="memoryLimit must be a positive Kubernetes quantity"
+// +kubebuilder:validation:XValidation:rule="!has(self.memoryRequest) || !has(self.memoryLimit) || size(self.memoryRequest) == 0 || size(self.memoryLimit) == 0 || (isQuantity(self.memoryRequest) && isQuantity(self.memoryLimit) && !quantity(self.memoryRequest).isGreaterThan(quantity(self.memoryLimit)))",message="memoryLimit must be greater than or equal to memoryRequest"
 type ModelPresetSpec struct {
+	// MemoryRequest is the vLLM container's host-RAM request, as a Kubernetes quantity.
+	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+|[numkKMGTPE]|[KMGTPE]i)?$`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
+	// MemoryLimit is the vLLM container's host-RAM limit, as a Kubernetes quantity.
+	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+|[numkKMGTPE]|[KMGTPE]i)?$`
+	MemoryLimit string `json:"memoryLimit,omitempty"`
+
 	ModelID string `json:"modelID"`
 
 	// +kubebuilder:default="docker.io/library/vllm-gemma4:local"

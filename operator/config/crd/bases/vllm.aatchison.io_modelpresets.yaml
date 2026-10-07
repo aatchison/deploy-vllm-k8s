@@ -132,6 +132,16 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              memoryLimit:
+                description: MemoryLimit is the vLLM container's host-RAM limit, as
+                  a Kubernetes quantity.
+                pattern: ^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+|[numkKMGTPE]|[KMGTPE]i)?$
+                type: string
+              memoryRequest:
+                description: MemoryRequest is the vLLM container's host-RAM request,
+                  as a Kubernetes quantity.
+                pattern: ^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+|[numkKMGTPE]|[KMGTPE]i)?$
+                type: string
               migResource:
                 pattern: ^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$
                 type: string
@@ -228,6 +238,16 @@ spec:
             - shmSizeLimit
             - tensorParallelSize
             type: object
+            x-kubernetes-validations:
+            - message: memoryRequest must be a positive Kubernetes quantity
+              rule: '!has(self.memoryRequest) || (isQuantity(self.memoryRequest) &&
+                quantity(self.memoryRequest).isGreaterThan(quantity(''0'')))'
+            - message: memoryLimit must be a positive Kubernetes quantity
+              rule: '!has(self.memoryLimit) || (isQuantity(self.memoryLimit) && quantity(self.memoryLimit).isGreaterThan(quantity(''0'')))'
+            - message: memoryLimit must be greater than or equal to memoryRequest
+              rule: '!has(self.memoryRequest) || !has(self.memoryLimit) || size(self.memoryRequest)
+                == 0 || size(self.memoryLimit) == 0 || (isQuantity(self.memoryRequest)
+                && isQuantity(self.memoryLimit) && !quantity(self.memoryRequest).isGreaterThan(quantity(self.memoryLimit)))'
         type: object
     served: true
     storage: true

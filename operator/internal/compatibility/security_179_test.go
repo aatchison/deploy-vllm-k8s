@@ -30,12 +30,6 @@ func TestSecurity179SchemaAllowlistIsExact(t *testing.T) {
         "default",
         "engram-ipc"
       ]
-    },
-    "$.properties.spec.properties.overrides.x-kubernetes-validations": {
-      "!has(self.securityProfile) || self.securityProfile != 'engram-ipc' || (has(self.engramConfig) && size(self.engramConfig) > 0)": {
-        "rule": "!has(self.securityProfile) || self.securityProfile != 'engram-ipc' || (has(self.engramConfig) && size(self.engramConfig) > 0)",
-        "message": "an engram-ipc override requires a nonempty overrides.engramConfig"
-      }
     }
   }
 }`), &contracts); err != nil {

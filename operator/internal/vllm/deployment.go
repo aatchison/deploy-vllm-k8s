@@ -19,6 +19,7 @@ import (
 
 var labelSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 var migResourcePattern = regexp.MustCompile(`^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$`)
+var memoryQuantityPattern = regexp.MustCompile(`^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+|[numkKMGTPE]|[KMGTPE]i)?$`)
 var gpuMemoryPattern = regexp.MustCompile(`^0?\.[0-9]+$|^1\.0$`)
 
 // HF token file mount constants. The token is projected into the pod as a
@@ -286,6 +287,13 @@ func BuildDeployment(
 		SecurityContext: buildContainerSecurityContext(),
 	}
 
+	if e.MemoryRequest != "" {
+		vllmContainer.Resources.Requests = corev1.ResourceList{corev1.ResourceMemory: resource.MustParse(e.MemoryRequest)}
+	}
+	if e.MemoryLimit != "" {
+		vllmContainer.Resources.Limits[corev1.ResourceMemory] = resource.MustParse(e.MemoryLimit)
+	}
+
 	vllmContainer.Env = MergeEnv(vllmContainer.Env, e.Env)
 
 	// When apiKey is set, replace the container Command with a tiny shell
@@ -515,6 +523,32 @@ func ValidateEffectiveConfig(e EffectiveConfig) error {
 	if err := validateSecurityProfile179(e); err != nil {
 		return err
 	}
+	var request, limit resource.Quantity
+	for _, field := range []struct {
+		name, value string
+		target      *resource.Quantity
+	}{
+		{"memoryRequest", e.MemoryRequest, &request},
+		{"memoryLimit", e.MemoryLimit, &limit},
+	} {
+		if field.value == "" {
+			continue
+		}
+		if !memoryQuantityPattern.MatchString(field.value) {
+			return fmt.Errorf("invalid %s: must be a Kubernetes quantity", field.name)
+		}
+		q, err := resource.ParseQuantity(field.value)
+		if err != nil {
+			return fmt.Errorf("invalid %s: %w", field.name, err)
+		}
+		if q.Sign() <= 0 {
+			return fmt.Errorf("invalid %s: must be positive", field.name)
+		}
+		*field.target = q
+	}
+	if e.MemoryRequest != "" && e.MemoryLimit != "" && limit.Cmp(request) < 0 {
+		return fmt.Errorf("invalid memoryLimit: must be greater than or equal to memoryRequest")
+	}
 	if ok, msg := validateLoraModules(e.LoraModules); !ok {
 		return fmt.Errorf("invalid loraModules: %s", msg)
 	}
@@ -576,8 +610,12 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.MambaBackend != "" {
 		args = append(args, "--mamba-backend", e.MambaBackend)
 	}
-	if e.EnablePrefixCaching != nil && *e.EnablePrefixCaching {
-		args = append(args, "--enable-prefix-caching")
+	if e.EnablePrefixCaching != nil {
+		if *e.EnablePrefixCaching {
+			args = append(args, "--enable-prefix-caching")
+		} else {
+			args = append(args, "--no-enable-prefix-caching")
+		}
 	}
 	if e.ServedModelName != "" {
 		args = append(args, "--served-model-name", e.ServedModelName)
