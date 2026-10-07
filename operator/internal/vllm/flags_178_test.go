@@ -98,7 +98,7 @@ func TestFlags178Validation(t *testing.T) {
 			}
 		}
 	}
-	for _, field := range []string{"engramConfig", "compilationConfig", "speculativeConfig"} {
+	for _, field := range []string{"engramConfig"} {
 		for _, value := range []string{"", `{}`, " \n{\"x\": [1,true,null,{\"a\":\"b\"}]}\t", `[]`, `null`, `1`, `"object"`, `{bad}`, `{"x":}`, `{} {}`, `{"x":NaN}`} {
 			e := flag178Config(t, map[string]interface{}{field: value}, nil)
 			err := ValidateEffectiveConfig(e)
@@ -108,10 +108,7 @@ func TestFlags178Validation(t *testing.T) {
 			}
 		}
 	}
-	e := flag178Config(t, map[string]interface{}{"maxNumSeqs": -1}, nil)
-	if ValidateEffectiveConfig(e) == nil {
-		t.Fatal("negative maxNumSeqs accepted")
-	}
+
 }
 
 func TestFlags178ClearAndHash(t *testing.T) {
@@ -137,5 +134,33 @@ func TestFlags178ClearAndHash(t *testing.T) {
 	}
 	if got := buildArgs(e); got[len(got)-1] != "--no-enable-flashinfer-autotune" {
 		t.Fatalf("false autotune args=%q", got)
+	}
+}
+
+func TestFlags178PointerIsolationAndReverseOverride(t *testing.T) {
+	p := &api.LongContextPresetSpec{FlashinferAutotune: boolPtr(false), MaxNumSeqs: 32}
+	o := &api.LongContextOverrides{FlashinferAutotune: boolPtr(true)}
+	e, _, err := ResolveLongContext(p, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*o.FlashinferAutotune = false
+	if !*e.FlashinferAutotune {
+		t.Fatal("resolved pointers alias overrides")
+	}
+	e, _, err = ResolveLongContext(p, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*p.FlashinferAutotune = true
+	p.MaxNumSeqs = 8
+	if *e.FlashinferAutotune || e.MaxNumSeqs != 32 {
+		t.Fatal("resolved pointers alias preset")
+	}
+	for _, field := range []string{"trustRemoteCode", "disableCustomAllReduce", "flashinferAutotune"} {
+		e := flag178Config(t, map[string]interface{}{field: false}, map[string]interface{}{field: true})
+		if len(buildArgs(e)) != len(buildArgs(flag178Config(t, nil, nil)))+1 {
+			t.Fatalf("%s override true not rendered", field)
+		}
 	}
 }

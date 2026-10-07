@@ -509,6 +509,9 @@ func validateLoraModules(s string) (bool, string) {
 }
 
 func ValidateEffectiveConfig(e EffectiveConfig) error {
+	if err := validateLongContextFlags(e); err != nil {
+		return err
+	}
 	if ok, msg := validateLoraModules(e.LoraModules); !ok {
 		return fmt.Errorf("invalid loraModules: %s", msg)
 	}
@@ -623,6 +626,8 @@ func buildArgs(e EffectiveConfig) []string {
 			args = append(args, "--max-lora-rank", strconv.Itoa(e.MaxLoraRank))
 		}
 	}
+
+	args = append(args, buildLongContextFlagArgs(e)...)
 
 	return args
 }

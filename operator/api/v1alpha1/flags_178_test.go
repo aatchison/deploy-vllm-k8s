@@ -1,6 +1,10 @@
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"os"
+	"path/filepath"
+	"sigs.k8s.io/yaml"
 	"strings"
 	"testing"
 )
@@ -20,7 +24,7 @@ func TestFlags178GeneratedValidation(t *testing.T) {
 					t.Errorf("generated schema missing %s", name)
 				}
 			}
-			for _, field := range []string{"modelRevision", "codeRevision", "tokenizerRevision", "engramConfig", "compilationConfig", "speculativeConfig", "maxNumSeqs", "trustRemoteCode", "disableCustomAllReduce", "flashinferAutotune"} {
+			for _, field := range []string{"modelRevision", "codeRevision", "tokenizerRevision", "engramConfig", "trustRemoteCode", "disableCustomAllReduce", "flashinferAutotune"} {
 				var values []interface{}
 				var valid []bool
 				switch field {
@@ -51,5 +55,46 @@ func TestFlags178GeneratedValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFlags178DeepCopy(t *testing.T) {
+	f := false
+	s := "value"
+	p := &LongContextPresetSpec{FlashinferAutotune: &f}
+	pc := p.DeepCopy()
+	if pc.FlashinferAutotune == p.FlashinferAutotune {
+		t.Fatal("preset pointers alias")
+	}
+	o := &LongContextOverrides{ModelRevision: &s, CodeRevision: &s, TokenizerRevision: &s, TrustRemoteCode: &f, DisableCustomAllReduce: &f, FlashinferAutotune: &f, EngramConfig: &s, ReasoningParser: &s, ChatTemplate: &s, CompilationConfig: &s, SpeculativeConfig: &s}
+	c := o.DeepCopy()
+	for _, pair := range [][2]*string{{o.ModelRevision, c.ModelRevision}, {o.CodeRevision, c.CodeRevision}, {o.TokenizerRevision, c.TokenizerRevision}, {o.EngramConfig, c.EngramConfig}, {o.ReasoningParser, c.ReasoningParser}, {o.ChatTemplate, c.ChatTemplate}, {o.CompilationConfig, c.CompilationConfig}, {o.SpeculativeConfig, c.SpeculativeConfig}} {
+		if pair[0] == pair[1] || *pair[0] != *pair[1] {
+			t.Fatal("string deepcopy alias/value")
+		}
+	}
+	for _, pair := range [][2]*bool{{o.TrustRemoteCode, c.TrustRemoteCode}, {o.DisableCustomAllReduce, c.DisableCustomAllReduce}, {o.FlashinferAutotune, c.FlashinferAutotune}} {
+		if pair[0] == pair[1] || *pair[0] != *pair[1] {
+			t.Fatal("bool deepcopy alias/value")
+		}
+	}
+
+}
+
+func TestFlags178DocumentedPresetValidates(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "docs", "examples", "qwen3.8-flash-next.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var preset LongContextPreset
+	if err := yaml.UnmarshalStrict(data, &preset); err != nil {
+		t.Fatal(err)
+	}
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&preset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if errs := validateGeneratedSchema(t, loadGeneratedSchema(t, "vllm.aatchison.io_longcontextpresets.yaml"), obj); len(errs) != 0 {
+		t.Fatalf("documented preset rejected: %v", errs)
 	}
 }

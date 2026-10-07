@@ -118,7 +118,10 @@ func TestFlags178ExamplesGolden(t *testing.T) {
 		if err := json.Unmarshal(x.data, &obj); err != nil {
 			t.Fatal(err)
 		}
-		spec := obj["spec"].(map[string]interface{})
+		spec, ok := obj["spec"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("%s has no spec object", x.key)
+		}
 		optIn := spec
 		if o, ok := spec["overrides"].(map[string]interface{}); ok {
 			optIn = o

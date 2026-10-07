@@ -77,6 +77,40 @@ type LongContextOverrides struct {
 	MambaBackend      *string `json:"mambaBackend,omitempty"`
 	EnforceEager      *bool   `json:"enforceEager,omitempty"`
 	CompilationConfig *string `json:"compilationConfig,omitempty"`
+
+	// Typed vLLM flags for long-context architectures (issue #178).
+
+	// ModelRevision sets vLLM's --revision flag.
+	// Omit to use the model repository default; only full commit SHAs are accepted.
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{40}$`
+	ModelRevision *string `json:"modelRevision,omitempty"`
+
+	// CodeRevision sets vLLM's --code-revision flag.
+	// Omit to use the model repository default; only full commit SHAs are accepted.
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{40}$`
+	CodeRevision *string `json:"codeRevision,omitempty"`
+
+	// TokenizerRevision sets vLLM's --tokenizer-revision flag.
+	// Omit to use the model repository default; only full commit SHAs are accepted.
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{40}$`
+	TokenizerRevision *string `json:"tokenizerRevision,omitempty"`
+
+	// TrustRemoteCode sets vLLM's --trust-remote-code flag.
+	// Opt-in only: repository code runs inside the model container.
+	TrustRemoteCode *bool `json:"trustRemoteCode,omitempty"`
+
+	// DisableCustomAllReduce sets vLLM's --disable-custom-all-reduce flag.
+	DisableCustomAllReduce *bool `json:"disableCustomAllReduce,omitempty"`
+
+	// FlashinferAutotune sets vLLM's --enable-flashinfer-autotune flag.
+	// Nil leaves the vLLM default unchanged; false emits --no-enable-flashinfer-autotune.
+	FlashinferAutotune *bool `json:"flashinferAutotune,omitempty"`
+
+	// EngramConfig sets vLLM's --engram-config flag.
+	// JSON object string, passed unchanged. Empty disables the flag.
+	// Admission checks object shape; the operator validates full JSON syntax before apply.
+	// +kubebuilder:validation:Pattern=`^$|^[ \t\r\n]*\{[\s\S]*\}[ \t\r\n]*$`
+	EngramConfig *string `json:"engramConfig,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM
