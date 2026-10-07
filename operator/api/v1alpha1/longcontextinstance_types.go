@@ -78,6 +78,10 @@ type LongContextOverrides struct {
 	EnforceEager      *bool   `json:"enforceEager,omitempty"`
 	CompilationConfig *string `json:"compilationConfig,omitempty"`
 
+	// MaxNumSeqs overrides scheduler concurrency; zero clears the preset flag.
+	// +kubebuilder:validation:Minimum=0
+	MaxNumSeqs *int32 `json:"maxNumSeqs,omitempty"`
+
 	// Typed vLLM flags for long-context architectures (issue #178).
 
 	// ModelRevision sets vLLM's --revision flag.

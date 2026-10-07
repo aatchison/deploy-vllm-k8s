@@ -422,6 +422,12 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  maxNumSeqs:
+                    description: MaxNumSeqs overrides scheduler concurrency; zero
+                      clears the preset flag.
+                    format: int32
+                    minimum: 0
+                    type: integer
                   migResource:
                     pattern: ^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$
                     type: string

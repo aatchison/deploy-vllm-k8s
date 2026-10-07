@@ -24,7 +24,7 @@ func TestFlags178GeneratedValidation(t *testing.T) {
 					t.Errorf("generated schema missing %s", name)
 				}
 			}
-			for _, field := range []string{"modelRevision", "codeRevision", "tokenizerRevision", "engramConfig", "trustRemoteCode", "disableCustomAllReduce", "flashinferAutotune"} {
+			for _, field := range []string{"modelRevision", "codeRevision", "tokenizerRevision", "engramConfig", "maxNumSeqs", "trustRemoteCode", "disableCustomAllReduce", "flashinferAutotune"} {
 				var values []interface{}
 				var valid []bool
 				switch field {
@@ -33,7 +33,7 @@ func TestFlags178GeneratedValidation(t *testing.T) {
 					valid = []bool{true, true, false, false, false, false, false}
 				case "maxNumSeqs":
 					values = []interface{}{int64(1), int64(32), int64(0), int64(-1)}
-					valid = []bool{true, true, false, false}
+					valid = []bool{true, true, true, false}
 				case "trustRemoteCode", "disableCustomAllReduce", "flashinferAutotune":
 					values = []interface{}{true, false, "false"}
 					valid = []bool{true, true, false}
@@ -60,13 +60,14 @@ func TestFlags178GeneratedValidation(t *testing.T) {
 
 func TestFlags178DeepCopy(t *testing.T) {
 	f := false
+	n := int32(32)
 	s := "value"
 	p := &LongContextPresetSpec{FlashinferAutotune: &f}
 	pc := p.DeepCopy()
 	if pc.FlashinferAutotune == p.FlashinferAutotune {
 		t.Fatal("preset pointers alias")
 	}
-	o := &LongContextOverrides{ModelRevision: &s, CodeRevision: &s, TokenizerRevision: &s, TrustRemoteCode: &f, DisableCustomAllReduce: &f, FlashinferAutotune: &f, EngramConfig: &s, ReasoningParser: &s, ChatTemplate: &s, CompilationConfig: &s, SpeculativeConfig: &s}
+	o := &LongContextOverrides{ModelRevision: &s, CodeRevision: &s, TokenizerRevision: &s, TrustRemoteCode: &f, DisableCustomAllReduce: &f, FlashinferAutotune: &f, EngramConfig: &s, MaxNumSeqs: &n, ReasoningParser: &s, ChatTemplate: &s, CompilationConfig: &s, SpeculativeConfig: &s}
 	c := o.DeepCopy()
 	for _, pair := range [][2]*string{{o.ModelRevision, c.ModelRevision}, {o.CodeRevision, c.CodeRevision}, {o.TokenizerRevision, c.TokenizerRevision}, {o.EngramConfig, c.EngramConfig}, {o.ReasoningParser, c.ReasoningParser}, {o.ChatTemplate, c.ChatTemplate}, {o.CompilationConfig, c.CompilationConfig}, {o.SpeculativeConfig, c.SpeculativeConfig}} {
 		if pair[0] == pair[1] || *pair[0] != *pair[1] {
@@ -79,6 +80,9 @@ func TestFlags178DeepCopy(t *testing.T) {
 		}
 	}
 
+	if c.MaxNumSeqs == o.MaxNumSeqs || *c.MaxNumSeqs != *o.MaxNumSeqs {
+		t.Fatal("maxNumSeqs override deepcopy")
+	}
 }
 
 func TestFlags178DocumentedPresetValidates(t *testing.T) {

@@ -537,7 +537,6 @@ func mergeLongContextFlags(e *EffectiveConfig, p *vllmv1alpha1.LongContextPreset
 			e.FlashinferAutotune = &v
 		}
 		e.EngramConfig = p.EngramConfig
-
 	}
 	if o != nil {
 		if o.ModelRevision != nil {
@@ -562,6 +561,8 @@ func mergeLongContextFlags(e *EffectiveConfig, p *vllmv1alpha1.LongContextPreset
 		if o.EngramConfig != nil {
 			e.EngramConfig = *o.EngramConfig
 		}
-
+		if o.MaxNumSeqs != nil {
+			e.MaxNumSeqs = *o.MaxNumSeqs
+		}
 	}
 }

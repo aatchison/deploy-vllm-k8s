@@ -71,6 +71,18 @@ constraint keys, and one added CEL rule. All allowances are exact path/value
 matches; altered types and limits fail the test. No live CR is rejected by these
 retained safeguards. Descriptions are excluded from semantic schema comparison.
 
+## Additive fields from #178
+
+The schema gate also allows exact generated-only definitions for
+`modelRevision`, `codeRevision`, `tokenizerRevision`, `trustRemoteCode`,
+`engramConfig`, `disableCustomAllReduce`, and `flashinferAutotune` on the two
+long-context CRDs. `maxNumSeqs` gains an instance override with the preset's
+minimum 0 contract. The ported preset definition is unchanged.
+
+These are named path/value allowances, not changes to the saved live schemas
+or render oracle. Negative controls reject changed types, patterns, defaults,
+limits, CRD names, field names, and changes to existing live fields.
+
 ## Security, migration, and rollback
 
 The port keeps #177's shared-memory parsing, MIG validation, namespace-scoped

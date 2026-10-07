@@ -339,6 +339,11 @@ func (in *LongContextOverrides) DeepCopyInto(out *LongContextOverrides) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.MaxNumSeqs != nil {
+		in, out := &in.MaxNumSeqs, &out.MaxNumSeqs
+		*out = new(int32)
+		**out = **in
+	}
 	if in.ModelRevision != nil {
 		in, out := &in.ModelRevision, &out.ModelRevision
 		*out = new(string)

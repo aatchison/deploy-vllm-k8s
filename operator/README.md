@@ -25,18 +25,20 @@ change `ModelPreset` or `VLLMInstance`.
 | `disableCustomAllReduce` | bool | `--disable-custom-all-reduce` | Default false; false emits no flag. |
 | `flashinferAutotune` | optional bool | `--enable-flashinfer-autotune` / `--no-enable-flashinfer-autotune` | Omitted emits neither flag; explicit false emits the negative flag. |
 | `engramConfig` | JSON object string | `--engram-config` | Omitted or empty emits no flag. |
-| `maxNumSeqs` | optional int32 | `--max-num-seqs` | Omitted uses vLLM default; minimum 1. |
+| `maxNumSeqs` | int32 (optional override) | `--max-num-seqs` | Minimum 0; omitted or zero uses vLLM default. An explicit zero override clears the preset flag. |
 | `reasoningParser` | string | `--reasoning-parser` | Omitted or empty emits no flag. |
 | `chatTemplate` | string | `--chat-template` | Omitted or empty emits no flag; vLLM resolves the template inside the container. |
-| `compilationConfig` | JSON object string | `--compilation-config` | Omitted or empty emits no flag. Put `cudagraph_capture_sizes` here. |
-| `speculativeConfig` | JSON object string | `--speculative-config` | Omitted or empty emits no flag; `{"method":"mtp","num_speculative_tokens":3}` passes unchanged. |
+| `compilationConfig` | optional string | `--compilation-config` | Omitted or empty emits no flag. Put `cudagraph_capture_sizes` here. |
+| `speculativeConfig` | string | `--speculative-config` | Omitted or empty emits no flag; `{"method":"mtp","num_speculative_tokens":3}` passes unchanged. |
 
 JSON strings become one argument each, without parsing and reserializing their
-contents. CRD patterns check object-shaped strings; Kubernetes CEL has no JSON
-parser. The operator also checks full JSON syntax and object type before it
-applies a Deployment. Malformed object-shaped strings can be admitted, but the
-instance reports `Ready=False` with reason `InvalidConfiguration` and does not
-apply a new Deployment. An empty string override clears a JSON, parser, or
+contents. For `engramConfig`, CRD patterns check object-shaped strings; Kubernetes CEL
+has no JSON parser. The operator checks its full JSON syntax and object type
+before it applies a Deployment. Malformed object-shaped engram strings can be
+admitted, but the instance reports `Ready=False` with reason
+`InvalidConfiguration` and does not apply a new Deployment. `compilationConfig`
+and `speculativeConfig` use the ported raw-string contract. vLLM validates
+those values at startup. An empty string override clears a JSON, parser, or
 template flag. Revision overrides must contain a SHA; they cannot clear a pin.
 
 `trustRemoteCode` permits repository code to run in the model container. Enable

@@ -23,10 +23,6 @@ func TestFlags178InvalidJSONNeverApplies(t *testing.T) {
 			switch field {
 			case "engramConfig":
 				overrides.EngramConfig = strPtr(`{broken}`)
-			case "compilationConfig":
-				overrides.CompilationConfig = strPtr(`{broken}`)
-			case "speculativeConfig":
-				overrides.SpeculativeConfig = strPtr(`{broken}`)
 			}
 			inst := &api.LongContextInstance{ObjectMeta: metav1.ObjectMeta{Name: "lci", Namespace: "ns"}, Spec: api.LongContextInstanceSpec{Overrides: overrides, PVCName: "models", HFToken: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"}}}
 			pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "models", Namespace: "ns"}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}}}
@@ -56,10 +52,6 @@ func TestFlags178InvalidJSONNeverApplies(t *testing.T) {
 			switch field {
 			case "engramConfig":
 				inst.Spec.Overrides.EngramConfig = strPtr(`{}`)
-			case "compilationConfig":
-				inst.Spec.Overrides.CompilationConfig = strPtr(`{}`)
-			case "speculativeConfig":
-				inst.Spec.Overrides.SpeculativeConfig = strPtr(`{}`)
 			}
 			if err := cl.Update(context.Background(), inst); err != nil {
 				t.Fatal(err)
