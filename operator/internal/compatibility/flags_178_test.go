@@ -36,7 +36,10 @@ func TestFlags178SchemaAllowancesAreExact(t *testing.T) {
 						t.Fatal("wrong CRD approved")
 					}
 				}
-				modified := schema.(map[string]interface{})
+				modified, ok := schema.(map[string]interface{})
+				if !ok {
+					t.Fatal("expected object schema")
+				}
 				for key, value := range modified {
 					mutant := make(map[string]interface{})
 					for k, v := range modified {
