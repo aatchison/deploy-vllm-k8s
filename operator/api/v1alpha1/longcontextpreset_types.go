@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -142,6 +143,9 @@ type LongContextPresetSpec struct {
 	// +nullable
 	EnforceEager      *bool   `json:"enforceEager,omitempty"`
 	CompilationConfig *string `json:"compilationConfig,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // +kubebuilder:object:root=true

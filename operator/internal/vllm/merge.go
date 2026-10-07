@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	corev1 "k8s.io/api/core/v1"
 
 	vllmv1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
 )
@@ -113,9 +114,10 @@ type EffectiveConfig struct {
 	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
 	MambaCacheMode         string `json:"mambaCacheMode,omitempty"`
 
-	MambaBackend      string `json:"mambaBackend,omitempty"`
-	EnforceEager      *bool  `json:"enforceEager,omitempty"`
-	CompilationConfig string `json:"compilationConfig,omitempty"`
+	MambaBackend      string          `json:"mambaBackend,omitempty"`
+	EnforceEager      *bool           `json:"enforceEager,omitempty"`
+	CompilationConfig string          `json:"compilationConfig,omitempty"`
+	Env               []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -277,6 +279,37 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 	return e, hex.EncodeToString(sum[:]), nil
 }
 
+// MergeEnv copies env lists in order. Later values replace earlier values at
+// the first occurrence's position; new names append. It never aliases inputs.
+func MergeEnv(lists ...[]corev1.EnvVar) []corev1.EnvVar {
+	var result []corev1.EnvVar
+	positions := make(map[string]int)
+	for _, list := range lists {
+		for _, env := range list {
+			value := *env.DeepCopy()
+			if i, ok := positions[env.Name]; ok {
+				result[i] = value
+			} else {
+				positions[env.Name] = len(result)
+				result = append(result, value)
+			}
+		}
+	}
+	return result
+}
+
+// ResolveLongContextInstance includes spec-level env in the resolved config and
+// hash so env edits trigger the same drift tracking as other configuration.
+func ResolveLongContextInstance(preset *vllmv1alpha1.LongContextPresetSpec, spec vllmv1alpha1.LongContextInstanceSpec) (EffectiveConfig, string, error) {
+	e, _, err := ResolveLongContext(preset, spec.Overrides)
+	if err != nil {
+		return e, "", err
+	}
+	e.Env = MergeEnv(e.Env, spec.Env)
+	hash, err := HashConfig(e)
+	return e, hash, err
+}
+
 // ResolveLongContext is the LongContextPreset/LongContextInstance sibling of
 // Resolve. It carries the standard fields onto an EffectiveConfig and then
 // applies the two long-context-specific fields (KVCacheDtype,
@@ -288,6 +321,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 
 	if preset != nil {
 		e = EffectiveConfig{
+			Env:                     MergeEnv(preset.Env),
 			ModelID:                 preset.ModelID,
 			MambaBackend:            preset.MambaBackend,
 			MambaCacheMode:          preset.MambaCacheMode,

@@ -1,0 +1,1 @@
+[{"name":"HF_TOKEN_PATH","value":"/var/run/hf/token"},{"name":"HF_HOME","value":"/models/huggingface"},{"name":"USER","value":"vllm"},{"name":"TORCHINDUCTOR_CACHE_DIR","value":"/tmp/torch-inductor"},{"name":"HOME","value":"/tmp"}]

@@ -286,6 +286,8 @@ func BuildDeployment(
 		SecurityContext: buildContainerSecurityContext(),
 	}
 
+	vllmContainer.Env = MergeEnv(vllmContainer.Env, e.Env)
+
 	// When apiKey is set, replace the container Command with a tiny shell
 	// wrapper that reads the projected secret file and exec's the upstream
 	// vLLM entrypoint with --api-key=<value> appended. This keeps the secret

@@ -132,6 +132,9 @@ type LongContextInstanceSpec struct {
 	// the security warning in the README. Default false preserves current
 	// single-tenant write-cache behavior. May also be set on Overrides.
 	PVCReadOnly *bool `json:"pvcReadOnly,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // LongContextInstanceStatus reflects the observed state.

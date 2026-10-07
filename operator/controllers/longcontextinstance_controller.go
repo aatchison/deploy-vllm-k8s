@@ -91,7 +91,7 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 			vllmv1alpha1.ReasonOverridesUsed, "No presetRef; using overrides")
 	}
 
-	effective, hash, err := vllm.ResolveLongContext(presetSpec, instance.Spec.Overrides)
+	effective, hash, err := vllm.ResolveLongContextInstance(presetSpec, instance.Spec)
 	if err != nil {
 		_, perr := r.patchStatus(ctx, &instance, orig, ctrl.Result{})
 		return ctrl.Result{}, errors.Join(fmt.Errorf("resolve config: %w", err), perr)
