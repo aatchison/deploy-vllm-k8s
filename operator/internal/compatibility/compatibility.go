@@ -203,7 +203,10 @@ func semanticMap(schema *apiextensions.JSONSchemaProps) (map[string]interface{},
 	if err := json.Unmarshal(data, &value); err != nil {
 		return nil, fmt.Errorf("decode schema: %w", err)
 	}
-	normalized := normalize(value, "").(map[string]interface{})
+	normalized, ok := normalize(value, "").(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("normalized schema is not an object")
+	}
 	return normalized, nil
 }
 

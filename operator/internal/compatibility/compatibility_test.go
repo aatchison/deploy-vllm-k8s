@@ -124,14 +124,20 @@ func TestSavedResourcesSurviveGeneratedAdmission(t *testing.T) {
 func TestAdmissionExercisesDefaultsEnumsPatternsAndCEL(t *testing.T) {
 	modelSchema := mustSchema(t, filepath.Join("..", "..", "config", "crd", "bases", "vllm.aatchison.io_modelpresets.yaml"))
 	model := mustResources(t, filepath.Join("testdata", "live-modelpresets.json"))[0]
-	spec := model["spec"].(map[string]interface{})
+	spec, ok := model["spec"].(map[string]interface{})
+	if !ok {
+		t.Fatal("fixture spec is not an object")
+	}
 	delete(spec, "enableLora")
 	delete(spec, "maxLoraRank")
 	result, err := modelSchema.Admit(model)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotSpec := result.Object["spec"].(map[string]interface{})
+	gotSpec, ok := result.Object["spec"].(map[string]interface{})
+	if !ok {
+		t.Fatal("admitted spec is not an object")
+	}
 	if gotSpec["enableLora"] != false || gotSpec["maxLoraRank"] != int64(64) {
 		t.Errorf("Kubernetes defaults not applied: enableLora=%v maxLoraRank=%v (defaulted paths: %v)", gotSpec["enableLora"], gotSpec["maxLoraRank"], result.DefaultedPaths)
 	}
