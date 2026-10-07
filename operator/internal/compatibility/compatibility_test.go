@@ -159,7 +159,7 @@ func TestAdmissionExercisesDefaultsEnumsPatternsAndCEL(t *testing.T) {
 	assertRejected(t, longInstanceSchema, celMutant, "replicas must be 0, 1, or 2", "CEL")
 
 	fractionalIntegerMutant := mustResources(t, filepath.Join("testdata", "live-longcontextinstances.json"))[0]
-	fractionalIntegerMutant["spec"].(map[string]interface{})["replicas"] = float64(1.5)
+	resourceSpec(t, fractionalIntegerMutant)["replicas"] = float64(1.5)
 	assertRejected(t, longInstanceSchema, fractionalIntegerMutant, "replicas", "fractional integer")
 }
 
