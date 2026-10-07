@@ -36,7 +36,7 @@ func TestGeneratedSchemasMatchLiveContracts(t *testing.T) {
 		t.Logf("%s: %d field-level schema differences", tc.plural, len(differences))
 		for _, difference := range differences {
 			status := "UNAPPROVED"
-			if approvedSafetyDifference(tc.plural, difference) {
+			if approvedGeneratedDifference(tc.plural, difference) {
 				status = "approved"
 			} else {
 				failures = append(failures, tc.plural+": "+difference.String())
@@ -57,19 +57,37 @@ func TestGeneratedSchemasMatchLiveContracts(t *testing.T) {
 func TestSafetyAllowlistIsExact(t *testing.T) {
 	prefix := "$.properties.spec"
 	exact := Difference{Path: prefix + ".properties.overrides.properties.migResourceCount.maximum", Generated: float64(8)}
-	if !approvedSafetyDifference("vllminstances", exact) {
+	if !approvedGeneratedDifference("vllminstances", exact) {
 		t.Fatal("exact named safety constraint was not approved")
 	}
 	wrongValue := exact
 	wrongValue.Generated = float64(9)
-	if approvedSafetyDifference("vllminstances", wrongValue) {
+	if approvedGeneratedDifference("vllminstances", wrongValue) {
 		t.Fatal("allowlist approved a widened maximum")
 	}
-	if approvedSafetyDifference("modelpresets", exact) {
+	if approvedGeneratedDifference("modelpresets", exact) {
 		t.Fatal("allowlist approved a constraint on the wrong CRD")
 	}
+
+	enableLora := Difference{Path: prefix + ".properties.overrides.properties.enableLora", Generated: map[string]interface{}{"type": "boolean"}}
+	if !approvedGeneratedDifference("longcontextinstances", enableLora) {
+		t.Fatal("exact additive GitHub enableLora field was not approved")
+	}
+	enableLora.Generated = map[string]interface{}{"type": "string"}
+	if approvedGeneratedDifference("longcontextinstances", enableLora) {
+		t.Fatal("allowlist approved altered enableLora type")
+	}
+	maxLoraRank := Difference{Path: prefix + ".properties.overrides.properties.maxLoraRank", Generated: map[string]interface{}{"format": "int32", "minimum": float64(1), "type": "integer"}}
+	if !approvedGeneratedDifference("vllminstances", maxLoraRank) {
+		t.Fatal("exact additive GitHub maxLoraRank field was not approved")
+	}
+	maxLoraRank.Generated = map[string]interface{}{"format": "int32", "minimum": float64(0), "type": "integer"}
+	if approvedGeneratedDifference("vllminstances", maxLoraRank) {
+		t.Fatal("allowlist approved altered maxLoraRank minimum")
+	}
+
 	unknown := Difference{Path: prefix + ".properties.unrelated", Generated: map[string]interface{}{"type": "string"}}
-	if approvedSafetyDifference("vllminstances", unknown) {
+	if approvedGeneratedDifference("vllminstances", unknown) {
 		t.Fatal("allowlist approved an unnamed addition")
 	}
 }
@@ -114,7 +132,7 @@ func TestAdmissionExercisesDefaultsEnumsPatternsAndCEL(t *testing.T) {
 		t.Fatal(err)
 	}
 	gotSpec := result.Object["spec"].(map[string]interface{})
-	if gotSpec["enableLora"] != false || gotSpec["maxLoraRank"] != float64(64) {
+	if gotSpec["enableLora"] != false || gotSpec["maxLoraRank"] != int64(64) {
 		t.Errorf("Kubernetes defaults not applied: enableLora=%v maxLoraRank=%v (defaulted paths: %v)", gotSpec["enableLora"], gotSpec["maxLoraRank"], result.DefaultedPaths)
 	}
 
@@ -133,6 +151,10 @@ func TestAdmissionExercisesDefaultsEnumsPatternsAndCEL(t *testing.T) {
 	celSpec["replicas"] = float64(3)
 	celSpec["sharedStorage"] = true
 	assertRejected(t, longInstanceSchema, celMutant, "replicas must be 0, 1, or 2", "CEL")
+
+	fractionalIntegerMutant := mustResources(t, filepath.Join("testdata", "live-longcontextinstances.json"))[0]
+	fractionalIntegerMutant["spec"].(map[string]interface{})["replicas"] = float64(1.5)
+	assertRejected(t, longInstanceSchema, fractionalIntegerMutant, "replicas", "fractional integer")
 }
 
 func assertRejected(t *testing.T, schema *Schema, resource map[string]interface{}, want, mechanism string) {
@@ -149,9 +171,11 @@ func assertRejected(t *testing.T, schema *Schema, resource map[string]interface{
 	}
 }
 
-// approvedSafetyDifference is deliberately an exact allowlist. These are the
-// named #177 schema hardening changes plus the shared-storage safety addition.
-func approvedSafetyDifference(plural string, d Difference) bool {
+// approvedGeneratedDifference is deliberately an exact allowlist. It keeps
+// two separate classes of additive GitHub compatibility differences: the
+// named #177 schema hardening/shared-storage additions, and the three existing
+// GitHub LoRA override fields. None changes or removes a live schema field.
+func approvedGeneratedDifference(plural string, d Difference) bool {
 	if plural != "vllminstances" && plural != "longcontextinstances" {
 		return false
 	}
@@ -164,6 +188,16 @@ func approvedSafetyDifference(plural string, d Difference) bool {
 		prefix + ".properties.overrides.properties.shmSizeLimit.pattern":         `^[0-9]+[KMGT]i?$`,
 	}
 	if want, ok := constraints[d.Path]; ok {
+		return d.Live == nil && reflect.DeepEqual(d.Generated, want)
+	}
+	// These GitHub-only LoRA override fields predate this port. Preserve their
+	// additive API and validation without treating them as live ground truth.
+	githubLoRA := map[string]interface{}{
+		prefix + ".properties.overrides.properties.enableLora":  map[string]interface{}{"type": "boolean"},
+		prefix + ".properties.overrides.properties.loraModules": map[string]interface{}{"type": "string"},
+		prefix + ".properties.overrides.properties.maxLoraRank": map[string]interface{}{"format": "int32", "minimum": float64(1), "type": "integer"},
+	}
+	if want, ok := githubLoRA[d.Path]; ok {
 		return d.Live == nil && reflect.DeepEqual(d.Generated, want)
 	}
 	if d.Path == prefix+".properties.sharedStorage" {

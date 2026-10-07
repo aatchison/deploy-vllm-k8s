@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"sort"
@@ -114,7 +115,7 @@ func coerceIntegers(value interface{}, schema *structuralschema.Structural) {
 			if !ok {
 				continue
 			}
-			if number, ok := child.(float64); ok && childSchema.Type == "integer" {
+			if number, ok := child.(float64); ok && childSchema.Type == "integer" && exactInt64(number) {
 				x[key] = int64(number)
 				continue
 			}
@@ -125,13 +126,20 @@ func coerceIntegers(value interface{}, schema *structuralschema.Structural) {
 			return
 		}
 		for i, child := range x {
-			if number, ok := child.(float64); ok && schema.Items.Type == "integer" {
+			if number, ok := child.(float64); ok && schema.Items.Type == "integer" && exactInt64(number) {
 				x[i] = int64(number)
 				continue
 			}
 			coerceIntegers(child, schema.Items)
 		}
 	}
+}
+
+func exactInt64(number float64) bool {
+	// 2^63 is exactly representable as float64 but is outside int64. The
+	// strict upper bound also avoids Go's implementation-specific overflow
+	// conversion. Fractional values stay float64 so OpenAPI rejects them.
+	return !math.IsNaN(number) && !math.IsInf(number, 0) && math.Trunc(number) == number && number >= -9223372036854775808.0 && number < 9223372036854775808.0
 }
 
 func cloneObject(obj map[string]interface{}) (map[string]interface{}, error) {
