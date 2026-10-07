@@ -67,6 +67,10 @@ spec:
               untouched while opinionated defaults (KV quantization, prefix caching) ship
               here.
             properties:
+              chatTemplate:
+                type: string
+              compilationConfig:
+                type: string
               cpuOffloadGiB:
                 description: |-
                   CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV
@@ -86,7 +90,7 @@ spec:
                   at default. Useful for long-context throughput too.
                 type: boolean
               enableLora:
-                description: EnableLora enables LoRA adapter support in vLLM.
+                description: Enable LoRA adapter serving in vLLM
                 type: boolean
               enablePrefixCaching:
                 default: true
@@ -100,6 +104,168 @@ spec:
                   previously made it impossible to disable the field once defaulted on.
                 nullable: true
                 type: boolean
+              enforceEager:
+                nullable: true
+                type: boolean
+              env:
+                items:
+                  description: EnvVar represents an environment variable present in
+                    a Container.
+                  properties:
+                    name:
+                      description: |-
+                        Name of the environment variable.
+                        May consist of any printable ASCII characters except '='.
+                      type: string
+                    value:
+                      description: |-
+                        Variable references $(VAR_NAME) are expanded
+                        using the previously defined environment variables in the container and
+                        any service environment variables. If a variable cannot be resolved,
+                        the reference in the input string will be unchanged. Double $$ are reduced
+                        to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                        "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                        Escaped references will never be expanded, regardless of whether the variable
+                        exists or not.
+                        Defaults to "".
+                      type: string
+                    valueFrom:
+                      description: Source for the environment variable's value. Cannot
+                        be used if value is not empty.
+                      properties:
+                        configMapKeyRef:
+                          description: Selects a key of a ConfigMap.
+                          properties:
+                            key:
+                              description: The key to select.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        fieldRef:
+                          description: |-
+                            Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                            spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
+                          properties:
+                            apiVersion:
+                              description: Version of the schema the FieldPath is
+                                written in terms of, defaults to "v1".
+                              type: string
+                            fieldPath:
+                              description: Path of the field to select in the specified
+                                API version.
+                              type: string
+                          required:
+                          - fieldPath
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        fileKeyRef:
+                          description: |-
+                            FileKeyRef selects a key of the env file.
+                            Requires the EnvFiles feature gate to be enabled.
+                          properties:
+                            key:
+                              description: |-
+                                The key within the env file. An invalid key will prevent the pod from starting.
+                                The keys defined within a source may consist of any printable ASCII characters except '='.
+                                During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                              type: string
+                            optional:
+                              default: false
+                              description: |-
+                                Specify whether the file or its key must be defined. If the file or key
+                                does not exist, then the env var is not published.
+                                If optional is set to true and the specified key does not exist,
+                                the environment variable will not be set in the Pod's containers.
+
+                                If optional is set to false and the specified key does not exist,
+                                an error will be returned during Pod creation.
+                              type: boolean
+                            path:
+                              description: |-
+                                The path within the volume from which to select the file.
+                                Must be relative and may not contain the '..' path or start with '..'.
+                              type: string
+                            volumeName:
+                              description: The name of the volume mount containing
+                                the env file.
+                              type: string
+                          required:
+                          - key
+                          - path
+                          - volumeName
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        resourceFieldRef:
+                          description: |-
+                            Selects a resource of the container: only resources limits and requests
+                            (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+                          properties:
+                            containerName:
+                              description: 'Container name: required for volumes,
+                                optional for env vars'
+                              type: string
+                            divisor:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: Specifies the output format of the exposed
+                                resources, defaults to "1"
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            resource:
+                              description: 'Required: resource to select'
+                              type: string
+                          required:
+                          - resource
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        secretKeyRef:
+                          description: Selects a key of a secret in the pod's namespace
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$
                 type: string
@@ -133,6 +299,8 @@ spec:
                 - fp8_e4m3
                 - nvfp4
                 type: string
+              kvCacheDtypeSkipLayers:
+                type: string
               kvOffloadBackend:
                 default: none
                 description: |-
@@ -151,6 +319,8 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              limitMmPerPrompt:
+                type: string
               livenessProbe:
                 description: |-
                   ProbeConfig is the tunable subset of a k8s probe.
@@ -175,11 +345,18 @@ spec:
                 - periodSeconds
                 type: object
               loraModules:
-                description: LoraModules maps served adapter names to paths under
-                  /models/.
+                description: 'LoRA module name and path format: name=path'
+                type: string
+              mambaBackend:
+                type: string
+              mambaCacheMode:
+                enum:
+                - all
+                - align
+                - none
                 type: string
               maxLoraRank:
-                format: int32
+                description: Maximum LoRA rank allowed
                 minimum: 1
                 type: integer
               maxModelLen:
@@ -191,6 +368,10 @@ spec:
                   MaxNumBatchedTokens caps tokens per scheduling iteration.
                   Required >= max_tokens_per_mm_item for multimodal models on vLLM v0.20+
                   (Gemma 4: 2496). Empty/0 = vLLM default (2048 on v0.20).
+                format: int32
+                minimum: 0
+                type: integer
+              maxNumSeqs:
                 format: int32
                 minimum: 0
                 type: integer
@@ -233,6 +414,8 @@ spec:
                 - initialDelaySeconds
                 - periodSeconds
                 type: object
+              reasoningParser:
+                type: string
               servedModelName:
                 description: |-
                   ServedModelName overrides the name vLLM advertises to clients (see
@@ -243,6 +426,8 @@ spec:
                 type: string
               shmSizeLimit:
                 pattern: ^[0-9]+[KMGT]i?$
+                type: string
+              speculativeConfig:
                 type: string
               startupProbe:
                 description: |-

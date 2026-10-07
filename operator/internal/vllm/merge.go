@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	corev1 "k8s.io/api/core/v1"
 
 	vllmv1alpha1 "github.com/aatchison/deploy-vllm-k8s/operator/api/v1alpha1"
 )
@@ -97,14 +98,26 @@ type EffectiveConfig struct {
 	EnableChunkedPrefill    bool                      `json:"enableChunkedPrefill,omitempty"`
 	KVOffloadBackend        string                    `json:"kvOffloadBackend,omitempty"`
 	KVOffloadSize           int32                     `json:"kvOffloadSize,omitempty"`
-	EnableLora              bool                      `json:"enableLora,omitempty"`
+	EnableLora              *bool                     `json:"enableLora,omitempty"`
 	LoraModules             string                    `json:"loraModules,omitempty"`
-	MaxLoraRank             int32                     `json:"maxLoraRank,omitempty"`
+	MaxLoraRank             int                       `json:"maxLoraRank,omitempty"`
 	// PVCReadOnly, when true, causes BuildDeployment to mark the /models
 	// VolumeMount readOnly. Default false preserves current write-cache
 	// behavior. omitempty keeps the resolved-config-hash stable for instances
 	// that don't opt in.
-	PVCReadOnly bool `json:"pvcReadOnly,omitempty"`
+	PVCReadOnly            bool   `json:"pvcReadOnly,omitempty"`
+	ReasoningParser        string `json:"reasoningParser,omitempty"`
+	ChatTemplate           string `json:"chatTemplate,omitempty"`
+	SpeculativeConfig      string `json:"speculativeConfig,omitempty"`
+	LimitMmPerPrompt       string `json:"limitMmPerPrompt,omitempty"`
+	MaxNumSeqs             int32  `json:"maxNumSeqs,omitempty"`
+	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
+	MambaCacheMode         string `json:"mambaCacheMode,omitempty"`
+
+	MambaBackend      string          `json:"mambaBackend,omitempty"`
+	EnforceEager      *bool           `json:"enforceEager,omitempty"`
+	CompilationConfig string          `json:"compilationConfig,omitempty"`
+	Env               []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -129,6 +142,8 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			ChatTemplate:            preset.ChatTemplate,
+			ReasoningParser:         preset.ReasoningParser,
 			Image:                   preset.Image,
 			ImagePullPolicy:         preset.ImagePullPolicy,
 			MIGResource:             preset.MIGResource,
@@ -148,13 +163,26 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			StartupProbe:            preset.StartupProbe,
 			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
 			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
-			EnableLora:              preset.EnableLora,
 			LoraModules:             preset.LoraModules,
-			MaxLoraRank:             preset.MaxLoraRank,
 		}
 	}
 
+	if preset != nil {
+		if preset.EnableLora != nil {
+			v := *preset.EnableLora
+			e.EnableLora = &v
+		}
+		if preset.MaxLoraRank != nil {
+			e.MaxLoraRank = *preset.MaxLoraRank
+		}
+	}
 	if overrides != nil {
+		if overrides.ChatTemplate != nil {
+			e.ChatTemplate = *overrides.ChatTemplate
+		}
+		if overrides.ReasoningParser != nil {
+			e.ReasoningParser = *overrides.ReasoningParser
+		}
 		if overrides.ModelID != nil {
 			e.ModelID = *overrides.ModelID
 		}
@@ -216,13 +244,14 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
 		}
 		if overrides.EnableLora != nil {
-			e.EnableLora = *overrides.EnableLora
+			v := *overrides.EnableLora
+			e.EnableLora = &v
 		}
 		if overrides.LoraModules != nil {
 			e.LoraModules = *overrides.LoraModules
 		}
 		if overrides.MaxLoraRank != nil {
-			e.MaxLoraRank = *overrides.MaxLoraRank
+			e.MaxLoraRank = int(*overrides.MaxLoraRank)
 		}
 		if overrides.PVCReadOnly != nil {
 			e.PVCReadOnly = *overrides.PVCReadOnly
@@ -250,6 +279,37 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 	return e, hex.EncodeToString(sum[:]), nil
 }
 
+// MergeEnv copies env lists in order. Later values replace earlier values at
+// the first occurrence's position; new names append. It never aliases inputs.
+func MergeEnv(lists ...[]corev1.EnvVar) []corev1.EnvVar {
+	var result []corev1.EnvVar
+	positions := make(map[string]int)
+	for _, list := range lists {
+		for _, env := range list {
+			value := *env.DeepCopy()
+			if i, ok := positions[env.Name]; ok {
+				result[i] = value
+			} else {
+				positions[env.Name] = len(result)
+				result = append(result, value)
+			}
+		}
+	}
+	return result
+}
+
+// ResolveLongContextInstance includes spec-level env in the resolved config and
+// hash so env edits trigger the same drift tracking as other configuration.
+func ResolveLongContextInstance(preset *vllmv1alpha1.LongContextPresetSpec, spec vllmv1alpha1.LongContextInstanceSpec) (EffectiveConfig, string, error) {
+	e, _, err := ResolveLongContext(preset, spec.Overrides)
+	if err != nil {
+		return e, "", err
+	}
+	e.Env = MergeEnv(e.Env, spec.Env)
+	hash, err := HashConfig(e)
+	return e, hash, err
+}
+
 // ResolveLongContext is the LongContextPreset/LongContextInstance sibling of
 // Resolve. It carries the standard fields onto an EffectiveConfig and then
 // applies the two long-context-specific fields (KVCacheDtype,
@@ -261,7 +321,16 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 
 	if preset != nil {
 		e = EffectiveConfig{
+			Env:                     MergeEnv(preset.Env),
 			ModelID:                 preset.ModelID,
+			MambaBackend:            preset.MambaBackend,
+			MambaCacheMode:          preset.MambaCacheMode,
+			KVCacheDtypeSkipLayers:  preset.KVCacheDtypeSkipLayers,
+			MaxNumSeqs:              preset.MaxNumSeqs,
+			LimitMmPerPrompt:        preset.LimitMmPerPrompt,
+			SpeculativeConfig:       preset.SpeculativeConfig,
+			ChatTemplate:            preset.ChatTemplate,
+			ReasoningParser:         preset.ReasoningParser,
 			Image:                   preset.Image,
 			ImagePullPolicy:         preset.ImagePullPolicy,
 			MIGResource:             preset.MIGResource,
@@ -285,9 +354,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
 			KVOffloadBackend:        preset.KVOffloadBackend,
 			KVOffloadSize:           preset.KVOffloadSize,
-			EnableLora:              preset.EnableLora,
 			LoraModules:             preset.LoraModules,
-			MaxLoraRank:             preset.MaxLoraRank,
 		}
 		if preset.EnablePrefixCaching != nil {
 			v := *preset.EnablePrefixCaching
@@ -295,7 +362,47 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 	}
 
+	if preset != nil {
+		if preset.EnforceEager != nil {
+			v := *preset.EnforceEager
+			e.EnforceEager = &v
+		}
+		if preset.CompilationConfig != nil {
+			e.CompilationConfig = *preset.CompilationConfig
+		}
+	}
+	if preset != nil {
+		if preset.EnableLora != nil {
+			v := *preset.EnableLora
+			e.EnableLora = &v
+		}
+		if preset.MaxLoraRank != nil {
+			e.MaxLoraRank = *preset.MaxLoraRank
+		}
+	}
 	if overrides != nil {
+		if overrides.EnforceEager != nil {
+			v := *overrides.EnforceEager
+			e.EnforceEager = &v
+		}
+		if overrides.CompilationConfig != nil {
+			e.CompilationConfig = *overrides.CompilationConfig
+		}
+		if overrides.MambaBackend != nil {
+			e.MambaBackend = *overrides.MambaBackend
+		}
+		if overrides.MambaCacheMode != nil {
+			e.MambaCacheMode = *overrides.MambaCacheMode
+		}
+		if overrides.SpeculativeConfig != nil {
+			e.SpeculativeConfig = *overrides.SpeculativeConfig
+		}
+		if overrides.ChatTemplate != nil {
+			e.ChatTemplate = *overrides.ChatTemplate
+		}
+		if overrides.ReasoningParser != nil {
+			e.ReasoningParser = *overrides.ReasoningParser
+		}
 		if overrides.ModelID != nil {
 			e.ModelID = *overrides.ModelID
 		}
@@ -373,13 +480,14 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			e.KVOffloadSize = *overrides.KVOffloadSize
 		}
 		if overrides.EnableLora != nil {
-			e.EnableLora = *overrides.EnableLora
+			v := *overrides.EnableLora
+			e.EnableLora = &v
 		}
 		if overrides.LoraModules != nil {
 			e.LoraModules = *overrides.LoraModules
 		}
 		if overrides.MaxLoraRank != nil {
-			e.MaxLoraRank = *overrides.MaxLoraRank
+			e.MaxLoraRank = int(*overrides.MaxLoraRank)
 		}
 		if overrides.PVCReadOnly != nil {
 			e.PVCReadOnly = *overrides.PVCReadOnly

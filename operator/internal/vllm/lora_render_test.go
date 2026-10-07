@@ -15,8 +15,8 @@ import (
 func TestBuildDeploymentEnableLora(t *testing.T) {
 	preset := &vllmv1alpha1.ModelPresetSpec{
 		ModelID:              "test/model",
-		EnableLora:           true,
-		MaxLoraRank:          16,
+		EnableLora:           boolPtr(true),
+		MaxLoraRank:          loraRankPtr(16),
 		LoraModules:          "fleetv1=/models/adapters/test/run-20240101T000000Z-pid123/lora_weights",
 		MIGResource:          "nvidia.com/mig-2g.48gb",
 		MIGResourceCount:     1,
@@ -31,7 +31,7 @@ func TestBuildDeploymentEnableLora(t *testing.T) {
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if !e.EnableLora {
+	if e.EnableLora == nil || !*e.EnableLora {
 		t.Errorf("EffectiveConfig.EnableLora: got false, want true")
 	}
 	if e.MaxLoraRank != 16 {
@@ -72,8 +72,8 @@ func TestBuildDeploymentEnableLora(t *testing.T) {
 		"--max-model-len", "32768",
 		"--gpu-memory-utilization", "0.90",
 		"--enable-lora",
-		"--max-lora-rank", "16",
 		"--lora-modules", "fleetv1=/models/adapters/test/run-20240101T000000Z-pid123/lora_weights",
+		"--max-lora-rank", "16",
 	}
 	if !reflect.DeepEqual(args, wantArgs) {
 		t.Fatalf("container args = %#v, want exact vector %#v", args, wantArgs)
@@ -85,8 +85,8 @@ func TestBuildDeploymentEnableLora(t *testing.T) {
 func TestBuildDeploymentEnableLoraFalse(t *testing.T) {
 	preset := &vllmv1alpha1.ModelPresetSpec{
 		ModelID:              "test/model",
-		EnableLora:           false,
-		MaxLoraRank:          16,
+		EnableLora:           boolPtr(false),
+		MaxLoraRank:          loraRankPtr(16),
 		LoraModules:          "fleetv1=/models/adapters/test/run-20240101T000000Z-pid123/lora_weights",
 		MIGResource:          "nvidia.com/mig-2g.48gb",
 		MIGResourceCount:     1,
@@ -101,7 +101,7 @@ func TestBuildDeploymentEnableLoraFalse(t *testing.T) {
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if e.EnableLora {
+	if e.EnableLora == nil || *e.EnableLora {
 		t.Errorf("EffectiveConfig.EnableLora: got true, want false when EnableLora=false")
 	}
 
@@ -145,8 +145,8 @@ func TestBuildDeploymentEnableLoraFalse(t *testing.T) {
 func TestBuildDeploymentMaxLoraRank(t *testing.T) {
 	preset := &vllmv1alpha1.ModelPresetSpec{
 		ModelID:              "test/model",
-		EnableLora:           true,
-		MaxLoraRank:          32,
+		EnableLora:           boolPtr(true),
+		MaxLoraRank:          loraRankPtr(32),
 		LoraModules:          "fleetv1=/models/adapters/test/run-20240101T000000Z-pid123/lora_weights",
 		MIGResource:          "nvidia.com/mig-2g.48gb",
 		MIGResourceCount:     1,
@@ -205,8 +205,8 @@ func TestBuildDeploymentMaxLoraRank(t *testing.T) {
 func TestBuildDeploymentLoraModules(t *testing.T) {
 	preset := &vllmv1alpha1.ModelPresetSpec{
 		ModelID:              "test/model",
-		EnableLora:           true,
-		MaxLoraRank:          16,
+		EnableLora:           boolPtr(true),
+		MaxLoraRank:          loraRankPtr(16),
 		LoraModules:          "my_model=/models/adapters/test/lora.safetensors",
 		MIGResource:          "nvidia.com/mig-2g.48gb",
 		MIGResourceCount:     1,
@@ -380,8 +380,8 @@ func TestBuildDeploymentLoraModulesValidation(t *testing.T) {
 	// Test 1: traversal path should omit --lora-modules
 	preset := &vllmv1alpha1.ModelPresetSpec{
 		ModelID:              "test/model",
-		EnableLora:           true,
-		MaxLoraRank:          16,
+		EnableLora:           boolPtr(true),
+		MaxLoraRank:          loraRankPtr(16),
 		LoraModules:          "fleetv1=/models/../../etc/passwd",
 		MIGResource:          "nvidia.com/mig-2g.48gb",
 		MIGResourceCount:     1,
@@ -434,8 +434,8 @@ func TestBuildDeploymentLoraModulesValidation(t *testing.T) {
 	// Test 2: relative path should omit --lora-modules
 	preset2 := &vllmv1alpha1.ModelPresetSpec{
 		ModelID:              "test/model",
-		EnableLora:           true,
-		MaxLoraRank:          16,
+		EnableLora:           boolPtr(true),
+		MaxLoraRank:          loraRankPtr(16),
 		LoraModules:          "my_model=relative/path/lora.safetensors",
 		MIGResource:          "nvidia.com/mig-2g.48gb",
 		MIGResourceCount:     1,
@@ -488,8 +488,8 @@ func TestBuildDeploymentLoraModulesValidation(t *testing.T) {
 	// Test 3: valid loraModules should render --lora-modules flag
 	preset3 := &vllmv1alpha1.ModelPresetSpec{
 		ModelID:              "test/model",
-		EnableLora:           true,
-		MaxLoraRank:          16,
+		EnableLora:           boolPtr(true),
+		MaxLoraRank:          loraRankPtr(16),
 		LoraModules:          "fleetv1=/models/adapters/test/lora_weights",
 		MIGResource:          "nvidia.com/mig-2g.48gb",
 		MIGResourceCount:     1,
@@ -539,3 +539,5 @@ func TestBuildDeploymentLoraModulesValidation(t *testing.T) {
 		t.Error("valid loraModules should render --lora-modules flag")
 	}
 }
+
+func loraRankPtr(v int) *int { return &v }

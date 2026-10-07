@@ -209,3 +209,28 @@ Issue #80 tracks this. The PR landing this section is documentation-only; the ma
 | `apply-samples` | apply all presets + single-model instances |
 | `deploy-networkpolicy` | apply the issue #75 NetworkPolicy templates (CNI-dependent — see [Network policy](#network-policy)) |
 
+
+### Long-context environment passthrough
+
+`LongContextPreset.spec.env` and `LongContextInstance.spec.env` accept Kubernetes
+`EnvVar` entries, including `valueFrom`. For example:
+
+```yaml
+spec:
+  env:
+    - name: VLLM_DISABLED_KERNELS
+      value: FlashInferFP8ScaledMMLinearKernel
+```
+
+Env lists merge by name: operator defaults first, preset next, instance last.
+A later entry replaces the whole earlier entry at its original position. New
+names append in input order. This preserves Kubernetes `$(VAR)` expansion order.
+Empty lists do not remove inherited entries. Only the vLLM container receives
+these entries, not the LMCache sidecar. Env edits change the resolved config hash.
+
+Treat these fields as trusted workload configuration. They can replace built-in
+names such as `HF_TOKEN_PATH` and change runtime behavior through `PATH`.
+`secretKeyRef` stores a reference in the PodSpec, but the secret value enters the
+process environment and may leak through diagnostics or child processes. It can
+reference same-namespace Secrets without granting the CR author Secret read
+access. Use namespace isolation and admission policy for untrusted authors.

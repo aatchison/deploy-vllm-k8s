@@ -65,6 +65,18 @@ type LongContextOverrides struct {
 	// APIKey, when set, overrides the instance-level apiKey. Same semantics as
 	// LongContextInstanceSpec.APIKey.
 	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
+
+	ReasoningParser *string `json:"reasoningParser,omitempty"`
+
+	ChatTemplate *string `json:"chatTemplate,omitempty"`
+
+	SpeculativeConfig *string `json:"speculativeConfig,omitempty"`
+	// +kubebuilder:validation:Enum=all;align;none
+	MambaCacheMode *string `json:"mambaCacheMode,omitempty"`
+
+	MambaBackend      *string `json:"mambaBackend,omitempty"`
+	EnforceEager      *bool   `json:"enforceEager,omitempty"`
+	CompilationConfig *string `json:"compilationConfig,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM
@@ -120,6 +132,9 @@ type LongContextInstanceSpec struct {
 	// the security warning in the README. Default false preserves current
 	// single-tenant write-cache behavior. May also be set on Overrides.
 	PVCReadOnly *bool `json:"pvcReadOnly,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // LongContextInstanceStatus reflects the observed state.

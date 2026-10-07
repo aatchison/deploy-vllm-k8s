@@ -1,0 +1,510 @@
+{
+    "apiVersion": "apiextensions.k8s.io/v1",
+    "kind": "CustomResourceDefinition",
+    "metadata": {
+        "annotations": {
+            "argocd.argoproj.io/sync-options": "Prune=false,ServerSideApply=true",
+            "controller-gen.kubebuilder.io/version": "v0.20.1"
+        },
+        "creationTimestamp": "2026-04-17T03:41:27Z",
+        "generation": 9,
+        "name": "vllminstances.vllm.aatchison.io",
+        "resourceVersion": "132894184",
+        "uid": "2e4d92cb-90d4-4619-88da-897531e51d03"
+    },
+    "spec": {
+        "conversion": {
+            "strategy": "None"
+        },
+        "group": "vllm.aatchison.io",
+        "names": {
+            "kind": "VLLMInstance",
+            "listKind": "VLLMInstanceList",
+            "plural": "vllminstances",
+            "shortNames": [
+                "vllm"
+            ],
+            "singular": "vllminstance"
+        },
+        "scope": "Namespaced",
+        "versions": [
+            {
+                "additionalPrinterColumns": [
+                    {
+                        "jsonPath": ".status.conditions[?(@.type==\"Ready\")].status",
+                        "name": "Ready",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".status.endpoint",
+                        "name": "Endpoint",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".spec.presetRef.name",
+                        "name": "Preset",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".spec.nodePort",
+                        "name": "NodePort",
+                        "type": "integer"
+                    },
+                    {
+                        "jsonPath": ".metadata.creationTimestamp",
+                        "name": "Age",
+                        "type": "date"
+                    }
+                ],
+                "name": "v1alpha1",
+                "schema": {
+                    "openAPIV3Schema": {
+                        "description": "VLLMInstance is a declarative vLLM Deployment + NodePort Service bundle.",
+                        "properties": {
+                            "apiVersion": {
+                                "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+                                "type": "string"
+                            },
+                            "kind": {
+                                "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                                "type": "string"
+                            },
+                            "metadata": {
+                                "type": "object"
+                            },
+                            "spec": {
+                                "description": "VLLMInstanceSpec is the desired state of a single vLLM deployment.",
+                                "properties": {
+                                    "apiKey": {
+                                        "description": "APIKey, when set, enables per-request authentication on the vLLM HTTP\nendpoint. The referenced Secret key is projected into the pod as a\nread-only file (mode 0400) and passed to vLLM via --api-key. Clients\nmust then send `Authorization: Bearer \u003ctoken\u003e` on every request.\n\nOpt-in by design: an unauthenticated endpoint behind a strict\nNetworkPolicy and ClusterIP Service is still a defensible posture for\ntrusted-tenant clusters. Setting this field is the right call any time\nthe endpoint is reachable from outside the cluster (Ingress,\nLoadBalancer, NodePort).\n\nFile-mount form (not env var) follows the same rationale as HFToken:\nenv vars leak via `kubectl describe`, /proc/PID/environ, and Python\ntracebacks printing os.environ.",
+                                        "properties": {
+                                            "key": {
+                                                "description": "The key of the secret to select from.  Must be a valid secret key.",
+                                                "type": "string"
+                                            },
+                                            "name": {
+                                                "default": "",
+                                                "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                                "type": "string"
+                                            },
+                                            "optional": {
+                                                "description": "Specify whether the Secret or its key must be defined",
+                                                "type": "boolean"
+                                            }
+                                        },
+                                        "required": [
+                                            "key"
+                                        ],
+                                        "type": "object",
+                                        "x-kubernetes-map-type": "atomic"
+                                    },
+                                    "hfToken": {
+                                        "description": "SecretKeySelector selects a key of a Secret.",
+                                        "properties": {
+                                            "key": {
+                                                "description": "The key of the secret to select from.  Must be a valid secret key.",
+                                                "type": "string"
+                                            },
+                                            "name": {
+                                                "default": "",
+                                                "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                                "type": "string"
+                                            },
+                                            "optional": {
+                                                "description": "Specify whether the Secret or its key must be defined",
+                                                "type": "boolean"
+                                            }
+                                        },
+                                        "required": [
+                                            "key"
+                                        ],
+                                        "type": "object",
+                                        "x-kubernetes-map-type": "atomic",
+                                        "x-kubernetes-validations": [
+                                            {
+                                                "message": "hfToken is immutable",
+                                                "rule": "self == oldSelf"
+                                            }
+                                        ]
+                                    },
+                                    "nodePort": {
+                                        "description": "NodePort to expose on every cluster node. Must be in 30000-32767.\nIf omitted, Kubernetes auto-assigns a free port from the NodePort range.\nHonored only when serviceType is NodePort; ignored for ClusterIP and\nLoadBalancer.",
+                                        "format": "int32",
+                                        "maximum": 32767,
+                                        "minimum": 30000,
+                                        "type": "integer"
+                                    },
+                                    "overrides": {
+                                        "description": "ModelConfigOverrides mirrors ModelPresetSpec field-for-field; every field is a pointer —\nnon-nil means override. Probe overrides replace the whole ProbeConfig struct.",
+                                        "properties": {
+                                            "apiKey": {
+                                                "description": "APIKey, when set, overrides the instance-level apiKey. Same semantics as\nVLLMInstanceSpec.APIKey: secret value is projected as a read-only file at\n/var/run/vllm/api-key and passed to vLLM via --api-key. See\nVLLMInstanceSpec.APIKey for the file-vs-env-var rationale.",
+                                                "properties": {
+                                                    "key": {
+                                                        "description": "The key of the secret to select from.  Must be a valid secret key.",
+                                                        "type": "string"
+                                                    },
+                                                    "name": {
+                                                        "default": "",
+                                                        "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                                        "type": "string"
+                                                    },
+                                                    "optional": {
+                                                        "description": "Specify whether the Secret or its key must be defined",
+                                                        "type": "boolean"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "key"
+                                                ],
+                                                "type": "object",
+                                                "x-kubernetes-map-type": "atomic"
+                                            },
+                                            "chatTemplate": {
+                                                "type": "string"
+                                            },
+                                            "dtype": {
+                                                "type": "string"
+                                            },
+                                            "enableAutoToolChoice": {
+                                                "type": "boolean"
+                                            },
+                                            "enableChunkedPrefill": {
+                                                "type": "boolean"
+                                            },
+                                            "gpuMemoryUtilization": {
+                                                "type": "string"
+                                            },
+                                            "image": {
+                                                "type": "string"
+                                            },
+                                            "imagePullPolicy": {
+                                                "enum": [
+                                                    "Always",
+                                                    "IfNotPresent",
+                                                    "Never"
+                                                ],
+                                                "type": "string"
+                                            },
+                                            "livenessProbe": {
+                                                "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                                "properties": {
+                                                    "failureThreshold": {
+                                                        "format": "int32",
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                    },
+                                                    "initialDelaySeconds": {
+                                                        "format": "int32",
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                    },
+                                                    "periodSeconds": {
+                                                        "format": "int32",
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "failureThreshold",
+                                                    "initialDelaySeconds",
+                                                    "periodSeconds"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "maxModelLen": {
+                                                "format": "int32",
+                                                "type": "integer"
+                                            },
+                                            "maxNumBatchedTokens": {
+                                                "format": "int32",
+                                                "minimum": 0,
+                                                "type": "integer"
+                                            },
+                                            "migResource": {
+                                                "type": "string"
+                                            },
+                                            "migResourceCount": {
+                                                "format": "int32",
+                                                "type": "integer"
+                                            },
+                                            "modelID": {
+                                                "type": "string"
+                                            },
+                                            "progressDeadlineSeconds": {
+                                                "format": "int32",
+                                                "type": "integer"
+                                            },
+                                            "pvcReadOnly": {
+                                                "description": "PVCReadOnly, when true, mounts the model PVC at /models with\nreadOnly=true. Set this for any tenant that should consume — but never\npoison — a shared model cache. See docs/multi-tenant-deployment.md and\nthe security warning in the README. Default false preserves current\nsingle-tenant write-cache behavior.",
+                                                "type": "boolean"
+                                            },
+                                            "quantization": {
+                                                "type": "string"
+                                            },
+                                            "readinessProbe": {
+                                                "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                                "properties": {
+                                                    "failureThreshold": {
+                                                        "format": "int32",
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                    },
+                                                    "initialDelaySeconds": {
+                                                        "format": "int32",
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                    },
+                                                    "periodSeconds": {
+                                                        "format": "int32",
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "failureThreshold",
+                                                    "initialDelaySeconds",
+                                                    "periodSeconds"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "reasoningParser": {
+                                                "type": "string"
+                                            },
+                                            "servedModelName": {
+                                                "type": "string"
+                                            },
+                                            "shmSizeLimit": {
+                                                "type": "string"
+                                            },
+                                            "startupProbe": {
+                                                "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                                "properties": {
+                                                    "failureThreshold": {
+                                                        "format": "int32",
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                    },
+                                                    "initialDelaySeconds": {
+                                                        "format": "int32",
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                    },
+                                                    "periodSeconds": {
+                                                        "format": "int32",
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "failureThreshold",
+                                                    "initialDelaySeconds",
+                                                    "periodSeconds"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "tensorParallelSize": {
+                                                "format": "int32",
+                                                "type": "integer"
+                                            },
+                                            "toolCallParser": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "presetRef": {
+                                        "description": "PresetReference names a ModelPreset in the same namespace.",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string",
+                                                "x-kubernetes-validations": [
+                                                    {
+                                                        "message": "presetRef.name is immutable",
+                                                        "rule": "self == oldSelf"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "name"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "pvcName": {
+                                        "type": "string",
+                                        "x-kubernetes-validations": [
+                                            {
+                                                "message": "pvcName is immutable",
+                                                "rule": "self == oldSelf"
+                                            }
+                                        ]
+                                    },
+                                    "pvcReadOnly": {
+                                        "description": "PVCReadOnly, when true, mounts the model PVC at /models with\nreadOnly=true. Set this for any tenant that should consume — but never\npoison — a shared model cache. See docs/multi-tenant-deployment.md and\nthe security warning in the README. Default false preserves current\nsingle-tenant write-cache behavior. May also be set on Overrides.",
+                                        "type": "boolean"
+                                    },
+                                    "replicas": {
+                                        "format": "int32",
+                                        "maximum": 2,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                    },
+                                    "serviceType": {
+                                        "default": "ClusterIP",
+                                        "description": "ServiceType selects the Kubernetes Service type fronting the vLLM pod.\nDefaults to ClusterIP — the safe-by-default for production deployments\nbehind an Ingress/LoadBalancer with TLS termination. NodePort is provided\nfor dev clusters that need a host-port shortcut, and LoadBalancer for\ncloud-managed external IPs (charges apply on most providers).\n\nBREAKING (issue #75): prior to this field existing, Services were always\nrendered as NodePort. Existing manifests that rely on the auto-NodePort\nexposure must set serviceType: NodePort explicitly.",
+                                        "enum": [
+                                            "ClusterIP",
+                                            "NodePort",
+                                            "LoadBalancer"
+                                        ],
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "hfToken",
+                                    "pvcName"
+                                ],
+                                "type": "object",
+                                "x-kubernetes-validations": [
+                                    {
+                                        "message": "presetRef or (overrides.modelID, overrides.migResource, overrides.maxModelLen) must be set",
+                                        "rule": "has(self.presetRef) || (has(self.overrides) \u0026\u0026 has(self.overrides.modelID) \u0026\u0026 has(self.overrides.migResource) \u0026\u0026 has(self.overrides.maxModelLen))"
+                                    },
+                                    {
+                                        "message": "overrides.tensorParallelSize \u003e 1 requires overrides.migResourceCount == tensorParallelSize",
+                                        "rule": "!has(self.overrides) || !has(self.overrides.tensorParallelSize) || self.overrides.tensorParallelSize \u003c= 1 || (has(self.overrides.migResourceCount) \u0026\u0026 self.overrides.migResourceCount == self.overrides.tensorParallelSize)"
+                                    },
+                                    {
+                                        "message": "replicas must be 0, 1, or 2 (each replica consumes one independently schedulable MIG slice)",
+                                        "rule": "!has(self.replicas) || self.replicas \u003c= 2"
+                                    }
+                                ]
+                            },
+                            "status": {
+                                "description": "VLLMInstanceStatus reflects the observed state.",
+                                "properties": {
+                                    "conditions": {
+                                        "items": {
+                                            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+                                            "properties": {
+                                                "lastTransitionTime": {
+                                                    "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                                                    "format": "date-time",
+                                                    "type": "string"
+                                                },
+                                                "message": {
+                                                    "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                                                    "maxLength": 32768,
+                                                    "type": "string"
+                                                },
+                                                "observedGeneration": {
+                                                    "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                                                    "format": "int64",
+                                                    "minimum": 0,
+                                                    "type": "integer"
+                                                },
+                                                "reason": {
+                                                    "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                                                    "maxLength": 1024,
+                                                    "minLength": 1,
+                                                    "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                                                    "type": "string"
+                                                },
+                                                "status": {
+                                                    "description": "status of the condition, one of True, False, Unknown.",
+                                                    "enum": [
+                                                        "True",
+                                                        "False",
+                                                        "Unknown"
+                                                    ],
+                                                    "type": "string"
+                                                },
+                                                "type": {
+                                                    "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                                                    "maxLength": 316,
+                                                    "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "lastTransitionTime",
+                                                "message",
+                                                "reason",
+                                                "status",
+                                                "type"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "type": "array",
+                                        "x-kubernetes-list-map-keys": [
+                                            "type"
+                                        ],
+                                        "x-kubernetes-list-type": "map"
+                                    },
+                                    "deploymentName": {
+                                        "type": "string"
+                                    },
+                                    "endpoint": {
+                                        "type": "string"
+                                    },
+                                    "observedGeneration": {
+                                        "format": "int64",
+                                        "type": "integer"
+                                    },
+                                    "readyReplicas": {
+                                        "format": "int32",
+                                        "type": "integer"
+                                    },
+                                    "resolvedConfigHash": {
+                                        "type": "string"
+                                    },
+                                    "serviceName": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "served": true,
+                "storage": true,
+                "subresources": {
+                    "status": {}
+                }
+            }
+        ]
+    },
+    "status": {
+        "acceptedNames": {
+            "kind": "VLLMInstance",
+            "listKind": "VLLMInstanceList",
+            "plural": "vllminstances",
+            "shortNames": [
+                "vllm"
+            ],
+            "singular": "vllminstance"
+        },
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-04-17T03:41:27Z",
+                "message": "no conflicts found",
+                "reason": "NoConflicts",
+                "status": "True",
+                "type": "NamesAccepted"
+            },
+            {
+                "lastTransitionTime": "2026-04-17T03:41:27Z",
+                "message": "the initial names have been accepted",
+                "reason": "InitialNamesAccepted",
+                "status": "True",
+                "type": "Established"
+            }
+        ],
+        "storedVersions": [
+            "v1alpha1"
+        ]
+    }
+}

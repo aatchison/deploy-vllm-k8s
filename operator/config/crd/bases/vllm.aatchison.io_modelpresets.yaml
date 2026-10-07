@@ -57,6 +57,8 @@ spec:
               ModelPresetSpec holds a reusable bundle of vLLM args.
               ModelPreset has no controller — it's consumed by VLLMInstance at reconcile time.
             properties:
+              chatTemplate:
+                type: string
               dtype:
                 type: string
               enableAutoToolChoice:
@@ -68,6 +70,9 @@ spec:
                   at default. Useful for long-context throughput too.
                 type: boolean
               enableLora:
+                default: false
+                description: EnableLora enables vLLM's --enable-lora flag, supporting
+                  LoRA adapter serving.
                 type: boolean
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$
@@ -106,9 +111,13 @@ spec:
                 - periodSeconds
                 type: object
               loraModules:
+                description: LoraModules specifies the LoRA modules via --lora-modules
+                  name=path.
                 type: string
               maxLoraRank:
-                format: int32
+                default: 64
+                description: MaxLoraRank sets --max-lora-rank, controlling the maximum
+                  LoRA rank allowed.
                 minimum: 1
                 type: integer
               maxModelLen:
@@ -162,6 +171,8 @@ spec:
                 - initialDelaySeconds
                 - periodSeconds
                 type: object
+              reasoningParser:
+                type: string
               servedModelName:
                 description: |-
                   ServedModelName overrides the name vLLM advertises to clients

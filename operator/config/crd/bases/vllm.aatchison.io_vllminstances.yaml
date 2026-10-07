@@ -164,6 +164,8 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
+                  chatTemplate:
+                    type: string
                   dtype:
                     type: string
                   enableAutoToolChoice:
@@ -265,6 +267,8 @@ spec:
                     - initialDelaySeconds
                     - periodSeconds
                     type: object
+                  reasoningParser:
+                    type: string
                   servedModelName:
                     type: string
                   shmSizeLimit:

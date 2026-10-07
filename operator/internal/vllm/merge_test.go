@@ -75,9 +75,9 @@ func TestResolveOverridesReplace(t *testing.T) {
 
 func TestResolveStandardLoraOverridesAndDeepCopy(t *testing.T) {
 	p := basePreset()
-	p.EnableLora = true
+	p.EnableLora = boolPtr(true)
 	p.LoraModules = "preset=/models/preset"
-	p.MaxLoraRank = 8
+	p.MaxLoraRank = loraRankPtr(8)
 	modules := "override=/models/override"
 	o := &vllmv1alpha1.ModelConfigOverrides{
 		EnableLora:  boolPtr(false),
@@ -88,7 +88,7 @@ func TestResolveStandardLoraOverridesAndDeepCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if e.EnableLora || e.LoraModules != modules || e.MaxLoraRank != 32 {
+	if e.EnableLora == nil || *e.EnableLora || e.LoraModules != modules || e.MaxLoraRank != 32 {
 		t.Fatalf("standard LoRA overrides not applied: %+v", e)
 	}
 	copy := o.DeepCopy()

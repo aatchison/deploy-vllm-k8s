@@ -1,0 +1,290 @@
+[
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-26b-a4b",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.95",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "google/gemma-4-26B-A4B-it",
+   "progressDeadlineSeconds": 1800,
+   "readinessProbe": {
+    "failureThreshold": 40,
+    "initialDelaySeconds": 180,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-26B-A4B",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-31b-bf16",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.95",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 65536,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "google/gemma-4-31B-it",
+   "progressDeadlineSeconds": 1800,
+   "readinessProbe": {
+    "failureThreshold": 40,
+    "initialDelaySeconds": 180,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-31B-BF16",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-31b-bf16-tp2",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.95",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1800,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 262144,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 2,
+   "modelID": "google/gemma-4-31B-it",
+   "progressDeadlineSeconds": 2400,
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 300,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-31B-BF16-TP2",
+   "shmSizeLimit": "32Gi",
+   "tensorParallelSize": 2,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-31b-nvfp4",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.95",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 32768,
+   "migResource": "nvidia.com/mig-2g.48gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-31B-IT-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 40,
+    "initialDelaySeconds": 180,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-31B-NVFP4",
+   "shmSizeLimit": "8Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-31b-nvfp4-96",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.95",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-31B-IT-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 40,
+    "initialDelaySeconds": 180,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-31B-NVFP4-96",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-e2b",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.90",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 300,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 32768,
+   "migResource": "nvidia.com/mig-2g.48gb",
+   "migResourceCount": 1,
+   "modelID": "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+   "progressDeadlineSeconds": 600,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 30,
+    "initialDelaySeconds": 60,
+    "periodSeconds": 10
+   },
+   "servedModelName": "Gemma-4-E2B",
+   "shmSizeLimit": "8Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-e2b-1g",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.90",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 300,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 32768,
+   "migResource": "nvidia.com/mig-1g.24gb",
+   "migResourceCount": 1,
+   "modelID": "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+   "progressDeadlineSeconds": 600,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 30,
+    "initialDelaySeconds": 60,
+    "periodSeconds": 10
+   },
+   "servedModelName": "Gemma-4-E2B-1g",
+   "shmSizeLimit": "4Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "ModelPreset",
+  "metadata": {
+   "name": "gemma-4-e4b",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": true,
+   "enableLora": false,
+   "gpuMemoryUtilization": "0.90",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 480,
+    "periodSeconds": 30
+   },
+   "maxLoraRank": 64,
+   "maxModelLen": 32768,
+   "migResource": "nvidia.com/mig-2g.48gb",
+   "migResourceCount": 1,
+   "modelID": "google/gemma-4-E4B-it",
+   "progressDeadlineSeconds": 600,
+   "readinessProbe": {
+    "failureThreshold": 30,
+    "initialDelaySeconds": 90,
+    "periodSeconds": 10
+   },
+   "servedModelName": "Gemma-4-E4B",
+   "shmSizeLimit": "8Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ }
+]
