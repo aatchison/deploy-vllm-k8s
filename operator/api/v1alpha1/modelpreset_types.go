@@ -85,11 +85,20 @@ type ModelPresetSpec struct {
 	// EnableChunkedPrefill toggles vLLM's chunked-prefill scheduler. Sidesteps
 	// the multimodal budget check on v0.20+ when MaxNumBatchedTokens is left
 	// at default. Useful for long-context throughput too.
-	EnableChunkedPrefill bool   `json:"enableChunkedPrefill,omitempty"`
-	EnableLora           bool   `json:"enableLora,omitempty"`
-	LoraModules          string `json:"loraModules,omitempty"`
+	EnableChunkedPrefill bool `json:"enableChunkedPrefill,omitempty"`
+	// EnableLora enables vLLM's --enable-lora flag, supporting LoRA adapter serving.
+	// +kubebuilder:default=false
+	EnableLora *bool `json:"enableLora,omitempty"`
+	// LoraModules specifies the LoRA modules via --lora-modules name=path.
+	LoraModules string `json:"loraModules,omitempty"`
+	// MaxLoraRank sets --max-lora-rank, controlling the maximum LoRA rank allowed.
 	// +kubebuilder:validation:Minimum=1
-	MaxLoraRank int32 `json:"maxLoraRank,omitempty"`
+	// +kubebuilder:default=64
+	MaxLoraRank *int `json:"maxLoraRank,omitempty"`
+
+	ReasoningParser string `json:"reasoningParser,omitempty"`
+
+	ChatTemplate string `json:"chatTemplate,omitempty"`
 }
 
 // +kubebuilder:object:root=true

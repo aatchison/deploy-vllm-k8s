@@ -286,6 +286,8 @@ func BuildDeployment(
 		SecurityContext: buildContainerSecurityContext(),
 	}
 
+	vllmContainer.Env = MergeEnv(vllmContainer.Env, e.Env)
+
 	// When apiKey is set, replace the container Command with a tiny shell
 	// wrapper that reads the projected secret file and exec's the upstream
 	// vLLM entrypoint with --api-key=<value> appended. This keeps the secret
@@ -549,8 +551,24 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.ToolCallParser != "" {
 		args = append(args, "--tool-call-parser", e.ToolCallParser)
 	}
+	if e.ReasoningParser != "" {
+		args = append(args, "--reasoning-parser", e.ReasoningParser)
+	}
+	if e.ChatTemplate != "" {
+		args = append(args, "--chat-template", e.ChatTemplate)
+	}
 	if e.KVCacheDtype != "" {
 		args = append(args, "--kv-cache-dtype", e.KVCacheDtype)
+	}
+	// Issue #404: emit the Mamba flags ONLY when set. Unset -> nothing is
+	// appended, so existing presets render byte-identically. Placed with the
+	// other cache-shaping flags; --mamba-cache-mode interacts with prefix
+	// caching (it is what --enable-prefix-caching auto-selects on NemotronH).
+	if e.MambaCacheMode != "" {
+		args = append(args, "--mamba-cache-mode", e.MambaCacheMode)
+	}
+	if e.MambaBackend != "" {
+		args = append(args, "--mamba-backend", e.MambaBackend)
 	}
 	if e.EnablePrefixCaching != nil && *e.EnablePrefixCaching {
 		args = append(args, "--enable-prefix-caching")
@@ -567,20 +585,45 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.EnableChunkedPrefill {
 		args = append(args, "--enable-chunked-prefill")
 	}
-	if e.EnableLora {
-		args = append(args, "--enable-lora")
-	}
-	if e.MaxLoraRank > 0 {
-		args = append(args, "--max-lora-rank", strconv.Itoa(int(e.MaxLoraRank)))
-	}
-	if e.LoraModules != "" {
-		if ok, _ := validateLoraModules(e.LoraModules); ok {
-			args = append(args, "--lora-modules", e.LoraModules)
-		}
-	}
 	if e.KVOffloadBackend == "lmcache" {
 		args = append(args, "--kv-transfer-config", buildKVTransferConfig(e.KVOffloadSize))
 	}
+	if e.SpeculativeConfig != "" {
+		args = append(args, "--speculative-config", e.SpeculativeConfig)
+	}
+	if e.LimitMmPerPrompt != "" {
+		args = append(args, "--limit-mm-per-prompt", e.LimitMmPerPrompt)
+	}
+	if e.MaxNumSeqs > 0 {
+		args = append(args, "--max-num-seqs", strconv.Itoa(int(e.MaxNumSeqs)))
+	}
+	if e.KVCacheDtypeSkipLayers != "" {
+		args = append(args, "--kv-cache-dtype-skip-layers", e.KVCacheDtypeSkipLayers)
+	}
+	// --enforce-eager is a store_true argparse action in vLLM: it takes NO
+	// value. Appending one would be parsed as a positional argument.
+	if e.EnforceEager != nil && *e.EnforceEager {
+		args = append(args, "--enforce-eager")
+	}
+	// Verbatim pass-through, same convention as --limit-mm-per-prompt and
+	// --speculative-config: never parse or reserialise the value.
+	if e.CompilationConfig != "" {
+		args = append(args, "--compilation-config", e.CompilationConfig)
+	}
+	// LoRA tuning flags only apply when adapter serving is enabled. In
+	// particular, the ModelPreset rank default must not enable LoRA itself.
+	if e.EnableLora != nil && *e.EnableLora {
+		args = append(args, "--enable-lora")
+		if e.LoraModules != "" {
+			if ok, _ := validateLoraModules(e.LoraModules); ok {
+				args = append(args, "--lora-modules", e.LoraModules)
+			}
+		}
+		if e.MaxLoraRank > 0 {
+			args = append(args, "--max-lora-rank", strconv.Itoa(e.MaxLoraRank))
+		}
+	}
+
 	return args
 }
 

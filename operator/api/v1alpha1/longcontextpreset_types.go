@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -115,14 +116,37 @@ type LongContextPresetSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	KVOffloadSize int32 `json:"kvOffloadSize,omitempty"`
 
-	// EnableLora enables LoRA adapter support in vLLM.
-	EnableLora bool `json:"enableLora,omitempty"`
+	// Enable LoRA adapter serving in vLLM
+	EnableLora *bool `json:"enableLora,omitempty"`
 
-	// LoraModules maps served adapter names to paths under /models/.
+	// LoRA module name and path format: name=path
 	LoraModules string `json:"loraModules,omitempty"`
 
+	// Maximum LoRA rank allowed
 	// +kubebuilder:validation:Minimum=1
-	MaxLoraRank int32 `json:"maxLoraRank,omitempty"`
+	MaxLoraRank *int `json:"maxLoraRank,omitempty"`
+
+	ReasoningParser string `json:"reasoningParser,omitempty"`
+
+	ChatTemplate string `json:"chatTemplate,omitempty"`
+
+	SpeculativeConfig string `json:"speculativeConfig,omitempty"`
+
+	LimitMmPerPrompt string `json:"limitMmPerPrompt,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	MaxNumSeqs int32 `json:"maxNumSeqs,omitempty"`
+
+	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
+	// +kubebuilder:validation:Enum=all;align;none
+	MambaCacheMode string `json:"mambaCacheMode,omitempty"`
+
+	MambaBackend string `json:"mambaBackend,omitempty"`
+	// +nullable
+	EnforceEager      *bool   `json:"enforceEager,omitempty"`
+	CompilationConfig *string `json:"compilationConfig,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // +kubebuilder:object:root=true

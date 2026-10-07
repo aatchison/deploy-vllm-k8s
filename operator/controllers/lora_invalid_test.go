@@ -21,7 +21,8 @@ import (
 func TestReconcileInvalidLoraModulesFailsClosed(t *testing.T) {
 	scheme := fullScheme(t)
 	presetSpec := presetSpec()
-	presetSpec.EnableLora = true
+	enabled := true
+	presetSpec.EnableLora = &enabled
 	presetSpec.LoraModules = "fleetv1=/models/../../etc/passwd"
 	preset := &vllmv1alpha1.ModelPreset{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"}, Spec: presetSpec}
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "pvc", Namespace: "ns"}}

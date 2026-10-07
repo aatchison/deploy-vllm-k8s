@@ -1,0 +1,2171 @@
+{
+  "vllm/31b-nvfp4-longctx": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "31b-nvfp4-longctx",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "31b-nvfp4-longctx",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "31b-nvfp4-longctx",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "31b-nvfp4-longctx"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "31b-nvfp4-longctx",
+              "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "nvidia/Gemma-4-31B-IT-NVFP4",
+                  "--quantization",
+                  "nvfp4",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "262144",
+                  "--gpu-memory-utilization",
+                  "0.92",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "gemma4",
+                  "--reasoning-parser",
+                  "gemma4",
+                  "--kv-cache-dtype",
+                  "fp8_e4m3",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Gemma-4-31B-NVFP4-LongCtx",
+                  "--max-num-batched-tokens",
+                  "4096"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "image": "docker.io/library/vllm-gemma4:local",
+                "imagePullPolicy": "Never",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 6,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "periodSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-4g.96gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "startupProbe": {
+                  "failureThreshold": 120,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 10
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models"
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-4g.96gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "31b-nvfp4-longctx",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-31b-nvfp4-longctx",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "31b-nvfp4-longctx",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "nodePort": 31409,
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "31b-nvfp4-longctx"
+        },
+        "type": "NodePort"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/nemotron-35-lightning-1m-48g-canary": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-48g-canary",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "nemotron-35-lightning-1m-48g-canary",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-48g-canary",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "nemotron-35-lightning-1m-48g-canary"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "nemotron-35-lightning-1m-48g-canary",
+              "model": "models-huggingface-hub-models--nvidia--NVIDIA-Nemotron-3.5-Lig"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+                  "--quantization",
+                  "compressed-tensors",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "1048576",
+                  "--gpu-memory-utilization",
+                  "0.91",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "qwen3_coder",
+                  "--reasoning-parser",
+                  "nemotron_v3",
+                  "--kv-cache-dtype",
+                  "fp8_e4m3",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Nemotron-3.5-Lightning-30B-A3B-1M-48G-canary",
+                  "--max-num-batched-tokens",
+                  "4096",
+                  "--enable-chunked-prefill",
+                  "--max-num-seqs",
+                  "1"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 1200,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 60,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 240,
+                  "periodSeconds": 15
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-2g.48gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-2g.48gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-48g-canary",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-nemotron-35-lightning-1m-48g-canary",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-48g-canary",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "nemotron-35-lightning-1m-48g-canary"
+        },
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/nemotron-35-lightning-1m-48g-dspark-tp1": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-48g-dspark-tp1",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "nemotron-35-lightning-1m-48g-dspark-tp1",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-48g-dspark-tp1",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "nemotron-35-lightning-1m-48g-dspark-tp1"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "nemotron-35-lightning-1m-48g-dspark-tp1",
+              "model": "models-huggingface-hub-models--nvidia--NVIDIA-Nemotron-3.5-Lig"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+                  "--quantization",
+                  "compressed-tensors",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "1048576",
+                  "--gpu-memory-utilization",
+                  "0.85",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "qwen3_coder",
+                  "--reasoning-parser",
+                  "nemotron_v3",
+                  "--kv-cache-dtype",
+                  "fp8_e4m3",
+                  "--mamba-cache-mode",
+                  "align",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Nemotron-3.5-Lightning-30B-A3B-1M-48G-dspark-tp1",
+                  "--max-num-batched-tokens",
+                  "4096",
+                  "--enable-chunked-prefill",
+                  "--speculative-config",
+                  "{\"method\":\"dspark\",\"model\":\"/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark/snapshots/d10c6ff40d6e69d1f92e407e027de3eafdb77645\",\"num_speculative_tokens\":3,\"draft_tensor_parallel_size\":1}",
+                  "--max-num-seqs",
+                  "4",
+                  "--compilation-config",
+                  "{\"cudagraph_mode\":\"PIECEWISE\"}"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  },
+                  {
+                    "name": "VLLM_DISABLED_KERNELS",
+                    "value": "FlashInferFP8ScaledMMLinearKernel"
+                  }
+                ],
+                "image": "vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 1200,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 60,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 240,
+                  "periodSeconds": 15
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-2g.48gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-2g.48gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-48g-dspark-tp1",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-nemotron-35-lightning-1m-48g-dspark-tp1",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-48g-dspark-tp1",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "nemotron-35-lightning-1m-48g-dspark-tp1"
+        },
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/nemotron-35-lightning-1m-48g-mtp": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-48g-mtp",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "nemotron-35-lightning-1m-48g-mtp",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-48g-mtp",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "nemotron-35-lightning-1m-48g-mtp"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "nemotron-35-lightning-1m-48g-mtp",
+              "model": "models-huggingface-hub-models--nvidia--NVIDIA-Nemotron-3.5-Lig"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+                  "--quantization",
+                  "compressed-tensors",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "1048576",
+                  "--gpu-memory-utilization",
+                  "0.91",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "qwen3_coder",
+                  "--reasoning-parser",
+                  "nemotron_v3",
+                  "--kv-cache-dtype",
+                  "fp8_e4m3",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Nemotron-3.5-Lightning-30B-A3B-1M-48G-mtp",
+                  "--max-num-batched-tokens",
+                  "4096",
+                  "--enable-chunked-prefill",
+                  "--speculative-config",
+                  "{\"method\":\"mtp\",\"num_speculative_tokens\":1}",
+                  "--max-num-seqs",
+                  "1"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 1200,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 60,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 240,
+                  "periodSeconds": 15
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-2g.48gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-2g.48gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-48g-mtp",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-nemotron-35-lightning-1m-48g-mtp",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-48g-mtp",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "nemotron-35-lightning-1m-48g-mtp"
+        },
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/nemotron-35-lightning-1m-96g-dspark-tp1": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-96g-dspark-tp1",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "nemotron-35-lightning-1m-96g-dspark-tp1",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-96g-dspark-tp1",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "nemotron-35-lightning-1m-96g-dspark-tp1"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "nemotron-35-lightning-1m-96g-dspark-tp1",
+              "model": "models-huggingface-hub-models--nvidia--NVIDIA-Nemotron-3.5-Lig"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+                  "--quantization",
+                  "compressed-tensors",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "1048576",
+                  "--gpu-memory-utilization",
+                  "0.85",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "qwen3_coder",
+                  "--reasoning-parser",
+                  "nemotron_v3",
+                  "--kv-cache-dtype",
+                  "fp8_e4m3",
+                  "--mamba-cache-mode",
+                  "align",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Nemotron-3.5-Lightning-30B-A3B-1M-48G-dspark-tp1",
+                  "--max-num-batched-tokens",
+                  "4096",
+                  "--enable-chunked-prefill",
+                  "--speculative-config",
+                  "{\"method\":\"dspark\",\"model\":\"/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark/snapshots/d10c6ff40d6e69d1f92e407e027de3eafdb77645\",\"num_speculative_tokens\":3,\"draft_tensor_parallel_size\":1}",
+                  "--max-num-seqs",
+                  "64",
+                  "--compilation-config",
+                  "{\"cudagraph_mode\":\"FULL_AND_PIECEWISE\"}"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  },
+                  {
+                    "name": "VLLM_DISABLED_KERNELS",
+                    "value": "FlashInferFP8ScaledMMLinearKernel"
+                  }
+                ],
+                "image": "docker.io/vllm/vllm-openai@sha256:c2914767605584b6d8f45686b82de173ecc99e781897aa3d0a66dacd72c51ae1",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 1200,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 60,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 240,
+                  "periodSeconds": 15
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-4g.96gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-4g.96gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "nemotron-35-lightning-1m-96g-dspark-tp1",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-nemotron-35-lightning-1m-96g-dspark-tp1",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "nemotron-35-lightning-1m-96g-dspark-tp1",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "nemotron-35-lightning-1m-96g-dspark-tp1"
+        },
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/qwen3-4b-classifier-canary": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "qwen3-4b-classifier-canary",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "qwen3-4b-classifier-canary",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen3-4b-classifier-canary",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 900,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "qwen3-4b-classifier-canary"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "qwen3-4b-classifier-canary",
+              "model": "models-huggingface-hub-models--Qwen--Qwen3-4B-Instruct-2507-sn"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+                  "--dtype",
+                  "bfloat16",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "32768",
+                  "--gpu-memory-utilization",
+                  "0.85",
+                  "--kv-cache-dtype",
+                  "bfloat16",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Qwen3-4B-Instruct-2507-classifier-canary",
+                  "--max-num-batched-tokens",
+                  "4096",
+                  "--enable-chunked-prefill",
+                  "--max-num-seqs",
+                  "4"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 300,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 30,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 90,
+                  "periodSeconds": 10
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-1g.24gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-1g.24gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "4Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "qwen3-4b-classifier-canary",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-qwen3-4b-classifier-canary",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen3-4b-classifier-canary",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "qwen3-4b-classifier-canary"
+        },
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/qwen3-8b-fast-worker-canary": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "qwen3-8b-fast-worker-canary",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "qwen3-8b-fast-worker-canary",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen3-8b-fast-worker-canary",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 900,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "qwen3-8b-fast-worker-canary"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "qwen3-8b-fast-worker-canary",
+              "model": "models-huggingface-hub-models--Qwen--Qwen3-8B-snapshots-b96882"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218",
+                  "--dtype",
+                  "bfloat16",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "8192",
+                  "--gpu-memory-utilization",
+                  "0.85",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "hermes",
+                  "--kv-cache-dtype",
+                  "bfloat16",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Qwen3-8B-fast-worker-canary",
+                  "--max-num-batched-tokens",
+                  "4096",
+                  "--enable-chunked-prefill",
+                  "--max-num-seqs",
+                  "4"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 300,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 30,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 90,
+                  "periodSeconds": 10
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-1g.24gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-1g.24gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "4Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "qwen3-8b-fast-worker-canary",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-qwen3-8b-fast-worker-canary",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen3-8b-fast-worker-canary",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "qwen3-8b-fast-worker-canary"
+        },
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/qwen3-instruct": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "qwen3-instruct",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "qwen3-instruct",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen3-instruct",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "qwen3-instruct"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "qwen3-instruct",
+              "model": "models-huggingface-hub-models--Qwen--Qwen3-30B-A3B-Instruct-25"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--Qwen--Qwen3-30B-A3B-Instruct-2507-FP8/snapshots/5a5a776300a41aaa681dd7ff0106608ef2bc90db",
+                  "--quantization",
+                  "fp8",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "262144",
+                  "--gpu-memory-utilization",
+                  "0.92",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "hermes",
+                  "--kv-cache-dtype",
+                  "fp8_e4m3",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Qwen3-30B-A3B-Instruct"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 1200,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 60,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 240,
+                  "periodSeconds": 15
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-4g.96gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models"
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-4g.96gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "qwen3-instruct",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-qwen3-instruct",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen3-instruct",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "nodePort": 31415,
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "qwen3-instruct"
+        },
+        "type": "NodePort"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  },
+  "vllm/qwen38-27b": {
+    "deployment": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app": "qwen38-27b",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "qwen38-27b",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen38-27b",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "app": "qwen38-27b"
+          }
+        },
+        "strategy": {
+          "type": "Recreate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "qwen38-27b",
+              "model": "models-huggingface-hub-models--Qwen--Qwen3.8-27B-FP8-snapshots"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "--model",
+                  "/models/huggingface/hub/models--Qwen--Qwen3.8-27B-FP8/snapshots/017b9c7af6b5689d5dd426a76e0bc077eb5ca20a",
+                  "--quantization",
+                  "fp8",
+                  "--port",
+                  "8000",
+                  "--max-model-len",
+                  "262144",
+                  "--gpu-memory-utilization",
+                  "0.92",
+                  "--enable-auto-tool-choice",
+                  "--tool-call-parser",
+                  "qwen3_xml",
+                  "--reasoning-parser",
+                  "qwen3",
+                  "--kv-cache-dtype",
+                  "fp8_e4m3",
+                  "--enable-prefix-caching",
+                  "--served-model-name",
+                  "Qwen3.8-27B",
+                  "--limit-mm-per-prompt",
+                  "{\"image\":0,\"video\":0}"
+                ],
+                "env": [
+                  {
+                    "name": "HF_TOKEN_PATH",
+                    "value": "/var/run/hf/token"
+                  },
+                  {
+                    "name": "HF_HOME",
+                    "value": "/models/huggingface"
+                  },
+                  {
+                    "name": "USER",
+                    "value": "vllm"
+                  },
+                  {
+                    "name": "TORCHINDUCTOR_CACHE_DIR",
+                    "value": "/tmp/torch-inductor"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 1200,
+                  "periodSeconds": 30
+                },
+                "name": "vllm",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 60,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000
+                  },
+                  "initialDelaySeconds": 240,
+                  "periodSeconds": 15
+                },
+                "resources": {
+                  "limits": {
+                    "nvidia.com/mig-4g.96gb": "1"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/models",
+                    "name": "models"
+                  },
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  },
+                  {
+                    "mountPath": "/var/run/hf",
+                    "name": "hf-token",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/mig-4g.96gb",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "name": "models",
+                "persistentVolumeClaim": {
+                  "claimName": "vllm-models-pvc"
+                }
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Gi"
+                },
+                "name": "dshm"
+              },
+              {
+                "name": "hf-token",
+                "secret": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "token",
+                      "path": "token"
+                    }
+                  ],
+                  "secretName": "REDACTED-REF"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {}
+    },
+    "service": {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "qwen38-27b",
+          "app.kubernetes.io/managed-by": "vllm-operator"
+        },
+        "name": "svc-qwen38-27b",
+        "namespace": "vllm",
+        "ownerReferences": [
+          {
+            "apiVersion": "vllm.aatchison.io/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "LongContextInstance",
+            "name": "qwen38-27b",
+            "uid": ""
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "nodePort": 31417,
+            "port": 8000,
+            "protocol": "TCP",
+            "targetPort": 8000
+          }
+        ],
+        "selector": {
+          "app": "qwen38-27b"
+        },
+        "type": "NodePort"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  }
+}

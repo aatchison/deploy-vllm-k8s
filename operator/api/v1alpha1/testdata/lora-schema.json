@@ -1,0 +1,34 @@
+{
+  "modelpresets": {
+    "enableLora": {
+      "description": "EnableLora enables vLLM's --enable-lora flag, supporting LoRA adapter serving.",
+      "type": "boolean",
+      "default": false
+    },
+    "loraModules": {
+      "description": "LoraModules specifies the LoRA modules via --lora-modules name=path.",
+      "type": "string"
+    },
+    "maxLoraRank": {
+      "description": "MaxLoraRank sets --max-lora-rank, controlling the maximum LoRA rank allowed.",
+      "type": "integer",
+      "minimum": 1,
+      "default": 64
+    }
+  },
+  "longcontextpresets": {
+    "enableLora": {
+      "type": "boolean",
+      "description": "Enable LoRA adapter serving in vLLM"
+    },
+    "loraModules": {
+      "type": "string",
+      "description": "LoRA module name and path format: name=path"
+    },
+    "maxLoraRank": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum LoRA rank allowed"
+    }
+  }
+}

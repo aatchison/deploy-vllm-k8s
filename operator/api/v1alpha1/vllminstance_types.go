@@ -58,6 +58,10 @@ type ModelConfigOverrides struct {
 	// /var/run/vllm/api-key and passed to vLLM via --api-key. See
 	// VLLMInstanceSpec.APIKey for the file-vs-env-var rationale.
 	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
+
+	ReasoningParser *string `json:"reasoningParser,omitempty"`
+
+	ChatTemplate *string `json:"chatTemplate,omitempty"`
 }
 
 // VLLMInstanceSpec is the desired state of a single vLLM deployment.

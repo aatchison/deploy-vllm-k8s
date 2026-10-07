@@ -1,0 +1,917 @@
+[
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "devstral-small-2-24b-fp8",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "limitMmPerPrompt": "{\"image\": 0}",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--mistralai--Devstral-Small-2-24B-Instruct-2512/snapshots/55c5b41e98c2dbd21b0c8afffc540dcfc9eb5128",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "fp8",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Devstral-Small-2-24B",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "mistral"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-26b-moe-longctx",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "maxNumBatchedTokens": 4096,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "google/gemma-4-26B-A4B-it",
+   "progressDeadlineSeconds": 1800,
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-26B-MoE-LongCtx",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-26b-moe-nvfp4-longctx",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-26B-A4B-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-26B-MoE-NVFP4-LongCtx",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-31b-bf16-longctx",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "google/gemma-4-31B-it",
+   "progressDeadlineSeconds": 1800,
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Gemma-4-31B-BF16-LongCtx",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-31b-nvfp4-longctx",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "maxNumBatchedTokens": 4096,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-31B-IT-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 6,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 5
+   },
+   "reasoningParser": "gemma4",
+   "servedModelName": "Gemma-4-31B-NVFP4-LongCtx",
+   "shmSizeLimit": "16Gi",
+   "startupProbe": {
+    "failureThreshold": 120,
+    "initialDelaySeconds": 15,
+    "periodSeconds": 10
+   },
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-31b-nvfp4-longctx-lmcache",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "lmcache",
+   "kvOffloadSize": 32,
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "maxNumBatchedTokens": 4096,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-31B-IT-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 6,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 5
+   },
+   "servedModelName": "Gemma-4-31B-NVFP4-LongCtx-LMCache",
+   "shmSizeLimit": "16Gi",
+   "startupProbe": {
+    "failureThreshold": 120,
+    "initialDelaySeconds": 15,
+    "periodSeconds": 10
+   },
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-31b-nvfp4-longctx-opt",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "maxNumBatchedTokens": 8192,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-31B-IT-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 6,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 5
+   },
+   "reasoningParser": "gemma4",
+   "servedModelName": "Gemma-4-31B-NVFP4-OptTest",
+   "shmSizeLimit": "16Gi",
+   "startupProbe": {
+    "failureThreshold": 120,
+    "initialDelaySeconds": 15,
+    "periodSeconds": 10
+   },
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-31b-nvfp4-longctx-opt2",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "limitMmPerPrompt": "{\"image\":0,\"audio\":0}",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 8,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-31B-IT-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 6,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 5
+   },
+   "reasoningParser": "gemma4",
+   "servedModelName": "Gemma-4-31B-NVFP4-OptTest2",
+   "shmSizeLimit": "16Gi",
+   "speculativeConfig": "{\"method\":\"ngram\",\"num_speculative_tokens\":4,\"prompt_lookup_min\":2,\"prompt_lookup_max\":5}",
+   "startupProbe": {
+    "failureThreshold": 120,
+    "initialDelaySeconds": 15,
+    "periodSeconds": 10
+   },
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "gemma-4-31b-nvfp4-longctx-opt2b",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "docker.io/library/vllm-gemma4:local",
+   "imagePullPolicy": "Never",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "limitMmPerPrompt": "{\"image\":0,\"audio\":0}",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 8,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "nvidia/Gemma-4-31B-IT-NVFP4",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "nvfp4",
+   "readinessProbe": {
+    "failureThreshold": 6,
+    "initialDelaySeconds": 0,
+    "periodSeconds": 5
+   },
+   "reasoningParser": "gemma4",
+   "servedModelName": "Gemma-4-31B-NVFP4-OptTest2b",
+   "shmSizeLimit": "16Gi",
+   "startupProbe": {
+    "failureThreshold": 120,
+    "initialDelaySeconds": 15,
+    "periodSeconds": 10
+   },
+   "tensorParallelSize": 1,
+   "toolCallParser": "gemma4"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-48g-canary",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.91",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 1048576,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 1,
+   "migResource": "nvidia.com/mig-2g.48gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "nemotron_v3",
+   "servedModelName": "Nemotron-3.5-Lightning-30B-A3B-1M-48G-canary",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-48g-dspark-tp1",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "compilationConfig": "{\"cudagraph_mode\":\"PIECEWISE\"}",
+   "enableAutoToolChoice": true,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "env": [
+    {
+     "name": "VLLM_DISABLED_KERNELS",
+     "value": "FlashInferFP8ScaledMMLinearKernel"
+    }
+   ],
+   "gpuMemoryUtilization": "0.85",
+   "image": "vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "mambaCacheMode": "align",
+   "maxModelLen": 1048576,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 4,
+   "migResource": "nvidia.com/mig-2g.48gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "nemotron_v3",
+   "servedModelName": "Nemotron-3.5-Lightning-30B-A3B-1M-48G-dspark-tp1",
+   "shmSizeLimit": "16Gi",
+   "speculativeConfig": "{\"method\":\"dspark\",\"model\":\"/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark/snapshots/d10c6ff40d6e69d1f92e407e027de3eafdb77645\",\"num_speculative_tokens\":3,\"draft_tensor_parallel_size\":1}",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-48g-mtp",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.91",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 1048576,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 1,
+   "migResource": "nvidia.com/mig-2g.48gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "nemotron_v3",
+   "servedModelName": "Nemotron-3.5-Lightning-30B-A3B-1M-48G-mtp",
+   "shmSizeLimit": "16Gi",
+   "speculativeConfig": "{\"method\":\"mtp\",\"num_speculative_tokens\":1}",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-96g-dspark-tp1",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "compilationConfig": "{\"cudagraph_mode\":\"FULL_AND_PIECEWISE\"}",
+   "enableAutoToolChoice": true,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "env": [
+    {
+     "name": "VLLM_DISABLED_KERNELS",
+     "value": "FlashInferFP8ScaledMMLinearKernel"
+    }
+   ],
+   "gpuMemoryUtilization": "0.85",
+   "image": "docker.io/vllm/vllm-openai@sha256:c2914767605584b6d8f45686b82de173ecc99e781897aa3d0a66dacd72c51ae1",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "mambaCacheMode": "align",
+   "maxModelLen": 1048576,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 64,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "nemotron_v3",
+   "servedModelName": "Nemotron-3.5-Lightning-30B-A3B-1M-48G-dspark-tp1",
+   "shmSizeLimit": "16Gi",
+   "speculativeConfig": "{\"method\":\"dspark\",\"model\":\"/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark/snapshots/d10c6ff40d6e69d1f92e407e027de3eafdb77645\",\"num_speculative_tokens\":3,\"draft_tensor_parallel_size\":1}",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "nemotron-35-lightning-nocache",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": false,
+   "gpuMemoryUtilization": "0.91",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "nemotron_v3",
+   "servedModelName": "Nemotron-3.5-Lightning-30B-A3B",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "nemotron-35-lightning-nvfp4",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.91",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "nemotron_v3",
+   "servedModelName": "Nemotron-3.5-Lightning-30B-A3B",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "nemotron-lightning-96g-v0290-qual",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "compilationConfig": "{\"cudagraph_mode\":\"FULL_AND_PIECEWISE\"}",
+   "enableAutoToolChoice": true,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "env": [
+    {
+     "name": "VLLM_DISABLED_KERNELS",
+     "value": "FlashInferFP8ScaledMMLinearKernel"
+    }
+   ],
+   "gpuMemoryUtilization": "0.85",
+   "image": "docker.io/vllm/vllm-openai@sha256:c2914767605584b6d8f45686b82de173ecc99e781897aa3d0a66dacd72c51ae1",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "mambaCacheMode": "align",
+   "maxModelLen": 1048576,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 4,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4/snapshots/6dbbd757ea75a8ece6e0702872e3ae53f9987728",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 90,
+    "periodSeconds": 10
+   },
+   "reasoningParser": "nemotron_v3",
+   "servedModelName": "Nemotron-3.5-Lightning-30B-A3B-96G-v0290-Qual",
+   "shmSizeLimit": "16Gi",
+   "speculativeConfig": "{\"method\":\"dspark\",\"model\":\"/models/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark/snapshots/d10c6ff40d6e69d1f92e407e027de3eafdb77645\",\"num_speculative_tokens\":3,\"draft_tensor_parallel_size\":1}",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "north-mini-code-w4a16",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--CohereLabs--North-Mini-Code-1.0-w4a16/snapshots/1e55f4aa327aba4c0b7a1da0d0f24626d3af5c90",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "compressed-tensors",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "cohere_command3",
+   "servedModelName": "North-Mini-Code-1.0",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "cohere_command3"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "qwen3-4b-classifier-canary",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": false,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.85",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "auto",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 300,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 32768,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 4,
+   "migResource": "nvidia.com/mig-1g.24gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+   "progressDeadlineSeconds": 900,
+   "readinessProbe": {
+    "failureThreshold": 30,
+    "initialDelaySeconds": 90,
+    "periodSeconds": 10
+   },
+   "servedModelName": "Qwen3-4B-Instruct-2507-classifier-canary",
+   "shmSizeLimit": "4Gi",
+   "tensorParallelSize": 1
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "qwen3-8b-fast-worker-canary",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "dtype": "bfloat16",
+   "enableAutoToolChoice": true,
+   "enableChunkedPrefill": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.85",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4@sha256:f5f1029b5cee609ad6cbdc8a7dc9fbf9019799b75ca0f9f74a6c1dd943ba5450",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "auto",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 300,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 8192,
+   "maxNumBatchedTokens": 4096,
+   "maxNumSeqs": 4,
+   "migResource": "nvidia.com/mig-1g.24gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218",
+   "progressDeadlineSeconds": 900,
+   "readinessProbe": {
+    "failureThreshold": 30,
+    "initialDelaySeconds": 90,
+    "periodSeconds": 10
+   },
+   "servedModelName": "Qwen3-8B-fast-worker-canary",
+   "shmSizeLimit": "4Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "hermes"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "qwen3-coder-30b-a3b-fp8",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 131072,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--Qwen--Qwen3-Coder-30B-A3B-Instruct-FP8/snapshots/dcaee4d4dfc5ee71ad501f01f530e5652438fde0",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "fp8",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Qwen3-Coder-30B-A3B",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_coder"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "qwen3-instruct-30b-a3b-fp8",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--Qwen--Qwen3-30B-A3B-Instruct-2507-FP8/snapshots/5a5a776300a41aaa681dd7ff0106608ef2bc90db",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "fp8",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "servedModelName": "Qwen3-30B-A3B-Instruct",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "hermes"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextPreset",
+  "metadata": {
+   "name": "qwen38-27b-fp8",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "enableAutoToolChoice": true,
+   "enablePrefixCaching": true,
+   "gpuMemoryUtilization": "0.92",
+   "image": "192.168.122.78:30300/aatchison/vllm-gemma4:sha-71f81fb",
+   "imagePullPolicy": "IfNotPresent",
+   "kvCacheDtype": "fp8_e4m3",
+   "kvOffloadBackend": "none",
+   "limitMmPerPrompt": "{\"image\":0,\"video\":0}",
+   "livenessProbe": {
+    "failureThreshold": 10,
+    "initialDelaySeconds": 1200,
+    "periodSeconds": 30
+   },
+   "maxModelLen": 262144,
+   "migResource": "nvidia.com/mig-4g.96gb",
+   "migResourceCount": 1,
+   "modelID": "/models/huggingface/hub/models--Qwen--Qwen3.8-27B-FP8/snapshots/017b9c7af6b5689d5dd426a76e0bc077eb5ca20a",
+   "progressDeadlineSeconds": 1800,
+   "quantization": "fp8",
+   "readinessProbe": {
+    "failureThreshold": 60,
+    "initialDelaySeconds": 240,
+    "periodSeconds": 15
+   },
+   "reasoningParser": "qwen3",
+   "servedModelName": "Qwen3.8-27B",
+   "shmSizeLimit": "16Gi",
+   "tensorParallelSize": 1,
+   "toolCallParser": "qwen3_xml"
+  }
+ }
+]

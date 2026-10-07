@@ -13,7 +13,7 @@ func TestResolveLongContextLoraAndRenderArgs(t *testing.T) {
 	enabled := true
 	modules := "adapter=/models/adapters/lora"
 	rank := int32(16)
-	e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{SHMSizeLimit: "8Gi", MIGResource: "nvidia.com/mig-1g.5gb", MIGResourceCount: 1, ModelID: "m", LoraModules: modules, EnableLora: true, MaxLoraRank: rank}, &v1alpha1.LongContextOverrides{EnableLora: &enabled, LoraModules: &modules, MaxLoraRank: &rank})
+	e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{SHMSizeLimit: "8Gi", MIGResource: "nvidia.com/mig-1g.5gb", MIGResourceCount: 1, ModelID: "m", LoraModules: modules, EnableLora: &enabled, MaxLoraRank: loraRankPtr(int(rank))}, &v1alpha1.LongContextOverrides{EnableLora: &enabled, LoraModules: &modules, MaxLoraRank: &rank})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestResolveLongContextLoraAndRenderArgs(t *testing.T) {
 	}
 	args := buildArgs(e)
 	got := strings.Join(args, " ")
-	want := "--enable-lora --max-lora-rank 16 --lora-modules adapter=/models/adapters/lora"
+	want := "--enable-lora --lora-modules adapter=/models/adapters/lora --max-lora-rank 16"
 	if !strings.Contains(got, want) {
 		t.Fatalf("args %q missing exact composed LoRA args %q", got, want)
 	}
@@ -76,7 +76,7 @@ func TestLoraModulesMalformedFixtures(t *testing.T) {
 func TestLongContextLoraOverridePrecedence(t *testing.T) {
 	presetModules := "preset=/models/preset"
 	overrideModules := "override=/models/override"
-	e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{ModelID: "m", LoraModules: presetModules, MaxLoraRank: 8}, &v1alpha1.LongContextOverrides{LoraModules: &overrideModules})
+	e, _, err := ResolveLongContext(&v1alpha1.LongContextPresetSpec{ModelID: "m", LoraModules: presetModules, MaxLoraRank: loraRankPtr(8)}, &v1alpha1.LongContextOverrides{LoraModules: &overrideModules})
 	if err != nil {
 		t.Fatal(err)
 	}
