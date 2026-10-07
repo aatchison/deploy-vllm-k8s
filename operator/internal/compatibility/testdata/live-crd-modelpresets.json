@@ -1,0 +1,303 @@
+{
+    "apiVersion": "apiextensions.k8s.io/v1",
+    "kind": "CustomResourceDefinition",
+    "metadata": {
+        "annotations": {
+            "argocd.argoproj.io/sync-options": "Prune=false,ServerSideApply=true",
+            "controller-gen.kubebuilder.io/version": "v0.20.1"
+        },
+        "creationTimestamp": "2026-04-17T03:40:39Z",
+        "generation": 7,
+        "name": "modelpresets.vllm.aatchison.io",
+        "resourceVersion": "132863427",
+        "uid": "3af10545-3d98-41a6-983d-c6bce2df38b1"
+    },
+    "spec": {
+        "conversion": {
+            "strategy": "None"
+        },
+        "group": "vllm.aatchison.io",
+        "names": {
+            "kind": "ModelPreset",
+            "listKind": "ModelPresetList",
+            "plural": "modelpresets",
+            "shortNames": [
+                "mp"
+            ],
+            "singular": "modelpreset"
+        },
+        "scope": "Namespaced",
+        "versions": [
+            {
+                "additionalPrinterColumns": [
+                    {
+                        "jsonPath": ".spec.modelID",
+                        "name": "Model",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".spec.migResource",
+                        "name": "MIG",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".spec.tensorParallelSize",
+                        "name": "TP",
+                        "type": "integer"
+                    },
+                    {
+                        "jsonPath": ".metadata.creationTimestamp",
+                        "name": "Age",
+                        "type": "date"
+                    }
+                ],
+                "name": "v1alpha1",
+                "schema": {
+                    "openAPIV3Schema": {
+                        "description": "ModelPreset is a reusable bundle of vLLM configuration consumed by VLLMInstance.",
+                        "properties": {
+                            "apiVersion": {
+                                "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+                                "type": "string"
+                            },
+                            "kind": {
+                                "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                                "type": "string"
+                            },
+                            "metadata": {
+                                "type": "object"
+                            },
+                            "spec": {
+                                "description": "ModelPresetSpec holds a reusable bundle of vLLM args.\nModelPreset has no controller — it's consumed by VLLMInstance at reconcile time.",
+                                "properties": {
+                                    "chatTemplate": {
+                                        "type": "string"
+                                    },
+                                    "dtype": {
+                                        "type": "string"
+                                    },
+                                    "enableAutoToolChoice": {
+                                        "type": "boolean"
+                                    },
+                                    "enableChunkedPrefill": {
+                                        "description": "EnableChunkedPrefill toggles vLLM's chunked-prefill scheduler. Sidesteps\nthe multimodal budget check on v0.20+ when MaxNumBatchedTokens is left\nat default. Useful for long-context throughput too.",
+                                        "type": "boolean"
+                                    },
+                                    "enableLora": {
+                                        "default": false,
+                                        "description": "EnableLora enables vLLM's --enable-lora flag, supporting LoRA adapter serving.",
+                                        "type": "boolean"
+                                    },
+                                    "gpuMemoryUtilization": {
+                                        "pattern": "^0?\\.[0-9]+$|^1\\.0$",
+                                        "type": "string"
+                                    },
+                                    "image": {
+                                        "default": "docker.io/library/vllm-gemma4:local",
+                                        "type": "string"
+                                    },
+                                    "imagePullPolicy": {
+                                        "default": "Never",
+                                        "enum": [
+                                            "Always",
+                                            "IfNotPresent",
+                                            "Never"
+                                        ],
+                                        "type": "string"
+                                    },
+                                    "livenessProbe": {
+                                        "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                        "properties": {
+                                            "failureThreshold": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            },
+                                            "initialDelaySeconds": {
+                                                "format": "int32",
+                                                "minimum": 0,
+                                                "type": "integer"
+                                            },
+                                            "periodSeconds": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "required": [
+                                            "failureThreshold",
+                                            "initialDelaySeconds",
+                                            "periodSeconds"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "loraModules": {
+                                        "description": "LoraModules specifies the LoRA modules via --lora-modules name=path.",
+                                        "type": "string"
+                                    },
+                                    "maxLoraRank": {
+                                        "default": 64,
+                                        "description": "MaxLoraRank sets --max-lora-rank, controlling the maximum LoRA rank allowed.",
+                                        "minimum": 1,
+                                        "type": "integer"
+                                    },
+                                    "maxModelLen": {
+                                        "format": "int32",
+                                        "minimum": 1024,
+                                        "type": "integer"
+                                    },
+                                    "maxNumBatchedTokens": {
+                                        "description": "MaxNumBatchedTokens caps tokens per scheduling iteration.\nRequired \u003e= max_tokens_per_mm_item for multimodal models on vLLM v0.20+\n(Gemma 4: 2496). Empty/0 = vLLM default (2048 on v0.20).",
+                                        "format": "int32",
+                                        "minimum": 0,
+                                        "type": "integer"
+                                    },
+                                    "migResource": {
+                                        "pattern": "^nvidia\\.com/mig-[0-9]+g\\.[0-9]+gb$",
+                                        "type": "string"
+                                    },
+                                    "migResourceCount": {
+                                        "format": "int32",
+                                        "maximum": 8,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                    },
+                                    "modelID": {
+                                        "type": "string"
+                                    },
+                                    "progressDeadlineSeconds": {
+                                        "format": "int32",
+                                        "minimum": 60,
+                                        "type": "integer"
+                                    },
+                                    "quantization": {
+                                        "type": "string"
+                                    },
+                                    "readinessProbe": {
+                                        "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                        "properties": {
+                                            "failureThreshold": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            },
+                                            "initialDelaySeconds": {
+                                                "format": "int32",
+                                                "minimum": 0,
+                                                "type": "integer"
+                                            },
+                                            "periodSeconds": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "required": [
+                                            "failureThreshold",
+                                            "initialDelaySeconds",
+                                            "periodSeconds"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "reasoningParser": {
+                                        "description": "ReasoningParser selects vLLM's --reasoning-parser. For Gemma 4 thinking\nmodels this must be \"gemma4\" so the \u003c|channel\u003ethought ... \u003cchannel|\u003e\nreasoning channel is separated from response content; without it the\nchain-of-thought leaks into content and tool_use blocks fail to surface.",
+                                        "type": "string"
+                                    },
+                                    "servedModelName": {
+                                        "description": "ServedModelName overrides the name vLLM advertises to clients\n(`/v1/models` and the `model:` field in chat-completion requests). Maps\nto vLLM's `--served-model-name`. When empty, vLLM serves under the same\nname as `modelID`. Useful for serving the same logical model under a\nstable name even when swapping checkpoints (e.g. `google/gemma-4-31B-it`\nregardless of whether the backend weights are BF16 or NVFP4).",
+                                        "type": "string"
+                                    },
+                                    "shmSizeLimit": {
+                                        "pattern": "^[0-9]+[KMGT]i?$",
+                                        "type": "string"
+                                    },
+                                    "startupProbe": {
+                                        "description": "StartupProbe, when set, defers livenessProbe and readinessProbe checks\nuntil the startup probe succeeds. The canonical Kubernetes pattern for\nslow-starting workloads — keeps liveness short-and-sharp while granting\na long grace window for first-time model load. Optional; when nil the\ncontainer has no startupProbe (existing behavior).",
+                                        "properties": {
+                                            "failureThreshold": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            },
+                                            "initialDelaySeconds": {
+                                                "format": "int32",
+                                                "minimum": 0,
+                                                "type": "integer"
+                                            },
+                                            "periodSeconds": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "required": [
+                                            "failureThreshold",
+                                            "initialDelaySeconds",
+                                            "periodSeconds"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "tensorParallelSize": {
+                                        "format": "int32",
+                                        "minimum": 1,
+                                        "type": "integer"
+                                    },
+                                    "toolCallParser": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "gpuMemoryUtilization",
+                                    "livenessProbe",
+                                    "maxModelLen",
+                                    "migResource",
+                                    "migResourceCount",
+                                    "modelID",
+                                    "progressDeadlineSeconds",
+                                    "readinessProbe",
+                                    "shmSizeLimit",
+                                    "tensorParallelSize"
+                                ],
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "served": true,
+                "storage": true,
+                "subresources": {}
+            }
+        ]
+    },
+    "status": {
+        "acceptedNames": {
+            "kind": "ModelPreset",
+            "listKind": "ModelPresetList",
+            "plural": "modelpresets",
+            "shortNames": [
+                "mp"
+            ],
+            "singular": "modelpreset"
+        },
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-04-17T03:40:39Z",
+                "message": "no conflicts found",
+                "reason": "NoConflicts",
+                "status": "True",
+                "type": "NamesAccepted"
+            },
+            {
+                "lastTransitionTime": "2026-04-17T03:40:39Z",
+                "message": "the initial names have been accepted",
+                "reason": "InitialNamesAccepted",
+                "status": "True",
+                "type": "Established"
+            }
+        ],
+        "storedVersions": [
+            "v1alpha1"
+        ]
+    }
+}

@@ -1,0 +1,552 @@
+{
+    "apiVersion": "apiextensions.k8s.io/v1",
+    "kind": "CustomResourceDefinition",
+    "metadata": {
+        "annotations": {
+            "argocd.argoproj.io/sync-options": "Prune=false,ServerSideApply=true",
+            "controller-gen.kubebuilder.io/version": "v0.20.1"
+        },
+        "creationTimestamp": "2026-05-07T05:55:27Z",
+        "generation": 10,
+        "name": "longcontextpresets.vllm.aatchison.io",
+        "resourceVersion": "132863428",
+        "uid": "9f793af4-fe44-41c6-aae0-6dafe47fb22c"
+    },
+    "spec": {
+        "conversion": {
+            "strategy": "None"
+        },
+        "group": "vllm.aatchison.io",
+        "names": {
+            "kind": "LongContextPreset",
+            "listKind": "LongContextPresetList",
+            "plural": "longcontextpresets",
+            "shortNames": [
+                "lcp"
+            ],
+            "singular": "longcontextpreset"
+        },
+        "scope": "Namespaced",
+        "versions": [
+            {
+                "additionalPrinterColumns": [
+                    {
+                        "jsonPath": ".spec.modelID",
+                        "name": "Model",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".spec.migResource",
+                        "name": "MIG",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".spec.maxModelLen",
+                        "name": "Ctx",
+                        "type": "integer"
+                    },
+                    {
+                        "jsonPath": ".spec.kvCacheDtype",
+                        "name": "KV",
+                        "type": "string"
+                    },
+                    {
+                        "jsonPath": ".spec.tensorParallelSize",
+                        "name": "TP",
+                        "type": "integer"
+                    },
+                    {
+                        "jsonPath": ".metadata.creationTimestamp",
+                        "name": "Age",
+                        "type": "date"
+                    }
+                ],
+                "name": "v1alpha1",
+                "schema": {
+                    "openAPIV3Schema": {
+                        "description": "LongContextPreset is a preset for vLLM deployments that prioritize\nmax-context-per-model over throughput. Consumed by LongContextInstance.",
+                        "properties": {
+                            "apiVersion": {
+                                "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+                                "type": "string"
+                            },
+                            "kind": {
+                                "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+                                "type": "string"
+                            },
+                            "metadata": {
+                                "type": "object"
+                            },
+                            "spec": {
+                                "description": "LongContextPresetSpec is a preset tuned for maximum context length per model.\nIt mirrors ModelPresetSpec field-for-field and adds two long-context-specific\nfields. The new type exists so the existing ModelPreset semantics are\nuntouched while opinionated defaults (KV quantization, prefix caching) ship\nhere.",
+                                "properties": {
+                                    "chatTemplate": {
+                                        "type": "string"
+                                    },
+                                    "compilationConfig": {
+                                        "description": "CompilationConfig is passed through VERBATIM as the value of vLLM's\n--compilation-config flag. Same raw-pass-through convention as\nLimitMmPerPrompt and SpeculativeConfig above.\n\nFree-form string rather than a structured type on purpose: vLLM accepts\neither a JSON object (e.g. `{\"level\":0}` or\n`{\"cudagraph_capture_sizes\":[1,2,4]}`) or a bare optimization level\n(e.g. `3`), so a struct-typed field would reject values vLLM accepts.\nEmpty = flag omitted.\n\nNOT VALIDATED AT ADMISSION: this repo ships no admission webhook (no\nconfig/webhook, no *_webhook.go) and CEL/XValidation cannot parse JSON,\nso a malformed value surfaces as a vLLM start-up failure\n(CrashLoopBackOff), not an apply-time rejection. This matches the\nexisting behaviour of limitMmPerPrompt and speculativeConfig.\n\nFiner-grained CUDA-graph control — e.g. shrinking capture sizes rather\nthan disabling graphs outright — belongs in this field, which is why\nthere is no separate cudagraphCaptureSizes field to keep in sync.",
+                                        "type": "string"
+                                    },
+                                    "cpuOffloadGiB": {
+                                        "description": "CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV\nblocks to host RAM instead of recomputing on the next prefix hit.\nHelps repeat-prefix TTFT at long context. 0 = disabled.",
+                                        "format": "int32",
+                                        "minimum": 0,
+                                        "type": "integer"
+                                    },
+                                    "dtype": {
+                                        "type": "string"
+                                    },
+                                    "enableAutoToolChoice": {
+                                        "type": "boolean"
+                                    },
+                                    "enableChunkedPrefill": {
+                                        "description": "EnableChunkedPrefill toggles vLLM's chunked-prefill scheduler. Sidesteps\nthe multimodal budget check on v0.20+ when MaxNumBatchedTokens is left\nat default. Useful for long-context throughput too.",
+                                        "type": "boolean"
+                                    },
+                                    "enableLora": {
+                                        "description": "Enable LoRA adapter serving in vLLM",
+                                        "type": "boolean"
+                                    },
+                                    "enablePrefixCaching": {
+                                        "default": true,
+                                        "description": "EnablePrefixCaching enables vLLM's RadixAttention-style automatic prefix\ncaching. Tri-state pointer semantics:\n  - nil      → use kubebuilder default (true at admission time)\n  - \u0026false   → explicitly disabled\n  - \u0026true    → explicitly enabled\nThe pointer type fixes the kubebuilder default+omitempty trap that\npreviously made it impossible to disable the field once defaulted on.",
+                                        "nullable": true,
+                                        "type": "boolean"
+                                    },
+                                    "enforceEager": {
+                                        "description": "EnforceEager disables CUDA graph capture and runs the model in eager\nPyTorch mode (vLLM's --enforce-eager). It costs throughput, but on some\nGPUs it is the only known-stable configuration: on RTX PRO 6000\n(sm_120) the default CUDA-graph path wedges the device with Xid 79\nafter ~72 s, while --enforce-eager survived a \u003e1 h soak. Exposing it\nhere makes that mitigation GitOps-expressible instead of a hand-edited\nDeployment.\n\nTri-state pointer, matching the EnablePrefixCaching convention:\n  - nil    -\u003e flag not emitted (vLLM default: CUDA graphs enabled)\n  - \u0026false -\u003e flag not emitted, but explicitly declared\n  - \u0026true  -\u003e --enforce-eager emitted as a bare flag (no value)\nThere is deliberately NO kubebuilder default: defaulting this on would\nsilently cost throughput on every healthy GPU. The pointer type also\navoids the kubebuilder default+omitempty trap documented on\nEnablePrefixCaching.",
+                                        "nullable": true,
+                                        "type": "boolean"
+                                    },
+                                    "env": {
+                                        "description": "Env supplies vLLM container environment variables. Instance spec.env wins\non duplicate names. Use valueFrom for references, not literal secrets.",
+                                        "items": {
+                                            "description": "EnvVar represents an environment variable present in a Container.",
+                                            "properties": {
+                                                "name": {
+                                                    "description": "Name of the environment variable.\nMay consist of any printable ASCII characters except '='.",
+                                                    "type": "string"
+                                                },
+                                                "value": {
+                                                    "description": "Variable references $(VAR_NAME) are expanded\nusing the previously defined environment variables in the container and\nany service environment variables. If a variable cannot be resolved,\nthe reference in the input string will be unchanged. Double $$ are reduced\nto a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.\n\"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\".\nEscaped references will never be expanded, regardless of whether the variable\nexists or not.\nDefaults to \"\".",
+                                                    "type": "string"
+                                                },
+                                                "valueFrom": {
+                                                    "description": "Source for the environment variable's value. Cannot be used if value is not empty.",
+                                                    "properties": {
+                                                        "configMapKeyRef": {
+                                                            "description": "Selects a key of a ConfigMap.",
+                                                            "properties": {
+                                                                "key": {
+                                                                    "description": "The key to select.",
+                                                                    "type": "string"
+                                                                },
+                                                                "name": {
+                                                                    "default": "",
+                                                                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                                                    "type": "string"
+                                                                },
+                                                                "optional": {
+                                                                    "description": "Specify whether the ConfigMap or its key must be defined",
+                                                                    "type": "boolean"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "key"
+                                                            ],
+                                                            "type": "object",
+                                                            "x-kubernetes-map-type": "atomic"
+                                                        },
+                                                        "fieldRef": {
+                                                            "description": "Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['\u003cKEY\u003e']`, `metadata.annotations['\u003cKEY\u003e']`,\nspec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.",
+                                                            "properties": {
+                                                                "apiVersion": {
+                                                                    "description": "Version of the schema the FieldPath is written in terms of, defaults to \"v1\".",
+                                                                    "type": "string"
+                                                                },
+                                                                "fieldPath": {
+                                                                    "description": "Path of the field to select in the specified API version.",
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "fieldPath"
+                                                            ],
+                                                            "type": "object",
+                                                            "x-kubernetes-map-type": "atomic"
+                                                        },
+                                                        "fileKeyRef": {
+                                                            "description": "FileKeyRef selects a key of the env file.\nRequires the EnvFiles feature gate to be enabled.",
+                                                            "properties": {
+                                                                "key": {
+                                                                    "description": "The key within the env file. An invalid key will prevent the pod from starting.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nDuring Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.",
+                                                                    "type": "string"
+                                                                },
+                                                                "optional": {
+                                                                    "default": false,
+                                                                    "description": "Specify whether the file or its key must be defined. If the file or key\ndoes not exist, then the env var is not published.\nIf optional is set to true and the specified key does not exist,\nthe environment variable will not be set in the Pod's containers.\n\nIf optional is set to false and the specified key does not exist,\nan error will be returned during Pod creation.",
+                                                                    "type": "boolean"
+                                                                },
+                                                                "path": {
+                                                                    "description": "The path within the volume from which to select the file.\nMust be relative and may not contain the '..' path or start with '..'.",
+                                                                    "type": "string"
+                                                                },
+                                                                "volumeName": {
+                                                                    "description": "The name of the volume mount containing the env file.",
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "key",
+                                                                "path",
+                                                                "volumeName"
+                                                            ],
+                                                            "type": "object",
+                                                            "x-kubernetes-map-type": "atomic"
+                                                        },
+                                                        "resourceFieldRef": {
+                                                            "description": "Selects a resource of the container: only resources limits and requests\n(limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.",
+                                                            "properties": {
+                                                                "containerName": {
+                                                                    "description": "Container name: required for volumes, optional for env vars",
+                                                                    "type": "string"
+                                                                },
+                                                                "divisor": {
+                                                                    "anyOf": [
+                                                                        {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        {
+                                                                            "type": "string"
+                                                                        }
+                                                                    ],
+                                                                    "description": "Specifies the output format of the exposed resources, defaults to \"1\"",
+                                                                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                                                                    "x-kubernetes-int-or-string": true
+                                                                },
+                                                                "resource": {
+                                                                    "description": "Required: resource to select",
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "resource"
+                                                            ],
+                                                            "type": "object",
+                                                            "x-kubernetes-map-type": "atomic"
+                                                        },
+                                                        "secretKeyRef": {
+                                                            "description": "Selects a key of a secret in the pod's namespace",
+                                                            "properties": {
+                                                                "key": {
+                                                                    "description": "The key of the secret to select from.  Must be a valid secret key.",
+                                                                    "type": "string"
+                                                                },
+                                                                "name": {
+                                                                    "default": "",
+                                                                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                                                                    "type": "string"
+                                                                },
+                                                                "optional": {
+                                                                    "description": "Specify whether the Secret or its key must be defined",
+                                                                    "type": "boolean"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "key"
+                                                            ],
+                                                            "type": "object",
+                                                            "x-kubernetes-map-type": "atomic"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "required": [
+                                                "name"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "type": "array",
+                                        "x-kubernetes-list-map-keys": [
+                                            "name"
+                                        ],
+                                        "x-kubernetes-list-type": "map"
+                                    },
+                                    "gpuMemoryUtilization": {
+                                        "pattern": "^0?\\.[0-9]+$|^1\\.0$",
+                                        "type": "string"
+                                    },
+                                    "image": {
+                                        "default": "docker.io/library/vllm-gemma4:local",
+                                        "type": "string"
+                                    },
+                                    "imagePullPolicy": {
+                                        "default": "Never",
+                                        "enum": [
+                                            "Always",
+                                            "IfNotPresent",
+                                            "Never"
+                                        ],
+                                        "type": "string"
+                                    },
+                                    "kvCacheDtype": {
+                                        "default": "fp8_e4m3",
+                                        "description": "KVCacheDtype controls vLLM's --kv-cache-dtype flag. Required for this\npreset type — long-context deployments must opt in to a specific KV\ncache quantization. FP8 KV roughly halves KV memory at long context,\napproximately doubling max-model-len at the same VRAM budget; NVFP4\n(4-bit) goes further (~4× density) but is bleeding-edge — not all\nvLLM versions support it. Use `auto` to let vLLM pick a default\ncompatible with the weight quantization.\nfp8_e4m3 is chosen as the default because vLLM rejects fp8_e5m2 on\nFP8/NVFP4 weight checkpoints; e4m3 works with both BF16 and quantized\nweights. See issue #7.",
+                                        "enum": [
+                                            "auto",
+                                            "fp8",
+                                            "fp8_e5m2",
+                                            "fp8_e4m3",
+                                            "nvfp4"
+                                        ],
+                                        "type": "string"
+                                    },
+                                    "kvCacheDtypeSkipLayers": {
+                                        "description": "KVCacheDtypeSkipLayers exempts a layer group from KVCacheDtype\nquantization via vLLM's --kv-cache-dtype-skip-layers flag, e.g.\n\"sliding_window\". Gemma 4's sliding-window layers are the\nFP8-KV-quantization-sensitive ones per vLLM FP8-KV guidance; this lets\npresets keep them at native dtype while global layers stay fp8_e4m3.\nEmpty = flag omitted (all layers use KVCacheDtype).",
+                                        "type": "string"
+                                    },
+                                    "kvOffloadBackend": {
+                                        "default": "none",
+                                        "description": "KVOffloadBackend selects an external KV-offload store. Empty/\"none\"\ndisables; \"lmcache\" reserves the slot for an in-pod LMCache sidecar\n(wired in a follow-up PR — this PR adds the field only).",
+                                        "enum": [
+                                            "none",
+                                            "lmcache"
+                                        ],
+                                        "type": "string"
+                                    },
+                                    "kvOffloadSize": {
+                                        "description": "KVOffloadSize is the host-RAM budget for the external KV cache, in GiB.\nUsed as the LMCache buffer size when KVOffloadBackend == \"lmcache\".\n0 = backend default.",
+                                        "format": "int32",
+                                        "minimum": 0,
+                                        "type": "integer"
+                                    },
+                                    "limitMmPerPrompt": {
+                                        "description": "LimitMmPerPrompt controls vLLM's --limit-mm-per-prompt flag, passed\nthrough verbatim as a raw JSON object string (e.g. `{\"image\":0,\"audio\":0}`).\nText-only serving wastes VRAM on multimodal profiling; zeroing every\nmodality here reclaims that memory for the KV cache. Empty = flag\nomitted (vLLM's own multimodal defaults apply).",
+                                        "type": "string"
+                                    },
+                                    "livenessProbe": {
+                                        "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                        "properties": {
+                                            "failureThreshold": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            },
+                                            "initialDelaySeconds": {
+                                                "format": "int32",
+                                                "minimum": 0,
+                                                "type": "integer"
+                                            },
+                                            "periodSeconds": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "required": [
+                                            "failureThreshold",
+                                            "initialDelaySeconds",
+                                            "periodSeconds"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "loraModules": {
+                                        "description": "LoRA module name and path format: name=path",
+                                        "type": "string"
+                                    },
+                                    "mambaBackend": {
+                                        "description": "MambaBackend controls vLLM's --mamba-backend flag (the Mamba selective\nstate-update backend). OPTIONAL and unset by default: when empty, no\n--mamba-backend arg is rendered, so existing presets are byte-identical.\nNo kubebuilder default, for the same zero-blast-radius reason.\n\nOn sm_120 (RTX PRO 6000 Blackwell) `flashinfer` is recommended per vLLM\nissue #37431. Left as a free-form string rather than an enum: vLLM 0.27.1\nparses --mamba-backend as a plain string and only resolves it against\nMambaBackendEnum (triton/flashinfer/cpu, case-insensitively) at engine\ninit, so pinning an enum here would risk rejecting a backend valid in a\ndifferent vLLM build without adding real safety.",
+                                        "type": "string"
+                                    },
+                                    "mambaCacheMode": {
+                                        "description": "MambaCacheMode controls vLLM's --mamba-cache-mode flag for hybrid\nMamba/attention models (e.g. NemotronH). OPTIONAL and unset by default:\nwhen empty, no --mamba-cache-mode arg is rendered, so every existing\npreset renders byte-identically to pre-#404 behavior. There is\ndeliberately NO kubebuilder default — a default would widen the rendered\nargs for every current preset.\n\nWhy it exists (issue #404): with --enable-prefix-caching and no explicit\n--mamba-cache-mode, vLLM silently auto-selects `all` on NemotronH (it\ndeclares SupportsMambaPrefixCaching). Presets that force Model Runner V2\n(DSpark speculative decoding) then hit an assertion at mamba_mixer2.py\nbecause MambaHybridAttnMetadata never passes prev_last_scheduled_idx\n(upstream vllm-project/vllm#52317). Setting `align` avoids the `all`-mode\nbranch; a probe pod proved DSpark spec-decode works with it (56/69 draft\ntokens accepted, 81%). Follows the KVCacheDtype field convention.\n\nThe enum mirrors vLLM 0.27.1's MambaCacheMode literal exactly\n(vllm/config/cache.py: Literal[\"all\", \"align\", \"none\"]).",
+                                        "enum": [
+                                            "all",
+                                            "align",
+                                            "none"
+                                        ],
+                                        "type": "string"
+                                    },
+                                    "maxLoraRank": {
+                                        "description": "Maximum LoRA rank allowed",
+                                        "minimum": 1,
+                                        "type": "integer"
+                                    },
+                                    "maxModelLen": {
+                                        "format": "int32",
+                                        "minimum": 1024,
+                                        "type": "integer"
+                                    },
+                                    "maxNumBatchedTokens": {
+                                        "description": "MaxNumBatchedTokens caps tokens per scheduling iteration.\nRequired \u003e= max_tokens_per_mm_item for multimodal models on vLLM v0.20+\n(Gemma 4: 2496). Empty/0 = vLLM default (2048 on v0.20).",
+                                        "format": "int32",
+                                        "minimum": 0,
+                                        "type": "integer"
+                                    },
+                                    "maxNumSeqs": {
+                                        "description": "MaxNumSeqs caps vLLM's scheduler concurrency (--max-num-seqs). The\nserving workload is 1-3 concurrent requests; the vLLM default (256+)\nwastes CUDA-graph capture time and reserved memory. 0 = flag omitted.",
+                                        "format": "int32",
+                                        "minimum": 0,
+                                        "type": "integer"
+                                    },
+                                    "migResource": {
+                                        "pattern": "^nvidia\\.com/mig-[0-9]+g\\.[0-9]+gb$",
+                                        "type": "string"
+                                    },
+                                    "migResourceCount": {
+                                        "format": "int32",
+                                        "maximum": 8,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                    },
+                                    "modelID": {
+                                        "type": "string"
+                                    },
+                                    "progressDeadlineSeconds": {
+                                        "format": "int32",
+                                        "minimum": 60,
+                                        "type": "integer"
+                                    },
+                                    "quantization": {
+                                        "type": "string"
+                                    },
+                                    "readinessProbe": {
+                                        "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                        "properties": {
+                                            "failureThreshold": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            },
+                                            "initialDelaySeconds": {
+                                                "format": "int32",
+                                                "minimum": 0,
+                                                "type": "integer"
+                                            },
+                                            "periodSeconds": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "required": [
+                                            "failureThreshold",
+                                            "initialDelaySeconds",
+                                            "periodSeconds"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "reasoningParser": {
+                                        "description": "ReasoningParser selects vLLM's --reasoning-parser. For Gemma 4 thinking\nmodels this must be \"gemma4\" so the \\thought ... reasoning channel is\nseparated from response content; without it the chain-of-thought leaks\ninto content and tool_use blocks fail to surface.",
+                                        "type": "string"
+                                    },
+                                    "servedModelName": {
+                                        "description": "ServedModelName overrides the name vLLM advertises to clients (see\nthe corresponding field on ModelPresetSpec for full docs). Useful for\nkeeping a stable client-facing name (e.g. `google/gemma-4-31B-it`)\nregardless of whether the long-context preset's backend weights are\nNVFP4 or BF16.",
+                                        "type": "string"
+                                    },
+                                    "shmSizeLimit": {
+                                        "pattern": "^[0-9]+[KMGT]i?$",
+                                        "type": "string"
+                                    },
+                                    "speculativeConfig": {
+                                        "description": "SpeculativeConfig is a raw JSON configuration for vLLM's speculative decoding.\nExample: {\"method\":\"ngram\",\"num_speculative_tokens\":4,\"prompt_lookup_min\":2,\"prompt_lookup_max\":5}",
+                                        "type": "string"
+                                    },
+                                    "startupProbe": {
+                                        "description": "ProbeConfig is the tunable subset of a k8s probe.\nAll three fields (initialDelaySeconds, periodSeconds, failureThreshold) flow\nthrough to the rendered Pod spec for both liveness and readiness probes.",
+                                        "properties": {
+                                            "failureThreshold": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            },
+                                            "initialDelaySeconds": {
+                                                "format": "int32",
+                                                "minimum": 0,
+                                                "type": "integer"
+                                            },
+                                            "periodSeconds": {
+                                                "format": "int32",
+                                                "minimum": 1,
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "required": [
+                                            "failureThreshold",
+                                            "initialDelaySeconds",
+                                            "periodSeconds"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "tensorParallelSize": {
+                                        "format": "int32",
+                                        "minimum": 1,
+                                        "type": "integer"
+                                    },
+                                    "toolCallParser": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "gpuMemoryUtilization",
+                                    "kvCacheDtype",
+                                    "livenessProbe",
+                                    "maxModelLen",
+                                    "migResource",
+                                    "migResourceCount",
+                                    "modelID",
+                                    "progressDeadlineSeconds",
+                                    "readinessProbe",
+                                    "shmSizeLimit",
+                                    "tensorParallelSize"
+                                ],
+                                "type": "object",
+                                "x-kubernetes-validations": [
+                                    {
+                                        "message": "LMCache offload is single-slice only (kvOffloadBackend=lmcache requires migResourceCount=1 and tensorParallelSize=1)",
+                                        "rule": "!(self.kvOffloadBackend == 'lmcache' \u0026\u0026 (self.migResourceCount \u003e 1 || self.tensorParallelSize \u003e 1))"
+                                    }
+                                ]
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "served": true,
+                "storage": true,
+                "subresources": {}
+            }
+        ]
+    },
+    "status": {
+        "acceptedNames": {
+            "kind": "LongContextPreset",
+            "listKind": "LongContextPresetList",
+            "plural": "longcontextpresets",
+            "shortNames": [
+                "lcp"
+            ],
+            "singular": "longcontextpreset"
+        },
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-05-07T05:55:27Z",
+                "message": "no conflicts found",
+                "reason": "NoConflicts",
+                "status": "True",
+                "type": "NamesAccepted"
+            },
+            {
+                "lastTransitionTime": "2026-05-07T05:55:27Z",
+                "message": "the initial names have been accepted",
+                "reason": "InitialNamesAccepted",
+                "status": "True",
+                "type": "Established"
+            }
+        ],
+        "storedVersions": [
+            "v1alpha1"
+        ]
+    }
+}

@@ -1,0 +1,197 @@
+[
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "31b-nvfp4-longctx",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "nodePort": 31409,
+   "presetRef": {
+    "name": "gemma-4-31b-nvfp4-longctx"
+   },
+   "pvcName": "vllm-models-pvc",
+   "replicas": 0,
+   "serviceType": "NodePort"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-48g-canary",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "presetRef": {
+    "name": "nemotron-35-lightning-1m-48g-canary"
+   },
+   "pvcName": "vllm-models-pvc",
+   "pvcReadOnly": true,
+   "replicas": 0,
+   "serviceType": "ClusterIP"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-48g-dspark-tp1",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "presetRef": {
+    "name": "nemotron-35-lightning-1m-48g-dspark-tp1"
+   },
+   "pvcName": "vllm-models-pvc",
+   "pvcReadOnly": true,
+   "replicas": 0,
+   "serviceType": "ClusterIP"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-48g-mtp",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "presetRef": {
+    "name": "nemotron-35-lightning-1m-48g-mtp"
+   },
+   "pvcName": "vllm-models-pvc",
+   "pvcReadOnly": true,
+   "replicas": 0,
+   "serviceType": "ClusterIP"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "nemotron-35-lightning-1m-96g-dspark-tp1",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "presetRef": {
+    "name": "nemotron-35-lightning-1m-96g-dspark-tp1"
+   },
+   "pvcName": "vllm-models-pvc",
+   "pvcReadOnly": true,
+   "replicas": 1,
+   "serviceType": "ClusterIP"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "qwen3-4b-classifier-canary",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "overrides": {
+    "kvCacheDtype": "bfloat16"
+   },
+   "presetRef": {
+    "name": "qwen3-4b-classifier-canary"
+   },
+   "pvcName": "vllm-models-pvc",
+   "pvcReadOnly": true,
+   "replicas": 0,
+   "serviceType": "ClusterIP"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "qwen3-8b-fast-worker-canary",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "overrides": {
+    "kvCacheDtype": "bfloat16"
+   },
+   "presetRef": {
+    "name": "qwen3-8b-fast-worker-canary"
+   },
+   "pvcName": "vllm-models-pvc",
+   "pvcReadOnly": true,
+   "replicas": 0,
+   "serviceType": "ClusterIP"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "qwen3-instruct",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "nodePort": 31415,
+   "presetRef": {
+    "name": "qwen3-instruct-30b-a3b-fp8"
+   },
+   "pvcName": "vllm-models-pvc",
+   "replicas": 0,
+   "serviceType": "NodePort"
+  }
+ },
+ {
+  "apiVersion": "vllm.aatchison.io/v1alpha1",
+  "kind": "LongContextInstance",
+  "metadata": {
+   "name": "qwen38-27b",
+   "namespace": "vllm"
+  },
+  "spec": {
+   "hfToken": {
+    "name": "REDACTED-REF",
+    "key": "token"
+   },
+   "nodePort": 31417,
+   "presetRef": {
+    "name": "qwen38-27b-fp8"
+   },
+   "pvcName": "vllm-models-pvc",
+   "replicas": 0,
+   "serviceType": "NodePort"
+  }
+ }
+]
