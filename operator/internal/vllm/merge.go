@@ -114,10 +114,17 @@ type EffectiveConfig struct {
 	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
 	MambaCacheMode         string `json:"mambaCacheMode,omitempty"`
 
-	MambaBackend      string          `json:"mambaBackend,omitempty"`
-	EnforceEager      *bool           `json:"enforceEager,omitempty"`
-	CompilationConfig string          `json:"compilationConfig,omitempty"`
-	Env               []corev1.EnvVar `json:"env,omitempty"`
+	MambaBackend           string          `json:"mambaBackend,omitempty"`
+	EnforceEager           *bool           `json:"enforceEager,omitempty"`
+	CompilationConfig      string          `json:"compilationConfig,omitempty"`
+	Env                    []corev1.EnvVar `json:"env,omitempty"`
+	ModelRevision          string          `json:"modelRevision,omitempty"`
+	CodeRevision           string          `json:"codeRevision,omitempty"`
+	TokenizerRevision      string          `json:"tokenizerRevision,omitempty"`
+	TrustRemoteCode        bool            `json:"trustRemoteCode,omitempty"`
+	DisableCustomAllReduce bool            `json:"disableCustomAllReduce,omitempty"`
+	FlashinferAutotune     *bool           `json:"flashinferAutotune,omitempty"`
+	EngramConfig           string          `json:"engramConfig,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -494,6 +501,8 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 	}
 
+	mergeLongContextFlags(&e, preset, overrides)
+
 	if e.Image == "" {
 		e.Image = DefaultImage
 	}
@@ -513,4 +522,47 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	}
 	sum := sha256.Sum256(buf)
 	return e, hex.EncodeToString(sum[:]), nil
+}
+
+// mergeLongContextFlags applies the issue #178 fields without changing standard presets.
+func mergeLongContextFlags(e *EffectiveConfig, p *vllmv1alpha1.LongContextPresetSpec, o *vllmv1alpha1.LongContextOverrides) {
+	if p != nil {
+		e.ModelRevision = p.ModelRevision
+		e.CodeRevision = p.CodeRevision
+		e.TokenizerRevision = p.TokenizerRevision
+		e.TrustRemoteCode = p.TrustRemoteCode
+		e.DisableCustomAllReduce = p.DisableCustomAllReduce
+		if p.FlashinferAutotune != nil {
+			v := *p.FlashinferAutotune
+			e.FlashinferAutotune = &v
+		}
+		e.EngramConfig = p.EngramConfig
+	}
+	if o != nil {
+		if o.ModelRevision != nil {
+			e.ModelRevision = *o.ModelRevision
+		}
+		if o.CodeRevision != nil {
+			e.CodeRevision = *o.CodeRevision
+		}
+		if o.TokenizerRevision != nil {
+			e.TokenizerRevision = *o.TokenizerRevision
+		}
+		if o.TrustRemoteCode != nil {
+			e.TrustRemoteCode = *o.TrustRemoteCode
+		}
+		if o.DisableCustomAllReduce != nil {
+			e.DisableCustomAllReduce = *o.DisableCustomAllReduce
+		}
+		if o.FlashinferAutotune != nil {
+			v := *o.FlashinferAutotune
+			e.FlashinferAutotune = &v
+		}
+		if o.EngramConfig != nil {
+			e.EngramConfig = *o.EngramConfig
+		}
+		if o.MaxNumSeqs != nil {
+			e.MaxNumSeqs = *o.MaxNumSeqs
+		}
+	}
 }

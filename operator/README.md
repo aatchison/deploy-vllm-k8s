@@ -9,6 +9,47 @@ Design doc: [`../docs/superpowers/specs/2026-04-16-vllm-operator-design.md`](../
 - `ModelPreset` (`vllm.aatchison.io/v1alpha1`) — reusable vLLM config (model, MIG resource, context length, probes). 7 presets ship in `config/samples/presets/`.
 - `VLLMInstance` (`vllm.aatchison.io/v1alpha1`) — one instance = one Deployment + one Service. References a preset by name plus optional overrides. Service type is configurable (`spec.serviceType`, default `ClusterIP`); see [Network policy](#network-policy).
 
+## Long-context typed flags
+
+The following fields are available on `LongContextPreset.spec` and
+`LongContextInstance.spec.overrides` (Refs #178). Each non-nil override replaces
+its preset value. Omitted overrides inherit the preset. These fields do not
+change `ModelPreset` or `VLLMInstance`.
+
+| Field | Type | vLLM flag | Omitted / validation |
+|---|---|---|---|
+| `modelRevision` | string | `--revision` | Omitted uses vLLM default; exactly 40 hex characters when set. |
+| `codeRevision` | string | `--code-revision` | Omitted uses vLLM default; exactly 40 hex characters when set. |
+| `tokenizerRevision` | string | `--tokenizer-revision` | Omitted uses vLLM default; exactly 40 hex characters when set. |
+| `trustRemoteCode` | bool | `--trust-remote-code` | Default false; false emits no flag. |
+| `disableCustomAllReduce` | bool | `--disable-custom-all-reduce` | Default false; false emits no flag. |
+| `flashinferAutotune` | optional bool | `--enable-flashinfer-autotune` / `--no-enable-flashinfer-autotune` | Omitted emits neither flag; explicit false emits the negative flag. |
+| `engramConfig` | JSON object string | `--engram-config` | Omitted or empty emits no flag. |
+| `maxNumSeqs` | int32 (optional override) | `--max-num-seqs` | Minimum 0; omitted or zero uses vLLM default. An explicit zero override clears the preset flag. |
+| `reasoningParser` | string | `--reasoning-parser` | Omitted or empty emits no flag. |
+| `chatTemplate` | string | `--chat-template` | Omitted or empty emits no flag; vLLM resolves the template inside the container. |
+| `compilationConfig` | optional string | `--compilation-config` | Omitted or empty emits no flag. Put `cudagraph_capture_sizes` here. |
+| `speculativeConfig` | string | `--speculative-config` | Omitted or empty emits no flag; `{"method":"mtp","num_speculative_tokens":3}` passes unchanged. |
+
+JSON strings become one argument each, without parsing and reserializing their
+contents. For `engramConfig`, CRD patterns check object-shaped strings; Kubernetes CEL
+has no JSON parser. The operator checks its full JSON syntax and object type
+before it applies a Deployment. Malformed object-shaped engram strings can be
+admitted, but the instance reports `Ready=False` with reason
+`InvalidConfiguration` and does not apply a new Deployment. `compilationConfig`
+and `speculativeConfig` use the ported raw-string contract. vLLM validates
+those values at startup. An empty string override clears a JSON, parser, or
+template flag. Revision overrides must contain a SHA; they cannot clear a pin.
+
+`trustRemoteCode` permits repository code to run in the model container. Enable
+it only for reviewed code and pin `codeRevision` as well as `modelRevision`.
+These flags do not change pod privileges, seccomp, capabilities, or namespaces.
+The engram/PLE security profile is a separate change in #179.
+
+See the [untested Qwen3.8-Flash-Next preset](../docs/examples/qwen3.8-flash-next.yaml).
+The field-to-flag mapping follows [vLLM v0.31.0 engine arguments](https://github.com/vllm-project/vllm/blob/v0.31.0/vllm/engine/arg_utils.py)
+and [server arguments](https://github.com/vllm-project/vllm/blob/v0.31.0/vllm/entrypoints/launchers/cli_args.py).
+
 ## Quick start
 
 ```bash

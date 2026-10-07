@@ -69,6 +69,12 @@ spec:
             properties:
               chatTemplate:
                 type: string
+              codeRevision:
+                description: |-
+                  CodeRevision sets vLLM's --code-revision flag.
+                  Omit to use the model repository default; only full commit SHAs are accepted.
+                pattern: ^[0-9a-fA-F]{40}$
+                type: string
               compilationConfig:
                 type: string
               cpuOffloadGiB:
@@ -79,6 +85,10 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              disableCustomAllReduce:
+                description: DisableCustomAllReduce sets vLLM's --disable-custom-all-reduce
+                  flag.
+                type: boolean
               dtype:
                 type: string
               enableAutoToolChoice:
@@ -107,6 +117,13 @@ spec:
               enforceEager:
                 nullable: true
                 type: boolean
+              engramConfig:
+                description: |-
+                  EngramConfig sets vLLM's --engram-config flag.
+                  JSON object string, passed unchanged. Empty disables the flag.
+                  Admission checks object shape; the operator validates full JSON syntax before apply.
+                pattern: ^$|^[ \t\r\n]*\{[\s\S]*\}[ \t\r\n]*$
+                type: string
               env:
                 items:
                   description: EnvVar represents an environment variable present in
@@ -266,6 +283,11 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              flashinferAutotune:
+                description: |-
+                  FlashinferAutotune sets vLLM's --enable-flashinfer-autotune flag.
+                  Nil leaves the vLLM default unchanged; false emits --no-enable-flashinfer-autotune.
+                type: boolean
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$
                 type: string
@@ -385,6 +407,12 @@ spec:
                 type: integer
               modelID:
                 type: string
+              modelRevision:
+                description: |-
+                  ModelRevision sets vLLM's --revision flag.
+                  Omit to use the model repository default; only full commit SHAs are accepted.
+                pattern: ^[0-9a-fA-F]{40}$
+                type: string
               progressDeadlineSeconds:
                 format: int32
                 minimum: 60
@@ -456,8 +484,20 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
+              tokenizerRevision:
+                description: |-
+                  TokenizerRevision sets vLLM's --tokenizer-revision flag.
+                  Omit to use the model repository default; only full commit SHAs are accepted.
+                pattern: ^[0-9a-fA-F]{40}$
+                type: string
               toolCallParser:
                 type: string
+              trustRemoteCode:
+                default: false
+                description: |-
+                  TrustRemoteCode sets vLLM's --trust-remote-code flag.
+                  Opt-in only: repository code runs inside the model container.
+                type: boolean
             required:
             - gpuMemoryUtilization
             - kvCacheDtype
