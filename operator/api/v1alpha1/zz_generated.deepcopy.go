@@ -374,6 +374,11 @@ func (in *LongContextOverrides) DeepCopyInto(out *LongContextOverrides) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.SecurityProfile != nil {
+		in, out := &in.SecurityProfile, &out.SecurityProfile
+		*out = new(SecurityProfile)
+		**out = **in
+	}
 	if in.EngramConfig != nil {
 		in, out := &in.EngramConfig, &out.EngramConfig
 		*out = new(string)

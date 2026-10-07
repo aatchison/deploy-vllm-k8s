@@ -444,6 +444,16 @@ spec:
                 type: object
               reasoningParser:
                 type: string
+              securityProfile:
+                default: default
+                description: |-
+                  SecurityProfile is an explicit host-offload opt-in. Both profiles keep
+                  the restricted pod security context on vLLM v0.31.0; engram-ipc also
+                  requires an operator-approved namespace and a nonempty engramConfig.
+                enum:
+                - default
+                - engram-ipc
+                type: string
               servedModelName:
                 description: |-
                   ServedModelName overrides the name vLLM advertises to clients (see
@@ -512,6 +522,9 @@ spec:
             - tensorParallelSize
             type: object
             x-kubernetes-validations:
+            - message: engram-ipc requires a nonempty engramConfig
+              rule: '!has(self.securityProfile) || self.securityProfile != ''engram-ipc''
+                || (has(self.engramConfig) && size(self.engramConfig) > 0)'
             - message: LMCache offload is single-slice only (kvOffloadBackend=lmcache
                 requires migResourceCount=1 and tensorParallelSize=1)
               rule: '!(self.kvOffloadBackend == ''lmcache'' && (self.migResourceCount

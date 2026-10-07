@@ -482,6 +482,14 @@ spec:
                     type: object
                   reasoningParser:
                     type: string
+                  securityProfile:
+                    description: |-
+                      SecurityProfile replaces the preset policy. Explicit default opts out.
+                      No admission default: an absent override must inherit the preset.
+                    enum:
+                    - default
+                    - engram-ipc
+                    type: string
                   servedModelName:
                     type: string
                   shmSizeLimit:
@@ -529,6 +537,10 @@ spec:
                       Opt-in only: repository code runs inside the model container.
                     type: boolean
                 type: object
+                x-kubernetes-validations:
+                - message: an engram-ipc override requires a nonempty overrides.engramConfig
+                  rule: '!has(self.securityProfile) || self.securityProfile != ''engram-ipc''
+                    || (has(self.engramConfig) && size(self.engramConfig) > 0)'
               presetRef:
                 description: LongContextPresetReference names a LongContextPreset
                   in the same namespace.

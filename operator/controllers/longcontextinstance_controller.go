@@ -40,6 +40,10 @@ type LongContextInstanceReconciler struct {
 	APIReader client.Reader
 	Scheme    *runtime.Scheme
 	Recorder  record.EventRecorder
+
+	// EngramIPCNamespaces is configured by the operator, never by a CR.
+	// A nil or empty map refuses every engram-ipc request.
+	EngramIPCNamespaces map[string]struct{}
 }
 
 // +kubebuilder:rbac:groups=vllm.aatchison.io,resources=longcontextpresets,verbs=get;list;watch
@@ -107,7 +111,7 @@ func (r *LongContextInstanceReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}
 	instance.Status.ResolvedConfigHash = hash
-	if err := vllm.ValidateEffectiveConfig(effective); err != nil {
+	if err := r.validateSecurityPolicy179(effective, instance.Namespace); err != nil {
 		if setLongContextCondition(&instance, vllmv1alpha1.ConditionReady, metav1.ConditionFalse, vllmv1alpha1.ReasonInvalidConfiguration, err.Error()) {
 			r.eventf(&instance, corev1.EventTypeWarning, vllmv1alpha1.ReasonInvalidConfiguration, "%v", err)
 		}

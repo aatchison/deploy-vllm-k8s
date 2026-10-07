@@ -351,3 +351,60 @@ func TestSecurity179ExactlyProvenSecuritySet(t *testing.T) {
 		}
 	}
 }
+
+func TestSecurity179ExplicitDefaultByteIdentical(t *testing.T) {
+	var preset v1alpha1.LongContextPresetSpec
+	if err := json.Unmarshal([]byte(`{"modelID":"m","migResource":"nvidia.com/mig-4g.96gb","shmSizeLimit":"8Gi"}`), &preset); err != nil {
+		t.Fatal(err)
+	}
+	before, bh, err := ResolveLongContext(&preset, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preset.SecurityProfile = v1alpha1.SecurityProfileDefault
+	after, ah, err := ResolveLongContext(&preset, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := json.Marshal(buildTestDeployment(before))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(buildTestDeployment(after))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bh != ah || !bytes.Equal(a, b) {
+		t.Fatal("explicit default changes hash or Deployment")
+	}
+	def := v1alpha1.SecurityProfileDefault
+	after, ah, err = ResolveLongContext(nil, &v1alpha1.LongContextOverrides{ModelID: &preset.ModelID, MIGResource: &preset.MIGResource, SHMSizeLimit: &preset.SHMSizeLimit, SecurityProfile: &def})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err = json.Marshal(buildTestDeployment(after))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bh != ah || !bytes.Equal(a, b) {
+		t.Fatal("default override changes hash or Deployment")
+	}
+}
+
+func TestSecurity179TypedEngramArgumentPreservesBytes(t *testing.T) {
+	config := `{ "cpu_offload": true, "dp_shared_memory": false }`
+	e := securityConfig179(t, "engram-ipc", config)
+	args := buildArgs(e)
+	found := 0
+	for i, arg := range args {
+		if arg == "--engram-config" {
+			found++
+			if i+1 >= len(args) || args[i+1] != config {
+				t.Fatalf("config bytes changed: %v", args)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("engram flag count=%d", found)
+	}
+}

@@ -21,7 +21,11 @@ func TestSecurity179GeneratedSchema(t *testing.T) {
 				var obj map[string]interface{}
 				if file == "vllm.aatchison.io_longcontextinstances.yaml" {
 					obj = overrideValidationObject("securityProfile", tc.profile)
-					obj["spec"].(map[string]interface{})["overrides"] = fields
+					spec, ok := obj["spec"].(map[string]interface{})
+					if !ok {
+						t.Fatal("invalid test fixture spec")
+					}
+					spec["overrides"] = fields
 				} else {
 					fields["modelID"] = "m"
 					fields["migResource"] = "nvidia.com/mig-4g.96gb"

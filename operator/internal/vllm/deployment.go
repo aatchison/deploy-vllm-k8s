@@ -512,6 +512,9 @@ func ValidateEffectiveConfig(e EffectiveConfig) error {
 	if err := validateLongContextFlags(e); err != nil {
 		return err
 	}
+	if err := validateSecurityProfile179(e); err != nil {
+		return err
+	}
 	if ok, msg := validateLoraModules(e.LoraModules); !ok {
 		return fmt.Errorf("invalid loraModules: %s", msg)
 	}

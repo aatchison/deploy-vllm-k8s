@@ -54,13 +54,14 @@ func init() {
 func durationPtr(d time.Duration) *time.Duration { return &d }
 
 func main() {
-	var metricsAddr, probeAddr, watchNamespaces string
+	var metricsAddr, probeAddr, watchNamespaces, engramIPCNamespaces string
 	var enableLeader bool
 	defaultNamespaces, configured := os.LookupEnv("WATCH_NAMESPACES")
 	if !configured {
 		defaultNamespaces = "vllm"
 	}
 	flag.StringVar(&watchNamespaces, "watch-namespaces", defaultNamespaces, "Comma-separated managed namespaces; cluster-wide watching is not supported.")
+	flag.StringVar(&engramIPCNamespaces, "engram-ipc-namespaces", os.Getenv("ENGRAM_IPC_NAMESPACES"), "Comma-separated namespaces allowed to use securityProfile=engram-ipc; empty refuses all.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	// Default leader-election ON so an accidental >1 replica deploy can't run two managers
@@ -77,6 +78,11 @@ func main() {
 	cacheOptions, err := managedCacheOptions(watchNamespaces)
 	if err != nil {
 		ctrl.Log.Error(err, "invalid managed namespace configuration")
+		os.Exit(1)
+	}
+	engramAllowed, err := controllers.ParseEngramIPCNamespaces(engramIPCNamespaces)
+	if err != nil {
+		ctrl.Log.Error(err, "invalid engram IPC namespace configuration")
 		os.Exit(1)
 	}
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -145,10 +151,11 @@ func main() {
 	}
 
 	if err := (&controllers.LongContextInstanceReconciler{
-		Client:    mgr.GetClient(),
-		APIReader: mgr.GetAPIReader(),
-		Scheme:    mgr.GetScheme(),
-		Recorder:  recorder,
+		EngramIPCNamespaces: engramAllowed,
+		Client:              mgr.GetClient(),
+		APIReader:           mgr.GetAPIReader(),
+		Scheme:              mgr.GetScheme(),
+		Recorder:            recorder,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "LongContextInstance")
 		os.Exit(1)
