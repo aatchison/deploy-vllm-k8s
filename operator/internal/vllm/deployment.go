@@ -596,6 +596,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.MaxNumSeqs > 0 {
 		args = append(args, "--max-num-seqs", strconv.Itoa(int(e.MaxNumSeqs)))
 	}
+	if e.KVCacheDtypeSkipLayers != "" {
+		args = append(args, "--kv-cache-dtype-skip-layers", e.KVCacheDtypeSkipLayers)
+	}
 	return args
 }
 

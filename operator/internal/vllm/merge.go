@@ -104,12 +104,13 @@ type EffectiveConfig struct {
 	// VolumeMount readOnly. Default false preserves current write-cache
 	// behavior. omitempty keeps the resolved-config-hash stable for instances
 	// that don't opt in.
-	PVCReadOnly       bool   `json:"pvcReadOnly,omitempty"`
-	ReasoningParser   string `json:"reasoningParser,omitempty"`
-	ChatTemplate      string `json:"chatTemplate,omitempty"`
-	SpeculativeConfig string `json:"speculativeConfig,omitempty"`
-	LimitMmPerPrompt  string `json:"limitMmPerPrompt,omitempty"`
-	MaxNumSeqs        int32  `json:"maxNumSeqs,omitempty"`
+	PVCReadOnly            bool   `json:"pvcReadOnly,omitempty"`
+	ReasoningParser        string `json:"reasoningParser,omitempty"`
+	ChatTemplate           string `json:"chatTemplate,omitempty"`
+	SpeculativeConfig      string `json:"speculativeConfig,omitempty"`
+	LimitMmPerPrompt       string `json:"limitMmPerPrompt,omitempty"`
+	MaxNumSeqs             int32  `json:"maxNumSeqs,omitempty"`
+	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -275,6 +276,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			KVCacheDtypeSkipLayers:  preset.KVCacheDtypeSkipLayers,
 			MaxNumSeqs:              preset.MaxNumSeqs,
 			LimitMmPerPrompt:        preset.LimitMmPerPrompt,
 			SpeculativeConfig:       preset.SpeculativeConfig,

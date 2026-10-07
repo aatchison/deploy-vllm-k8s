@@ -135,6 +135,8 @@ spec:
                 - fp8_e4m3
                 - nvfp4
                 type: string
+              kvCacheDtypeSkipLayers:
+                type: string
               kvOffloadBackend:
                 default: none
                 description: |-

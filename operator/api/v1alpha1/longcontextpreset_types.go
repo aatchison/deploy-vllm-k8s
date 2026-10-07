@@ -133,6 +133,8 @@ type LongContextPresetSpec struct {
 	LimitMmPerPrompt string `json:"limitMmPerPrompt,omitempty"`
 	// +kubebuilder:validation:Minimum=0
 	MaxNumSeqs int32 `json:"maxNumSeqs,omitempty"`
+
+	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
 }
 
 // +kubebuilder:object:root=true
