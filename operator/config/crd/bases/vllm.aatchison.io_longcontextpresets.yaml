@@ -90,7 +90,7 @@ spec:
                   at default. Useful for long-context throughput too.
                 type: boolean
               enableLora:
-                description: EnableLora enables LoRA adapter support in vLLM.
+                description: Enable LoRA adapter serving in vLLM
                 type: boolean
               enablePrefixCaching:
                 default: true
@@ -345,8 +345,7 @@ spec:
                 - periodSeconds
                 type: object
               loraModules:
-                description: LoraModules maps served adapter names to paths under
-                  /models/.
+                description: 'LoRA module name and path format: name=path'
                 type: string
               mambaBackend:
                 type: string
@@ -357,6 +356,7 @@ spec:
                 - none
                 type: string
               maxLoraRank:
+                description: Maximum LoRA rank allowed
                 minimum: 1
                 type: integer
               maxModelLen:

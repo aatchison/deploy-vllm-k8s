@@ -71,6 +71,8 @@ spec:
                 type: boolean
               enableLora:
                 default: false
+                description: EnableLora enables vLLM's --enable-lora flag, supporting
+                  LoRA adapter serving.
                 type: boolean
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$
@@ -109,9 +111,13 @@ spec:
                 - periodSeconds
                 type: object
               loraModules:
+                description: LoraModules specifies the LoRA modules via --lora-modules
+                  name=path.
                 type: string
               maxLoraRank:
                 default: 64
+                description: MaxLoraRank sets --max-lora-rank, controlling the maximum
+                  LoRA rank allowed.
                 minimum: 1
                 type: integer
               maxModelLen:

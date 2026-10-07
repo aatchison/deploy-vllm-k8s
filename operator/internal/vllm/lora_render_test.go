@@ -72,8 +72,8 @@ func TestBuildDeploymentEnableLora(t *testing.T) {
 		"--max-model-len", "32768",
 		"--gpu-memory-utilization", "0.90",
 		"--enable-lora",
-		"--max-lora-rank", "16",
 		"--lora-modules", "fleetv1=/models/adapters/test/run-20240101T000000Z-pid123/lora_weights",
+		"--max-lora-rank", "16",
 	}
 	if !reflect.DeepEqual(args, wantArgs) {
 		t.Fatalf("container args = %#v, want exact vector %#v", args, wantArgs)
