@@ -13,7 +13,17 @@ type PresetReference struct {
 
 // ModelConfigOverrides mirrors ModelPresetSpec field-for-field; every field is a pointer —
 // non-nil means override. Probe overrides replace the whole ProbeConfig struct.
+// +kubebuilder:validation:XValidation:rule="!has(self.memoryRequest) || size(self.memoryRequest) == 0 || (isQuantity(self.memoryRequest) && quantity(self.memoryRequest).isGreaterThan(quantity('0')))",message="memoryRequest must be a positive Kubernetes quantity"
+// +kubebuilder:validation:XValidation:rule="!has(self.memoryLimit) || size(self.memoryLimit) == 0 || (isQuantity(self.memoryLimit) && quantity(self.memoryLimit).isGreaterThan(quantity('0')))",message="memoryLimit must be a positive Kubernetes quantity"
+// +kubebuilder:validation:XValidation:rule="!has(self.memoryRequest) || !has(self.memoryLimit) || size(self.memoryRequest) == 0 || size(self.memoryLimit) == 0 || (isQuantity(self.memoryRequest) && isQuantity(self.memoryLimit) && !quantity(self.memoryRequest).isGreaterThan(quantity(self.memoryLimit)))",message="memoryLimit must be greater than or equal to memoryRequest"
 type ModelConfigOverrides struct {
+	// MemoryRequest is the vLLM container's host-RAM request, as a Kubernetes quantity.
+	// +kubebuilder:validation:Pattern=`^$|^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+|[numkKMGTPE]|[KMGTPE]i)?$`
+	MemoryRequest *string `json:"memoryRequest,omitempty"`
+	// MemoryLimit is the vLLM container's host-RAM limit, as a Kubernetes quantity.
+	// +kubebuilder:validation:Pattern=`^$|^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+|[numkKMGTPE]|[KMGTPE]i)?$`
+	MemoryLimit *string `json:"memoryLimit,omitempty"`
+
 	ModelID *string `json:"modelID,omitempty"`
 	Image   *string `json:"image,omitempty"`
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never

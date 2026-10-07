@@ -114,6 +114,8 @@ spec:
 
 Twelve presets ship in `operator/config/samples/presets/` — eight `ModelPreset`s covering the Gemma 4 range from E2B (1g.24gb) through 31B BF16 TP=2 (two 4g.96gb slices across both GPUs), plus four `LongContextPreset`s tuned for maximum context per slice (see "LongContextPreset / LongContextInstance" below).
 
+For host-RAM requests and limits, PLE offload sizing, and the distinction from `/dev/shm`, see [Host memory for vLLM](docs/host-memory.md).
+
 ### VLLMInstance
 
 One running model endpoint. References a `ModelPreset` by name and adds deployment-specific details. The operator creates a `Deployment` and a `NodePort Service`, then tracks readiness in `.status`.

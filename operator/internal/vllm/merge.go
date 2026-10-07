@@ -73,6 +73,8 @@ const (
 // so any path that doesn't set them produces JSON identical to the pre-field
 // shape — keeping the resolved-config-hash stable for existing instances.
 type EffectiveConfig struct {
+	MemoryRequest           string                    `json:"memoryRequest,omitempty"`
+	MemoryLimit             string                    `json:"memoryLimit,omitempty"`
 	ModelID                 string                    `json:"modelID"`
 	Image                   string                    `json:"image"`
 	ImagePullPolicy         string                    `json:"imagePullPolicy"`
@@ -150,6 +152,8 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 
 	if preset != nil {
 		e = EffectiveConfig{
+			MemoryRequest:           preset.MemoryRequest,
+			MemoryLimit:             preset.MemoryLimit,
 			ModelID:                 preset.ModelID,
 			ChatTemplate:            preset.ChatTemplate,
 			ReasoningParser:         preset.ReasoningParser,
@@ -186,6 +190,12 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 		}
 	}
 	if overrides != nil {
+		if overrides.MemoryRequest != nil {
+			e.MemoryRequest = *overrides.MemoryRequest
+		}
+		if overrides.MemoryLimit != nil {
+			e.MemoryLimit = *overrides.MemoryLimit
+		}
 		if overrides.ChatTemplate != nil {
 			e.ChatTemplate = *overrides.ChatTemplate
 		}
@@ -331,6 +341,8 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	if preset != nil {
 		e = EffectiveConfig{
 			Env:                     MergeEnv(preset.Env),
+			MemoryRequest:           preset.MemoryRequest,
+			MemoryLimit:             preset.MemoryLimit,
 			ModelID:                 preset.ModelID,
 			MambaBackend:            preset.MambaBackend,
 			MambaCacheMode:          preset.MambaCacheMode,
@@ -390,6 +402,12 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 	}
 	if overrides != nil {
+		if overrides.MemoryRequest != nil {
+			e.MemoryRequest = *overrides.MemoryRequest
+		}
+		if overrides.MemoryLimit != nil {
+			e.MemoryLimit = *overrides.MemoryLimit
+		}
 		if overrides.EnforceEager != nil {
 			v := *overrides.EnforceEager
 			e.EnforceEager = &v
