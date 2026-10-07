@@ -198,6 +198,10 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              maxNumSeqs:
+                format: int32
+                minimum: 0
+                type: integer
               migResource:
                 pattern: ^nvidia\.com/mig-[0-9]+g\.[0-9]+gb$
                 type: string

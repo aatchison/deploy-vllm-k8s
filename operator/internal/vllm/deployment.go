@@ -593,6 +593,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.LimitMmPerPrompt != "" {
 		args = append(args, "--limit-mm-per-prompt", e.LimitMmPerPrompt)
 	}
+	if e.MaxNumSeqs > 0 {
+		args = append(args, "--max-num-seqs", strconv.Itoa(int(e.MaxNumSeqs)))
+	}
 	return args
 }
 

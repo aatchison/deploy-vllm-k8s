@@ -131,6 +131,8 @@ type LongContextPresetSpec struct {
 	SpeculativeConfig string `json:"speculativeConfig,omitempty"`
 
 	LimitMmPerPrompt string `json:"limitMmPerPrompt,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	MaxNumSeqs int32 `json:"maxNumSeqs,omitempty"`
 }
 
 // +kubebuilder:object:root=true
