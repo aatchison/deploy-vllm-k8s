@@ -85,6 +85,7 @@ func (s *Schema) Admit(obj map[string]interface{}) (*AdmissionResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	coerceIntegers(beforeDefaults, s.Structural)
 	structuraldefaulting.Default(admitted, s.Structural)
 
 	openAPIValidator, _, err := crdvalidation.NewSchemaValidator(s.OpenAPI)

@@ -144,16 +144,16 @@ func TestAdmissionExercisesDefaultsEnumsPatternsAndCEL(t *testing.T) {
 
 	longPresetSchema := mustSchema(t, filepath.Join("..", "..", "config", "crd", "bases", "vllm.aatchison.io_longcontextpresets.yaml"))
 	enumMutant := mustResources(t, filepath.Join("testdata", "live-longcontextpresets.json"))[0]
-	enumMutant["spec"].(map[string]interface{})["imagePullPolicy"] = "Sometimes"
+	resourceSpec(t, enumMutant)["imagePullPolicy"] = "Sometimes"
 	assertRejected(t, longPresetSchema, enumMutant, "imagePullPolicy", "enum")
 
 	patternMutant := mustResources(t, filepath.Join("testdata", "live-modelpresets.json"))[0]
-	patternMutant["spec"].(map[string]interface{})["gpuMemoryUtilization"] = "not-a-fraction"
+	resourceSpec(t, patternMutant)["gpuMemoryUtilization"] = "not-a-fraction"
 	assertRejected(t, modelSchema, patternMutant, "gpuMemoryUtilization", "pattern")
 
 	longInstanceSchema := mustSchema(t, filepath.Join("..", "..", "config", "crd", "bases", "vllm.aatchison.io_longcontextinstances.yaml"))
 	celMutant := mustResources(t, filepath.Join("testdata", "live-longcontextinstances.json"))[0]
-	celSpec := celMutant["spec"].(map[string]interface{})
+	celSpec := resourceSpec(t, celMutant)
 	celSpec["replicas"] = float64(3)
 	celSpec["sharedStorage"] = true
 	assertRejected(t, longInstanceSchema, celMutant, "replicas must be 0, 1, or 2", "CEL")
@@ -215,6 +215,15 @@ func approvedGeneratedDifference(plural string, d Difference) bool {
 		return d.Live == nil && reflect.DeepEqual(d.Generated, want)
 	}
 	return false
+}
+
+func resourceSpec(t *testing.T, object map[string]interface{}) map[string]interface{} {
+	t.Helper()
+	spec, ok := object["spec"].(map[string]interface{})
+	if !ok {
+		t.Fatal("resource spec is not an object")
+	}
+	return spec
 }
 
 func mustSchema(t *testing.T, path string) *Schema {
