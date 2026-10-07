@@ -127,6 +127,8 @@ type LongContextPresetSpec struct {
 	ReasoningParser string `json:"reasoningParser,omitempty"`
 
 	ChatTemplate string `json:"chatTemplate,omitempty"`
+
+	SpeculativeConfig string `json:"speculativeConfig,omitempty"`
 }
 
 // +kubebuilder:object:root=true

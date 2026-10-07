@@ -248,6 +248,8 @@ spec:
               shmSizeLimit:
                 pattern: ^[0-9]+[KMGT]i?$
                 type: string
+              speculativeConfig:
+                type: string
               startupProbe:
                 description: |-
                   ProbeConfig is the tunable subset of a k8s probe.

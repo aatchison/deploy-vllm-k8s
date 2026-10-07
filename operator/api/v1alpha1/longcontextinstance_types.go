@@ -69,6 +69,8 @@ type LongContextOverrides struct {
 	ReasoningParser *string `json:"reasoningParser,omitempty"`
 
 	ChatTemplate *string `json:"chatTemplate,omitempty"`
+
+	SpeculativeConfig *string `json:"speculativeConfig,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM

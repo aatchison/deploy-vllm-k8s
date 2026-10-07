@@ -104,9 +104,10 @@ type EffectiveConfig struct {
 	// VolumeMount readOnly. Default false preserves current write-cache
 	// behavior. omitempty keeps the resolved-config-hash stable for instances
 	// that don't opt in.
-	PVCReadOnly     bool   `json:"pvcReadOnly,omitempty"`
-	ReasoningParser string `json:"reasoningParser,omitempty"`
-	ChatTemplate    string `json:"chatTemplate,omitempty"`
+	PVCReadOnly       bool   `json:"pvcReadOnly,omitempty"`
+	ReasoningParser   string `json:"reasoningParser,omitempty"`
+	ChatTemplate      string `json:"chatTemplate,omitempty"`
+	SpeculativeConfig string `json:"speculativeConfig,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -272,6 +273,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			SpeculativeConfig:       preset.SpeculativeConfig,
 			ChatTemplate:            preset.ChatTemplate,
 			ReasoningParser:         preset.ReasoningParser,
 			Image:                   preset.Image,
@@ -308,6 +310,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	}
 
 	if overrides != nil {
+		if overrides.SpeculativeConfig != nil {
+			e.SpeculativeConfig = *overrides.SpeculativeConfig
+		}
 		if overrides.ChatTemplate != nil {
 			e.ChatTemplate = *overrides.ChatTemplate
 		}

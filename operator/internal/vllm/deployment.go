@@ -587,6 +587,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.KVOffloadBackend == "lmcache" {
 		args = append(args, "--kv-transfer-config", buildKVTransferConfig(e.KVOffloadSize))
 	}
+	if e.SpeculativeConfig != "" {
+		args = append(args, "--speculative-config", e.SpeculativeConfig)
+	}
 	return args
 }
 
