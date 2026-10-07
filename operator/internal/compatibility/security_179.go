@@ -14,10 +14,6 @@ func approvedSecurity179Difference(plural string, d Difference) bool {
 	var contracts map[string]map[string]interface{}
 	if err := json.Unmarshal([]byte(`{
   "longcontextpresets": {
-    "$.properties.spec.properties.engramConfig": {
-      "type": "string",
-      "pattern": "^$|^[ \\t\\r\\n]*\\{[\\s\\S]*\\}[ \\t\\r\\n]*$"
-    },
     "$.properties.spec.properties.securityProfile": {
       "type": "string",
       "default": "default",
@@ -32,10 +28,6 @@ func approvedSecurity179Difference(plural string, d Difference) bool {
     }
   },
   "longcontextinstances": {
-    "$.properties.spec.properties.overrides.properties.engramConfig": {
-      "type": "string",
-      "pattern": "^$|^[ \\t\\r\\n]*\\{[\\s\\S]*\\}[ \\t\\r\\n]*$"
-    },
     "$.properties.spec.properties.overrides.properties.securityProfile": {
       "type": "string",
       "enum": [

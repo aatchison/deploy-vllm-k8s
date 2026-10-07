@@ -408,3 +408,34 @@ func TestSecurity179TypedEngramArgumentPreservesBytes(t *testing.T) {
 		t.Fatalf("engram flag count=%d", found)
 	}
 }
+
+func TestSecurity179ProfileAndConfigEmitEngramOnce(t *testing.T) {
+	config := `{ "cpu_offload": true, "dp_shared_memory": false }`
+	profile := v1alpha1.SecurityProfileEngramIPC
+	preset := &v1alpha1.LongContextPresetSpec{ModelID: "m", MIGResource: "nvidia.com/mig-4g.96gb", SHMSizeLimit: "8Gi", SecurityProfile: profile, EngramConfig: config}
+	for _, overrides := range []*v1alpha1.LongContextOverrides{
+		nil,
+		{SecurityProfile: &profile, EngramConfig: &config},
+	} {
+		e, _, err := ResolveLongContext(preset, overrides)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateEffectiveConfig(e); err != nil {
+			t.Fatal(err)
+		}
+		args := buildTestDeployment(e).Spec.Template.Spec.Containers[0].Args
+		count := 0
+		for i, arg := range args {
+			if arg == "--engram-config" {
+				count++
+				if i+1 >= len(args) || args[i+1] != config {
+					t.Fatalf("config bytes changed: %v", args)
+				}
+			}
+		}
+		if count != 1 {
+			t.Fatalf("engram flag count=%d, args=%v", count, args)
+		}
+	}
+}

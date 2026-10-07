@@ -28,8 +28,9 @@ For example, an operator administrator can configure
 The namespace must also be inside the operator's watch scope. CR authors
 cannot set the allowlist. Empty or unset means every `engram-ipc` request is
 refused before storage lookup, Deployment rendering, or resource apply.
-The controller reports `Ready=False`, reason `InvalidConfiguration`, and a
-Warning event. It does not advance `observedGeneration` for a refusal.
+The controller reports `Ready=False`, reason `InvalidConfiguration`. Warning
+events fire on Ready-status transitions. A refusal does not advance
+`.status.observedGeneration`; the Ready condition’s own observedGeneration is updated.
 
 CEL rejects `engram-ipc` on a preset or explicit profile override without a
 nonempty config in that same object. An explicit `engram-ipc` override must

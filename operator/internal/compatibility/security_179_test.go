@@ -10,10 +10,6 @@ func TestSecurity179SchemaAllowlistIsExact(t *testing.T) {
 	var contracts map[string]map[string]interface{}
 	if err := json.Unmarshal([]byte(`{
   "longcontextpresets": {
-    "$.properties.spec.properties.engramConfig": {
-      "type": "string",
-      "pattern": "^$|^[ \\t\\r\\n]*\\{[\\s\\S]*\\}[ \\t\\r\\n]*$"
-    },
     "$.properties.spec.properties.securityProfile": {
       "type": "string",
       "default": "default",
@@ -28,10 +24,6 @@ func TestSecurity179SchemaAllowlistIsExact(t *testing.T) {
     }
   },
   "longcontextinstances": {
-    "$.properties.spec.properties.overrides.properties.engramConfig": {
-      "type": "string",
-      "pattern": "^$|^[ \\t\\r\\n]*\\{[\\s\\S]*\\}[ \\t\\r\\n]*$"
-    },
     "$.properties.spec.properties.overrides.properties.securityProfile": {
       "type": "string",
       "enum": [
