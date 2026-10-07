@@ -65,6 +65,8 @@ type LongContextOverrides struct {
 	// APIKey, when set, overrides the instance-level apiKey. Same semantics as
 	// LongContextInstanceSpec.APIKey.
 	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
+
+	ReasoningParser *string `json:"reasoningParser,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM

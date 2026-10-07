@@ -104,7 +104,8 @@ type EffectiveConfig struct {
 	// VolumeMount readOnly. Default false preserves current write-cache
 	// behavior. omitempty keeps the resolved-config-hash stable for instances
 	// that don't opt in.
-	PVCReadOnly bool `json:"pvcReadOnly,omitempty"`
+	PVCReadOnly     bool   `json:"pvcReadOnly,omitempty"`
+	ReasoningParser string `json:"reasoningParser,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -129,6 +130,7 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			ReasoningParser:         preset.ReasoningParser,
 			Image:                   preset.Image,
 			ImagePullPolicy:         preset.ImagePullPolicy,
 			MIGResource:             preset.MIGResource,
@@ -155,6 +157,9 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 	}
 
 	if overrides != nil {
+		if overrides.ReasoningParser != nil {
+			e.ReasoningParser = *overrides.ReasoningParser
+		}
 		if overrides.ModelID != nil {
 			e.ModelID = *overrides.ModelID
 		}
@@ -262,6 +267,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			ReasoningParser:         preset.ReasoningParser,
 			Image:                   preset.Image,
 			ImagePullPolicy:         preset.ImagePullPolicy,
 			MIGResource:             preset.MIGResource,
@@ -296,6 +302,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	}
 
 	if overrides != nil {
+		if overrides.ReasoningParser != nil {
+			e.ReasoningParser = *overrides.ReasoningParser
+		}
 		if overrides.ModelID != nil {
 			e.ModelID = *overrides.ModelID
 		}

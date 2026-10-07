@@ -162,6 +162,8 @@ spec:
                 - initialDelaySeconds
                 - periodSeconds
                 type: object
+              reasoningParser:
+                type: string
               servedModelName:
                 description: |-
                   ServedModelName overrides the name vLLM advertises to clients

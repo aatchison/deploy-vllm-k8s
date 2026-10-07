@@ -123,6 +123,8 @@ type LongContextPresetSpec struct {
 
 	// +kubebuilder:validation:Minimum=1
 	MaxLoraRank int32 `json:"maxLoraRank,omitempty"`
+
+	ReasoningParser string `json:"reasoningParser,omitempty"`
 }
 
 // +kubebuilder:object:root=true

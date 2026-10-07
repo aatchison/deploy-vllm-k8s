@@ -273,6 +273,8 @@ spec:
                     - initialDelaySeconds
                     - periodSeconds
                     type: object
+                  reasoningParser:
+                    type: string
                   servedModelName:
                     type: string
                   shmSizeLimit:

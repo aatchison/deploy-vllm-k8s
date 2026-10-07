@@ -549,6 +549,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.ToolCallParser != "" {
 		args = append(args, "--tool-call-parser", e.ToolCallParser)
 	}
+	if e.ReasoningParser != "" {
+		args = append(args, "--reasoning-parser", e.ReasoningParser)
+	}
 	if e.KVCacheDtype != "" {
 		args = append(args, "--kv-cache-dtype", e.KVCacheDtype)
 	}
