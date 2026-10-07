@@ -84,6 +84,60 @@ spec:
 
 Ready-made multi-model manifests live in `operator/config/samples/instances/` (`dual-moe.yaml`, `triple.yaml`, etc.).
 
+## GitOps deployment (recommended for production)
+
+The Quick Start above is the bare-cluster bootstrap path. For production
+the operator + CRDs + RBAC should be brought under ArgoCD via either of
+the paths below.
+
+### Option A: GitHub source (no Forgejo mirror)
+
+Point an ArgoCD `Application` at this repo's `operator/config/` directory.
+ArgoCD must be configured with a GitHub credentials Secret so its repo
+server can clone.
+
+### Option B: Pull-mirror to Forgejo (recommended)
+
+Create a Forgejo mirror repo (`POST /repos/migrate` with `mirror: true`)
+and point ArgoCD at the mirror. Same pattern as `aatchison/squidge`.
+Avoids GitHub trust-path configuration on the ArgoCD side.
+
+### Prerequisite: kustomization.yaml
+
+Currently `make deploy` uses individual `kubectl apply -f` flags.
+Before ArgoCD can sync, add `operator/config/kustomization.yaml`:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - manager/manager.yaml
+  - rbac/role.yaml
+  - rbac/role_binding.yaml
+  - crd/bases/vllm.aatchison.io_vllminstances.yaml
+  - crd/bases/vllm.aatchison.io_longcontextinstances.yaml
+  - crd/bases/vllm.aatchison.io_longcontextpresets.yaml
+  - crd/bases/vllm.aatchison.io_modelpresets.yaml
+```
+
+The ArgoCD App then points at `operator/config/` with a `kustomize` source
+type.
+
+### Operational notes
+
+- **`prune: false` is mandatory** — the model PV (2 TiB) and the four CRDs
+  must never be reconciled away.
+- **MIG-setup Job is one-shot** — annotate with
+  `argocd.argoproj.io/hook: PostSync` or exclude from the App; otherwise
+  it re-applies on every sync and drains GPUs briefly.
+- **CR instances** (`VLLMInstance`, `LongContextInstance`, etc.) are
+  user-data and should NOT be managed by this App; they live in a separate
+  `vllm-instances` App or remain imperatively managed.
+
+See the migration plan in
+[forgejo-experiments#101 comment 2012](https://forgejo.atchison.io/aatchison/forgejo-experiments/issues/101#issuecomment-2012)
+for the full procedure.
+
 ## CRDs
 
 ### ModelPreset
