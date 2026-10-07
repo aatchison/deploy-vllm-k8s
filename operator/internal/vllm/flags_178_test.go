@@ -52,6 +52,7 @@ func TestFlags178RenderAndOverride(t *testing.T) {
 		{"flashinferAutotune", "--enable-flashinfer-autotune", true, false, []string{"--enable-flashinfer-autotune"}, []string{"--no-enable-flashinfer-autotune"}},
 		{"engramConfig", "--engram-config", ` {"nested":{"a":[1,true,null]},"cpu_offload_gb":32} `, `{}`, []string{"--engram-config", ` {"nested":{"a":[1,true,null]},"cpu_offload_gb":32} `}, []string{"--engram-config", `{}`}},
 		{"maxNumSeqs", "--max-num-seqs", 32, 1, []string{"--max-num-seqs", "32"}, []string{"--max-num-seqs", "1"}},
+		{"maxNumSeqs", "--max-num-seqs", 32, 0, []string{"--max-num-seqs", "32"}, nil},
 		{"reasoningParser", "--reasoning-parser", "qwen3", "other", []string{"--reasoning-parser", "qwen3"}, []string{"--reasoning-parser", "other"}},
 		{"chatTemplate", "--chat-template", "/models/chat.jinja", "/models/other.jinja", []string{"--chat-template", "/models/chat.jinja"}, []string{"--chat-template", "/models/other.jinja"}},
 		{"compilationConfig", "--compilation-config", `{"cudagraph_capture_sizes":[1,2,4]}`, `{"cudagraph_capture_sizes":[1]}`, []string{"--compilation-config", `{"cudagraph_capture_sizes":[1,2,4]}`}, []string{"--compilation-config", `{"cudagraph_capture_sizes":[1]}`}},
