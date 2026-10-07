@@ -209,6 +209,19 @@ Four long-context presets ship in `operator/config/samples/presets/`:
 | `gemma-4-26b-moe-longctx` | 4g.96gb | BF16 | FP8 e4m3 | 128K (MoE native max) |
 | `gemma-4-31b-nvfp4-longctx-lmcache` | 4g.96gb | NVFP4 | FP8 e4m3 | 256K + LMCache host-RAM offload (experimental) |
 
+#### Engram/PLE security profile
+
+| Field | Default | Rendered flag or policy |
+|---|---|---|
+| `securityProfile` | `default` | No CLI flag. `engram-ipc` requires a nonempty config and an operator-approved namespace. Both profiles keep UID 1000, drop all capabilities, and use RuntimeDefault seccomp. |
+| `engramConfig` | absent | `--engram-config <JSON object>`. Typed prerequisite shared with #178. |
+
+The namespace allowlist is `--engram-ipc-namespaces` or
+`ENGRAM_IPC_NAMESPACES` on the operator. It defaults to empty, which refuses
+`engram-ipc`. See [the security evidence and policy](docs/engram-security.md)
+and [the untested Qwen3.8-Flash-Next preset](docs/examples/qwen3.8-flash-next-security-179.yaml).
+The preset also needs the revision field from #178.
+
 #### Optional KV-offload mode (LMCache, experimental)
 
 `LongContextPreset` supports an optional host-RAM KV-offload backend via the

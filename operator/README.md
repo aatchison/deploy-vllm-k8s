@@ -275,3 +275,10 @@ names such as `HF_TOKEN_PATH` and change runtime behavior through `PATH`.
 process environment and may leak through diagnostics or child processes. It can
 reference same-namespace Secrets without granting the CR author Secret read
 access. Use namespace isolation and admission policy for untrusted authors.
+
+## Engram/PLE profile
+
+Long-context `securityProfile: engram-ipc` requires an operator-managed namespace
+allowlist (`--engram-ipc-namespaces` or `ENGRAM_IPC_NAMESPACES`, empty by default).
+It keeps the restricted security context on vLLM v0.31.0. See
+[the policy, source evidence, and untested example](../docs/engram-security.md).

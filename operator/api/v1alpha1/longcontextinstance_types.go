@@ -14,6 +14,8 @@ type LongContextPresetReference struct {
 // LongContextOverrides mirrors LongContextPresetSpec field-for-field; every
 // field is a pointer — non-nil means override. Probe overrides replace the
 // whole ProbeConfig struct.
+//
+// +kubebuilder:validation:XValidation:rule="!has(self.securityProfile) || self.securityProfile != 'engram-ipc' || (has(self.engramConfig) && size(self.engramConfig) > 0)",message="an engram-ipc override requires a nonempty overrides.engramConfig"
 type LongContextOverrides struct {
 	ModelID *string `json:"modelID,omitempty"`
 	Image   *string `json:"image,omitempty"`
@@ -109,6 +111,9 @@ type LongContextOverrides struct {
 	// FlashinferAutotune sets vLLM's --enable-flashinfer-autotune flag.
 	// Nil leaves the vLLM default unchanged; false emits --no-enable-flashinfer-autotune.
 	FlashinferAutotune *bool `json:"flashinferAutotune,omitempty"`
+	// SecurityProfile replaces the preset policy. Explicit default opts out.
+	// No admission default: an absent override must inherit the preset.
+	SecurityProfile *SecurityProfile `json:"securityProfile,omitempty"`
 
 	// EngramConfig sets vLLM's --engram-config flag.
 	// JSON object string, passed unchanged. Empty disables the flag.

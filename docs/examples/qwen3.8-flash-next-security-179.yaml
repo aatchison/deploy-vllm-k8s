@@ -1,0 +1,32 @@
+# UNTESTED. Requires the typed modelRevision field from issue #178.
+# Source review only: no image/GPU/cluster startup or memory-fit test.
+# Administrator prerequisite: ENGRAM_IPC_NAMESPACES=vllm (or matching flag).
+# securityProfile=engram-ipc does not add privileges on vLLM v0.31.0.
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: LongContextPreset
+metadata:
+  name: qwen3-8-flash-next-security
+  namespace: vllm
+spec:
+  modelID: nvidia/Qwen3.8-Flash-Next-NVFP4
+  modelRevision: fc694b54fb0174e0913e6adf86691ef85a4ead47
+  image: vllm/vllm-openai:v0.31.0@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3
+  imagePullPolicy: IfNotPresent
+  migResource: nvidia.com/mig-4g.96gb
+  migResourceCount: 1
+  tensorParallelSize: 1
+  quantization: nvfp4
+  dtype: auto
+  maxModelLen: 32768
+  gpuMemoryUtilization: "0.90"
+  kvCacheDtype: auto
+  enablePrefixCaching: true
+  securityProfile: engram-ipc
+  engramConfig: '{"cpu_offload":true,"dp_shared_memory":false}'
+  # PLE uses private pinned RAM with dp_shared_memory=false; 8Gi is not its RAM budget.
+  # A /dev/shm-backed table needs its full footprint plus IPC headroom; see ../engram-security.md.
+  shmSizeLimit: 8Gi
+  progressDeadlineSeconds: 1800
+  livenessProbe: {initialDelaySeconds: 300, periodSeconds: 30, failureThreshold: 10}
+  readinessProbe: {initialDelaySeconds: 60, periodSeconds: 10, failureThreshold: 30}
+  startupProbe: {initialDelaySeconds: 0, periodSeconds: 10, failureThreshold: 180}

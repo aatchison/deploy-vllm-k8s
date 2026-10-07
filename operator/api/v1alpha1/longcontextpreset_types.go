@@ -11,6 +11,7 @@ import (
 // untouched while opinionated defaults (KV quantization, prefix caching) ship
 // here.
 //
+// +kubebuilder:validation:XValidation:rule="!has(self.securityProfile) || self.securityProfile != 'engram-ipc' || (has(self.engramConfig) && size(self.engramConfig) > 0)",message="engram-ipc requires a nonempty engramConfig"
 // +kubebuilder:validation:XValidation:rule="!(self.kvOffloadBackend == 'lmcache' && (self.migResourceCount > 1 || self.tensorParallelSize > 1))",message="LMCache offload is single-slice only (kvOffloadBackend=lmcache requires migResourceCount=1 and tensorParallelSize=1)"
 type LongContextPresetSpec struct {
 	ModelID string `json:"modelID"`
@@ -176,6 +177,11 @@ type LongContextPresetSpec struct {
 	// FlashinferAutotune sets vLLM's --enable-flashinfer-autotune flag.
 	// Nil leaves the vLLM default unchanged; false emits --no-enable-flashinfer-autotune.
 	FlashinferAutotune *bool `json:"flashinferAutotune,omitempty"`
+	// SecurityProfile is an explicit host-offload opt-in. Both profiles keep
+	// the restricted pod security context on vLLM v0.31.0; engram-ipc also
+	// requires an operator-approved namespace and a nonempty engramConfig.
+	// +kubebuilder:default=default
+	SecurityProfile SecurityProfile `json:"securityProfile,omitempty"`
 
 	// EngramConfig sets vLLM's --engram-config flag.
 	// JSON object string, passed unchanged. Empty disables the flag.

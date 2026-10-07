@@ -182,7 +182,7 @@ func assertRejected(t *testing.T, schema *Schema, resource map[string]interface{
 // named #177 schema hardening/shared-storage additions, and the three existing
 // GitHub LoRA override fields. None changes or removes a live schema field.
 func approvedGeneratedDifference(plural string, d Difference) bool {
-	if approvedFlags178Difference(plural, d) {
+	if approvedFlags178Difference(plural, d) || approvedSecurity179Difference(plural, d) {
 		return true
 	}
 	if plural != "vllminstances" && plural != "longcontextinstances" {

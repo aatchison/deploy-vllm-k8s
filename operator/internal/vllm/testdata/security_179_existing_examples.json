@@ -1,0 +1,6614 @@
+{
+  "README.md#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "README.md#1:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "README.md#2:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "README.md#3:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": ""
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "items": [
+                  {
+                    "key": "",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "README.md#4:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b-nvfp4-longctx",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b-nvfp4-longctx",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b-nvfp4-longctx"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b-nvfp4-longctx",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "262144",
+                "--gpu-memory-utilization",
+                "0.92",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--enable-prefix-caching",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4-LongCtx",
+                "--max-num-batched-tokens",
+                "4096"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 5,
+                "failureThreshold": 6
+              },
+              "startupProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 15,
+                "periodSeconds": 10,
+                "failureThreshold": 120
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "docs/multi-tenant-deployment.md#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "tenant-a",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-shared-ro"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "readOnly": true,
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "docs/superpowers/specs/2026-04-16-vllm-operator-design.md#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/26b-a4b.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "moe",
+      "namespace": "vllm",
+      "labels": {
+        "app": "moe",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "moe"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "moe",
+            "model": "google-gemma-4-26B-A4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-26B-A4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "131072",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-26B-A4B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/31b-bf16-tp2.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b-bf16-tp2",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b-bf16-tp2",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b-bf16-tp2"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b-bf16-tp2",
+            "model": "google-gemma-4-31B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "32Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-31B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "262144",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--tensor-parallel-size",
+                "2",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-BF16-TP2"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "2"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1800,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 15,
+                "failureThreshold": 60
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 2400
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/31b-bf16.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b-bf16",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b-bf16",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b-bf16"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b-bf16",
+            "model": "google-gemma-4-31B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-31B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "65536",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-BF16"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/31b-nvfp4-96.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b-96",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b-96",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b-96"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b-96",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "131072",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4-96"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/31b-nvfp4-longctx.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b-nvfp4-longctx",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b-nvfp4-longctx",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b-nvfp4-longctx"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b-nvfp4-longctx",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "262144",
+                "--gpu-memory-utilization",
+                "0.92",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--enable-prefix-caching",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4-LongCtx",
+                "--max-num-batched-tokens",
+                "4096"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 5,
+                "failureThreshold": 6
+              },
+              "startupProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 15,
+                "periodSeconds": 10,
+                "failureThreshold": 120
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/31b-nvfp4.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/dual-moe.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "moe",
+      "namespace": "vllm",
+      "labels": {
+        "app": "moe",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "moe"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "moe",
+            "model": "google-gemma-4-26B-A4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-26B-A4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "131072",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-26B-A4B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/dual-moe.yaml#0:1": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/dual.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/dual.yaml#0:1": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e4b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e4b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e4b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e4b",
+            "model": "google-gemma-4-E4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-E4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E4B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 480,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 90,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/e2b.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/e4b.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e4b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e4b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e4b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e4b",
+            "model": "google-gemma-4-E4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-E4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E4B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 480,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 90,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/triple.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/triple.yaml#0:1": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e4b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "e4b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e4b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e4b",
+            "model": "google-gemma-4-E4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-E4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E4B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 480,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 90,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/instances/triple.yaml#0:2": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "31b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "31b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "31b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "31b",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-pvc"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-26b-a4b.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-26b-a4b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-26b-a4b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-26b-a4b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-26b-a4b",
+            "model": "google-gemma-4-26B-A4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-26B-A4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "131072",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-26B-A4B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-26b-moe-longctx.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-26b-moe-longctx",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-26b-moe-longctx",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-26b-moe-longctx"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-26b-moe-longctx",
+            "model": "google-gemma-4-26B-A4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-26B-A4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "131072",
+                "--gpu-memory-utilization",
+                "0.92",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--enable-prefix-caching",
+                "--served-model-name",
+                "Gemma-4-26B-MoE-LongCtx"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 240,
+                "periodSeconds": 15,
+                "failureThreshold": 60
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-31b-bf16-longctx.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-31b-bf16-longctx",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-31b-bf16-longctx",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-31b-bf16-longctx"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-31b-bf16-longctx",
+            "model": "google-gemma-4-31B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-31B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "131072",
+                "--gpu-memory-utilization",
+                "0.92",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--enable-prefix-caching",
+                "--served-model-name",
+                "Gemma-4-31B-BF16-LongCtx"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 240,
+                "periodSeconds": 15,
+                "failureThreshold": 60
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-31b-bf16-tp2.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-31b-bf16-tp2",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-31b-bf16-tp2",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-31b-bf16-tp2"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-31b-bf16-tp2",
+            "model": "google-gemma-4-31B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "32Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-31B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "262144",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--tensor-parallel-size",
+                "2",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-BF16-TP2"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "2"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1800,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 15,
+                "failureThreshold": 60
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 2400
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-31b-bf16.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-31b-bf16",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-31b-bf16",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-31b-bf16"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-31b-bf16",
+            "model": "google-gemma-4-31B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-31B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "65536",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-BF16"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-31b-nvfp4-96.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-31b-nvfp4-96",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-31b-nvfp4-96",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-31b-nvfp4-96"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-31b-nvfp4-96",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "131072",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4-96"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-31b-nvfp4-longctx-lmcache.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-31b-nvfp4-longctx-lmcache",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-31b-nvfp4-longctx-lmcache",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-31b-nvfp4-longctx-lmcache"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-31b-nvfp4-longctx-lmcache",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            },
+            {
+              "name": "lmcache-data",
+              "emptyDir": {
+                "sizeLimit": "32Gi"
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "262144",
+                "--gpu-memory-utilization",
+                "0.92",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--enable-prefix-caching",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4-LongCtx-LMCache",
+                "--max-num-batched-tokens",
+                "4096",
+                "--kv-transfer-config",
+                "{\"kv_connector\":\"LMCacheConnectorV1\",\"kv_role\":\"kv_both\",\"kv_buffer_size\":34359738368}"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                },
+                {
+                  "name": "lmcache-data",
+                  "mountPath": "/lmcache-data"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 5,
+                "failureThreshold": 6
+              },
+              "startupProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 15,
+                "periodSeconds": 10,
+                "failureThreshold": 120
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            },
+            {
+              "name": "lmcache",
+              "image": "lmcache/lmcache:v0.4.0",
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "4Gi"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "lmcache-data",
+                  "mountPath": "/lmcache-data"
+                }
+              ],
+              "livenessProbe": {
+                "tcpSocket": {
+                  "port": 9000
+                },
+                "initialDelaySeconds": 10,
+                "periodSeconds": 30,
+                "failureThreshold": 5
+              },
+              "imagePullPolicy": "IfNotPresent",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-31b-nvfp4-longctx.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-31b-nvfp4-longctx",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-31b-nvfp4-longctx",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-31b-nvfp4-longctx"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-31b-nvfp4-longctx",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "16Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "262144",
+                "--gpu-memory-utilization",
+                "0.92",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--enable-prefix-caching",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4-LongCtx",
+                "--max-num-batched-tokens",
+                "4096"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-4g.96gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "periodSeconds": 5,
+                "failureThreshold": 6
+              },
+              "startupProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 15,
+                "periodSeconds": 10,
+                "failureThreshold": 120
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-4g.96gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-31b-nvfp4.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-31b-nvfp4",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-31b-nvfp4",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-31b-nvfp4"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-31b-nvfp4",
+            "model": "nvidia-Gemma-4-31B-IT-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "nvidia/Gemma-4-31B-IT-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.95",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-31B-NVFP4"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 1200,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 180,
+                "periodSeconds": 15,
+                "failureThreshold": 40
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 1800
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-e2b-1g.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-e2b-1g",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-e2b-1g",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-e2b-1g"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-e2b-1g",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "4Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B-1g"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-1g.24gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-1g.24gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-e2b.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-e2b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/samples/presets/gemma-4-e4b.yaml#0:0": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "gemma-4-e4b",
+      "namespace": "vllm",
+      "labels": {
+        "app": "gemma-4-e4b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "gemma-4-e4b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "gemma-4-e4b",
+            "model": "google-gemma-4-E4B-it"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "models"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "google/gemma-4-E4B-it",
+                "--dtype",
+                "bfloat16",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E4B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 480,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 90,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  },
+  "operator/config/storage/pvc-shared-readonly.yaml#0:4": {
+    "kind": "Deployment",
+    "apiVersion": "apps/v1",
+    "metadata": {
+      "name": "e2b",
+      "namespace": "tenant-a",
+      "labels": {
+        "app": "e2b",
+        "app.kubernetes.io/managed-by": "vllm-operator"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "",
+          "kind": "",
+          "name": "",
+          "uid": ""
+        }
+      ]
+    },
+    "spec": {
+      "replicas": 1,
+      "selector": {
+        "matchLabels": {
+          "app": "e2b"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "e2b",
+            "model": "bg-digitalservices-Gemma-4-E2B-it-NVFP4"
+          }
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "models",
+              "persistentVolumeClaim": {
+                "claimName": "vllm-models-shared-ro"
+              }
+            },
+            {
+              "name": "dshm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "8Gi"
+              }
+            },
+            {
+              "name": "hf-token",
+              "secret": {
+                "secretName": "hf-token",
+                "items": [
+                  {
+                    "key": "token",
+                    "path": "token"
+                  }
+                ],
+                "defaultMode": 256
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "vllm",
+              "image": "docker.io/library/vllm-gemma4:local",
+              "args": [
+                "--model",
+                "bg-digitalservices/Gemma-4-E2B-it-NVFP4",
+                "--quantization",
+                "nvfp4",
+                "--port",
+                "8000",
+                "--max-model-len",
+                "32768",
+                "--gpu-memory-utilization",
+                "0.90",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser",
+                "gemma4",
+                "--served-model-name",
+                "Gemma-4-E2B"
+              ],
+              "ports": [
+                {
+                  "name": "http",
+                  "containerPort": 8000,
+                  "protocol": "TCP"
+                }
+              ],
+              "env": [
+                {
+                  "name": "HF_TOKEN_PATH",
+                  "value": "/var/run/hf/token"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/models/huggingface"
+                },
+                {
+                  "name": "USER",
+                  "value": "vllm"
+                },
+                {
+                  "name": "TORCHINDUCTOR_CACHE_DIR",
+                  "value": "/tmp/torch-inductor"
+                },
+                {
+                  "name": "HOME",
+                  "value": "/tmp"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "nvidia.com/mig-2g.48gb": "1"
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "models",
+                  "readOnly": true,
+                  "mountPath": "/models"
+                },
+                {
+                  "name": "dshm",
+                  "mountPath": "/dev/shm"
+                },
+                {
+                  "name": "hf-token",
+                  "readOnly": true,
+                  "mountPath": "/var/run/hf"
+                }
+              ],
+              "livenessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 300,
+                "periodSeconds": 30,
+                "failureThreshold": 10
+              },
+              "readinessProbe": {
+                "httpGet": {
+                  "path": "/health",
+                  "port": 8000
+                },
+                "initialDelaySeconds": 60,
+                "periodSeconds": 10,
+                "failureThreshold": 30
+              },
+              "imagePullPolicy": "Never",
+              "securityContext": {
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "allowPrivilegeEscalation": false
+              }
+            }
+          ],
+          "automountServiceAccountToken": false,
+          "securityContext": {
+            "runAsUser": 1000,
+            "runAsNonRoot": true,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/mig-2g.48gb",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ]
+        }
+      },
+      "strategy": {
+        "type": "Recreate"
+      },
+      "progressDeadlineSeconds": 600
+    },
+    "status": {}
+  }
+}
