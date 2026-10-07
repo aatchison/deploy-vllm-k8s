@@ -113,7 +113,9 @@ type EffectiveConfig struct {
 	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
 	MambaCacheMode         string `json:"mambaCacheMode,omitempty"`
 
-	MambaBackend string `json:"mambaBackend,omitempty"`
+	MambaBackend      string `json:"mambaBackend,omitempty"`
+	EnforceEager      *bool  `json:"enforceEager,omitempty"`
+	CompilationConfig string `json:"compilationConfig,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -320,7 +322,23 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 	}
 
+	if preset != nil {
+		if preset.EnforceEager != nil {
+			v := *preset.EnforceEager
+			e.EnforceEager = &v
+		}
+		if preset.CompilationConfig != nil {
+			e.CompilationConfig = *preset.CompilationConfig
+		}
+	}
 	if overrides != nil {
+		if overrides.EnforceEager != nil {
+			v := *overrides.EnforceEager
+			e.EnforceEager = &v
+		}
+		if overrides.CompilationConfig != nil {
+			e.CompilationConfig = *overrides.CompilationConfig
+		}
 		if overrides.MambaBackend != nil {
 			e.MambaBackend = *overrides.MambaBackend
 		}

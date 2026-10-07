@@ -74,7 +74,9 @@ type LongContextOverrides struct {
 	// +kubebuilder:validation:Enum=all;align;none
 	MambaCacheMode *string `json:"mambaCacheMode,omitempty"`
 
-	MambaBackend *string `json:"mambaBackend,omitempty"`
+	MambaBackend      *string `json:"mambaBackend,omitempty"`
+	EnforceEager      *bool   `json:"enforceEager,omitempty"`
+	CompilationConfig *string `json:"compilationConfig,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM

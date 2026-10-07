@@ -139,6 +139,9 @@ type LongContextPresetSpec struct {
 	MambaCacheMode string `json:"mambaCacheMode,omitempty"`
 
 	MambaBackend string `json:"mambaBackend,omitempty"`
+	// +nullable
+	EnforceEager      *bool   `json:"enforceEager,omitempty"`
+	CompilationConfig *string `json:"compilationConfig,omitempty"`
 }
 
 // +kubebuilder:object:root=true

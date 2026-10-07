@@ -158,6 +158,8 @@ spec:
                     x-kubernetes-map-type: atomic
                   chatTemplate:
                     type: string
+                  compilationConfig:
+                    type: string
                   cpuOffloadGiB:
                     format: int32
                     type: integer
@@ -170,6 +172,8 @@ spec:
                   enableLora:
                     type: boolean
                   enablePrefixCaching:
+                    type: boolean
+                  enforceEager:
                     type: boolean
                   gpuMemoryUtilization:
                     pattern: ^0?\.[0-9]+$|^1\.0$

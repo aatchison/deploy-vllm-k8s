@@ -69,6 +69,8 @@ spec:
             properties:
               chatTemplate:
                 type: string
+              compilationConfig:
+                type: string
               cpuOffloadGiB:
                 description: |-
                   CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV
@@ -100,6 +102,9 @@ spec:
                     - &true    → explicitly enabled
                   The pointer type fixes the kubebuilder default+omitempty trap that
                   previously made it impossible to disable the field once defaulted on.
+                nullable: true
+                type: boolean
+              enforceEager:
                 nullable: true
                 type: boolean
               gpuMemoryUtilization:

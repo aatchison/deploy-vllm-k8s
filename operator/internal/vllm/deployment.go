@@ -605,6 +605,12 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.KVCacheDtypeSkipLayers != "" {
 		args = append(args, "--kv-cache-dtype-skip-layers", e.KVCacheDtypeSkipLayers)
 	}
+	if e.EnforceEager != nil && *e.EnforceEager {
+		args = append(args, "--enforce-eager")
+	}
+	if e.CompilationConfig != "" {
+		args = append(args, "--compilation-config", e.CompilationConfig)
+	}
 	return args
 }
 
