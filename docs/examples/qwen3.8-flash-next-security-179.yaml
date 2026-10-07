@@ -23,6 +23,8 @@ spec:
   enablePrefixCaching: true
   securityProfile: engram-ipc
   engramConfig: '{"cpu_offload":true,"dp_shared_memory":false}'
+  # PLE uses private pinned RAM with dp_shared_memory=false; 8Gi is not its RAM budget.
+  # A /dev/shm-backed table needs its full footprint plus IPC headroom; see ../engram-security.md.
   shmSizeLimit: 8Gi
   progressDeadlineSeconds: 1800
   livenessProbe: {initialDelaySeconds: 300, periodSeconds: 30, failureThreshold: 10}

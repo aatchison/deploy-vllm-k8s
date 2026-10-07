@@ -68,6 +68,25 @@ need for root, `SYS_PTRACE`, or `pidfd_getfd`. The narrow proven privilege
 addition is empty. GPU/UVA support, host RAM, writable cache access, host
 registration limits, and `/dev/shm` capacity still need runtime validation.
 
+### Host RAM and /dev/shm sizing
+
+The operator mounts `/dev/shm` as a Memory `emptyDir` with
+`sizeLimit: shmSizeLimit`. A roughly 50 GiB table backed by this tmpfs cannot
+fit in 8Gi or 16Gi. Shared-table modes need a limit above the full table and
+scale footprint plus IPC headroom. For example, 64Gi is suitable only if the
+measured total footprint fits. Raising `shmSizeLimit` does not reserve RAM or
+raise a container memory limit. Tmpfs pages count against the memory limit of
+the container that writes them and any applicable pod memory budget, not
+ordinary disk ephemeral-storage usage. See the
+[Kubernetes emptyDir documentation](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir).
+
+The TP1 Qwen example sets `dp_shared_memory: false`. Its PLE table uses private
+pinned host RAM, not `/dev/shm`, so the table alone does not require raising the
+example's 8Gi `shmSizeLimit`. It still needs roughly table-sized host RAM plus
+loading and runtime headroom. The renderer currently sets only the MIG resource
+limit for the vLLM container, not a RAM request or limit. Memory fit remains
+untested. Typed container memory requests and limits belong to issue #186.
+
 ### A separate `pidfd_getfd` failure is not proof of a host-offload requirement
 
 PyTorch's [device expandable-segment IPC path](https://github.com/pytorch/pytorch/blob/cf30153c4c131c8164ee7798e5022d810682e2cb/c10/cuda/CUDACachingAllocator.cpp#L690-L718)
