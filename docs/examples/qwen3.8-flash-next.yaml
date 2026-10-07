@@ -1,0 +1,40 @@
+# UNTESTED: configuration example only. No live-cluster or model execution test.
+# Refs #178. Engram/PLE pod security configuration is separate work in #179.
+# This preset does not claim the model fits or boots on one MIG slice.
+apiVersion: vllm.aatchison.io/v1alpha1
+kind: LongContextPreset
+metadata:
+  name: qwen3-8-flash-next-nvfp4-untested
+  namespace: vllm
+spec:
+  modelID: nvidia/Qwen3.8-Flash-Next-NVFP4
+  modelRevision: fc694b54fb0174e0913e6adf86691ef85a4ead47
+  codeRevision: fc694b54fb0174e0913e6adf86691ef85a4ead47
+  tokenizerRevision: fc694b54fb0174e0913e6adf86691ef85a4ead47
+  image: vllm/vllm-openai:v0.31.0@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3
+  imagePullPolicy: IfNotPresent
+  migResource: nvidia.com/mig-4g.96gb
+  migResourceCount: 1
+  tensorParallelSize: 1
+  quantization: nvfp4
+  maxModelLen: 32768
+  gpuMemoryUtilization: "0.90"
+  shmSizeLimit: 16Gi
+  progressDeadlineSeconds: 1800
+  livenessProbe: {initialDelaySeconds: 0, periodSeconds: 30, failureThreshold: 10}
+  readinessProbe: {initialDelaySeconds: 0, periodSeconds: 5, failureThreshold: 6}
+  startupProbe: {initialDelaySeconds: 15, periodSeconds: 10, failureThreshold: 120}
+  kvCacheDtype: auto
+  kvOffloadBackend: none
+  enablePrefixCaching: true
+  maxNumBatchedTokens: 4096
+  maxNumSeqs: 8
+  trustRemoteCode: false
+  disableCustomAllReduce: true
+  flashinferAutotune: false
+  reasoningParser: qwen3
+  compilationConfig: '{"cudagraph_capture_sizes":[1,2,4,8]}'
+  speculativeConfig: '{"method":"mtp","num_speculative_tokens":3}'
+  # CPU offload and dp_shared_memory must be reviewed with the #179 profile.
+  # Explicitly disabled here; this is not a PLE CPU-offload deployment recipe.
+  engramConfig: '{"cpu_offload":false,"dp_shared_memory":false}'
