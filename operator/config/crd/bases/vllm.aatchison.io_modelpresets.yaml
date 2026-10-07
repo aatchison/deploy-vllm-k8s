@@ -70,6 +70,7 @@ spec:
                   at default. Useful for long-context throughput too.
                 type: boolean
               enableLora:
+                default: false
                 type: boolean
               gpuMemoryUtilization:
                 pattern: ^0?\.[0-9]+$|^1\.0$
@@ -110,7 +111,7 @@ spec:
               loraModules:
                 type: string
               maxLoraRank:
-                format: int32
+                default: 64
                 minimum: 1
                 type: integer
               maxModelLen:

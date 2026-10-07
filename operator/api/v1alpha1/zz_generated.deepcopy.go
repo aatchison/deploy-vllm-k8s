@@ -432,6 +432,16 @@ func (in *LongContextPresetSpec) DeepCopyInto(out *LongContextPresetSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.EnableLora != nil {
+		in, out := &in.EnableLora, &out.EnableLora
+		*out = new(bool)
+		**out = **in
+	}
+	if in.MaxLoraRank != nil {
+		in, out := &in.MaxLoraRank, &out.MaxLoraRank
+		*out = new(int)
+		**out = **in
+	}
 	if in.EnforceEager != nil {
 		in, out := &in.EnforceEager, &out.EnforceEager
 		*out = new(bool)
@@ -670,6 +680,16 @@ func (in *ModelPresetSpec) DeepCopyInto(out *ModelPresetSpec) {
 	if in.StartupProbe != nil {
 		in, out := &in.StartupProbe, &out.StartupProbe
 		*out = new(ProbeConfig)
+		**out = **in
+	}
+	if in.EnableLora != nil {
+		in, out := &in.EnableLora, &out.EnableLora
+		*out = new(bool)
+		**out = **in
+	}
+	if in.MaxLoraRank != nil {
+		in, out := &in.MaxLoraRank, &out.MaxLoraRank
+		*out = new(int)
 		**out = **in
 	}
 }

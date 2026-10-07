@@ -97,9 +97,9 @@ type EffectiveConfig struct {
 	EnableChunkedPrefill    bool                      `json:"enableChunkedPrefill,omitempty"`
 	KVOffloadBackend        string                    `json:"kvOffloadBackend,omitempty"`
 	KVOffloadSize           int32                     `json:"kvOffloadSize,omitempty"`
-	EnableLora              bool                      `json:"enableLora,omitempty"`
+	EnableLora              *bool                     `json:"enableLora,omitempty"`
 	LoraModules             string                    `json:"loraModules,omitempty"`
-	MaxLoraRank             int32                     `json:"maxLoraRank,omitempty"`
+	MaxLoraRank             int                       `json:"maxLoraRank,omitempty"`
 	// PVCReadOnly, when true, causes BuildDeployment to mark the /models
 	// VolumeMount readOnly. Default false preserves current write-cache
 	// behavior. omitempty keeps the resolved-config-hash stable for instances
@@ -161,12 +161,19 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			StartupProbe:            preset.StartupProbe,
 			MaxNumBatchedTokens:     preset.MaxNumBatchedTokens,
 			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
-			EnableLora:              preset.EnableLora,
 			LoraModules:             preset.LoraModules,
-			MaxLoraRank:             preset.MaxLoraRank,
 		}
 	}
 
+	if preset != nil {
+		if preset.EnableLora != nil {
+			v := *preset.EnableLora
+			e.EnableLora = &v
+		}
+		if preset.MaxLoraRank != nil {
+			e.MaxLoraRank = *preset.MaxLoraRank
+		}
+	}
 	if overrides != nil {
 		if overrides.ChatTemplate != nil {
 			e.ChatTemplate = *overrides.ChatTemplate
@@ -235,13 +242,14 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 			e.EnableChunkedPrefill = *overrides.EnableChunkedPrefill
 		}
 		if overrides.EnableLora != nil {
-			e.EnableLora = *overrides.EnableLora
+			v := *overrides.EnableLora
+			e.EnableLora = &v
 		}
 		if overrides.LoraModules != nil {
 			e.LoraModules = *overrides.LoraModules
 		}
 		if overrides.MaxLoraRank != nil {
-			e.MaxLoraRank = *overrides.MaxLoraRank
+			e.MaxLoraRank = int(*overrides.MaxLoraRank)
 		}
 		if overrides.PVCReadOnly != nil {
 			e.PVCReadOnly = *overrides.PVCReadOnly
@@ -312,9 +320,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			EnableChunkedPrefill:    preset.EnableChunkedPrefill,
 			KVOffloadBackend:        preset.KVOffloadBackend,
 			KVOffloadSize:           preset.KVOffloadSize,
-			EnableLora:              preset.EnableLora,
 			LoraModules:             preset.LoraModules,
-			MaxLoraRank:             preset.MaxLoraRank,
 		}
 		if preset.EnablePrefixCaching != nil {
 			v := *preset.EnablePrefixCaching
@@ -329,6 +335,15 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 		}
 		if preset.CompilationConfig != nil {
 			e.CompilationConfig = *preset.CompilationConfig
+		}
+	}
+	if preset != nil {
+		if preset.EnableLora != nil {
+			v := *preset.EnableLora
+			e.EnableLora = &v
+		}
+		if preset.MaxLoraRank != nil {
+			e.MaxLoraRank = *preset.MaxLoraRank
 		}
 	}
 	if overrides != nil {
@@ -431,13 +446,14 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 			e.KVOffloadSize = *overrides.KVOffloadSize
 		}
 		if overrides.EnableLora != nil {
-			e.EnableLora = *overrides.EnableLora
+			v := *overrides.EnableLora
+			e.EnableLora = &v
 		}
 		if overrides.LoraModules != nil {
 			e.LoraModules = *overrides.LoraModules
 		}
 		if overrides.MaxLoraRank != nil {
-			e.MaxLoraRank = *overrides.MaxLoraRank
+			e.MaxLoraRank = int(*overrides.MaxLoraRank)
 		}
 		if overrides.PVCReadOnly != nil {
 			e.PVCReadOnly = *overrides.PVCReadOnly
