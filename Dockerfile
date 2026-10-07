@@ -10,7 +10,7 @@
 #
 # This digest resolves to vLLM 0.21.1rc1.dev417+g22a58640b (commit 22a58640)
 # and matches the digest currently running on the node.
-FROM vllm/vllm-openai:nightly@sha256:4cebac8c03f2cd9f5fabe72ac7c2a0b3aaa8450ef8f0e47429425fd1bfb83d42
+FROM vllm/vllm-openai:nightly@sha256:0855bda3823195e5f11404c0b94cc1a469df23aa8a5fc0fd81d58b5a2dac065b
 
 # --- Issue #103: passwd entry for the running uid ---
 # Pods run as uid 1000 under the operator's runAsNonRoot security context
