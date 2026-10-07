@@ -5,6 +5,55 @@ metadata:
   name: vllm
 
 ---
+# HuggingFace token Secret
+#
+# DO NOT commit a real token to this file. The `stringData.token` value below
+# is intentionally empty so `kubectl apply -f 00-base.yaml` is safe to run
+# in CI / dry-run / GitOps reconciliation paths without leaking credentials.
+# Choose ONE of the two paths below to populate the live Secret.
+#
+# ─── Path A — production / GitOps (preferred) ──────────────────────────────
+# Use External Secrets Operator (ESO) to source the token from your secret
+# backend (1Password Connect, Vault, AWS Secrets Manager, SealedSecrets, …)
+# and remove the inline Secret block below. See:
+#   https://forgejo.atchison.io/aatchison/forgejo-experiments/issues/108
+#   https://forgejo.atchison.io/aatchison/forgejo-experiments/issues/76
+#
+# Example ExternalSecret (commented out; uncomment + adapt to your store):
+#
+# apiVersion: external-secrets.io/v1beta1
+# kind: ExternalSecret
+# metadata:
+#   name: hf-token
+#   namespace: vllm
+# spec:
+#   refreshInterval: 1h
+#   secretStoreRef:
+#     name: 1password-connect       # ← your ClusterSecretStore
+#     kind: ClusterSecretStore
+#   target:
+#     name: hf-token
+#     creationPolicy: Owner
+#   data:
+#     - secretKey: token
+#       remoteRef:
+#         key: HuggingFace
+#         property: token
+#
+# ─── Path B — dev / quickstart (no ESO) ────────────────────────────────────
+# Apply this file as-is, then patch the live Secret out-of-band with your
+# real token. The value never touches the repo:
+#
+#   kubectl -n vllm create secret generic hf-token \
+#     --from-literal=token=hf_yourrealtoken \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#
+# Or, equivalently, edit the live Secret directly:
+#
+#   kubectl -n vllm patch secret hf-token \
+#     --type=merge -p '{"stringData":{"token":"hf_yourrealtoken"}}'
+#
+# ───────────────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Secret
 metadata:
@@ -12,10 +61,9 @@ metadata:
   namespace: vllm
 type: Opaque
 stringData:
-  # ── CHANGE ME ──────────────────────────────────────────────────
-  # Replace with your HuggingFace access token.
-  # Get one at: https://huggingface.co/settings/tokens
-  token: "YOUR_HUGGINGFACE_TOKEN_HERE"
+  # Intentionally empty. Populate via ESO (Path A) or kubectl patch (Path B).
+  # Do NOT commit a real token here.
+  token: ""
 
 # Storage (PV+PVC) and Services are now owned by the vLLM operator.
 # See operator/config/storage/{pv-nfs,pvc-local}.yaml for PVC samples.
