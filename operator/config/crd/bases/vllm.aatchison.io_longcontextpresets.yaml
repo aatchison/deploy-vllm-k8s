@@ -153,6 +153,8 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              limitMmPerPrompt:
+                type: string
               livenessProbe:
                 description: |-
                   ProbeConfig is the tunable subset of a k8s probe.

@@ -129,6 +129,8 @@ type LongContextPresetSpec struct {
 	ChatTemplate string `json:"chatTemplate,omitempty"`
 
 	SpeculativeConfig string `json:"speculativeConfig,omitempty"`
+
+	LimitMmPerPrompt string `json:"limitMmPerPrompt,omitempty"`
 }
 
 // +kubebuilder:object:root=true

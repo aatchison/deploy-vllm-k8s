@@ -590,6 +590,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.SpeculativeConfig != "" {
 		args = append(args, "--speculative-config", e.SpeculativeConfig)
 	}
+	if e.LimitMmPerPrompt != "" {
+		args = append(args, "--limit-mm-per-prompt", e.LimitMmPerPrompt)
+	}
 	return args
 }
 
