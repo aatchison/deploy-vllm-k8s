@@ -67,6 +67,8 @@ spec:
               untouched while opinionated defaults (KV quantization, prefix caching) ship
               here.
             properties:
+              chatTemplate:
+                type: string
               cpuOffloadGiB:
                 description: |-
                   CPUOffloadGiB enables vLLM's --cpu-offload-gb flag, moving evicted KV

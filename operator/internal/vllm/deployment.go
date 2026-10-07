@@ -552,6 +552,9 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.ReasoningParser != "" {
 		args = append(args, "--reasoning-parser", e.ReasoningParser)
 	}
+	if e.ChatTemplate != "" {
+		args = append(args, "--chat-template", e.ChatTemplate)
+	}
 	if e.KVCacheDtype != "" {
 		args = append(args, "--kv-cache-dtype", e.KVCacheDtype)
 	}

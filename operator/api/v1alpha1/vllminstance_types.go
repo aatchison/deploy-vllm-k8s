@@ -60,6 +60,8 @@ type ModelConfigOverrides struct {
 	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
 
 	ReasoningParser *string `json:"reasoningParser,omitempty"`
+
+	ChatTemplate *string `json:"chatTemplate,omitempty"`
 }
 
 // VLLMInstanceSpec is the desired state of a single vLLM deployment.

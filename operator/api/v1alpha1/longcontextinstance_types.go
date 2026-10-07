@@ -67,6 +67,8 @@ type LongContextOverrides struct {
 	APIKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
 
 	ReasoningParser *string `json:"reasoningParser,omitempty"`
+
+	ChatTemplate *string `json:"chatTemplate,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM

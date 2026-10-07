@@ -156,6 +156,8 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
+                  chatTemplate:
+                    type: string
                   cpuOffloadGiB:
                     format: int32
                     type: integer

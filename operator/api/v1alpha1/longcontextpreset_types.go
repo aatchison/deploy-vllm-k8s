@@ -125,6 +125,8 @@ type LongContextPresetSpec struct {
 	MaxLoraRank int32 `json:"maxLoraRank,omitempty"`
 
 	ReasoningParser string `json:"reasoningParser,omitempty"`
+
+	ChatTemplate string `json:"chatTemplate,omitempty"`
 }
 
 // +kubebuilder:object:root=true

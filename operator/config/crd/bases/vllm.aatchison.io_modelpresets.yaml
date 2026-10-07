@@ -57,6 +57,8 @@ spec:
               ModelPresetSpec holds a reusable bundle of vLLM args.
               ModelPreset has no controller — it's consumed by VLLMInstance at reconcile time.
             properties:
+              chatTemplate:
+                type: string
               dtype:
                 type: string
               enableAutoToolChoice:

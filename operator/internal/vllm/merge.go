@@ -106,6 +106,7 @@ type EffectiveConfig struct {
 	// that don't opt in.
 	PVCReadOnly     bool   `json:"pvcReadOnly,omitempty"`
 	ReasoningParser string `json:"reasoningParser,omitempty"`
+	ChatTemplate    string `json:"chatTemplate,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -130,6 +131,7 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			ChatTemplate:            preset.ChatTemplate,
 			ReasoningParser:         preset.ReasoningParser,
 			Image:                   preset.Image,
 			ImagePullPolicy:         preset.ImagePullPolicy,
@@ -157,6 +159,9 @@ func Resolve(preset *vllmv1alpha1.ModelPresetSpec, overrides *vllmv1alpha1.Model
 	}
 
 	if overrides != nil {
+		if overrides.ChatTemplate != nil {
+			e.ChatTemplate = *overrides.ChatTemplate
+		}
 		if overrides.ReasoningParser != nil {
 			e.ReasoningParser = *overrides.ReasoningParser
 		}
@@ -267,6 +272,7 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			ChatTemplate:            preset.ChatTemplate,
 			ReasoningParser:         preset.ReasoningParser,
 			Image:                   preset.Image,
 			ImagePullPolicy:         preset.ImagePullPolicy,
@@ -302,6 +308,9 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	}
 
 	if overrides != nil {
+		if overrides.ChatTemplate != nil {
+			e.ChatTemplate = *overrides.ChatTemplate
+		}
 		if overrides.ReasoningParser != nil {
 			e.ReasoningParser = *overrides.ReasoningParser
 		}
