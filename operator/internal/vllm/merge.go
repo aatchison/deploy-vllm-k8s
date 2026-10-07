@@ -111,6 +111,9 @@ type EffectiveConfig struct {
 	LimitMmPerPrompt       string `json:"limitMmPerPrompt,omitempty"`
 	MaxNumSeqs             int32  `json:"maxNumSeqs,omitempty"`
 	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
+	MambaCacheMode         string `json:"mambaCacheMode,omitempty"`
+
+	MambaBackend string `json:"mambaBackend,omitempty"`
 }
 
 // HashConfig returns the sha256 hex digest of the canonical JSON encoding of
@@ -276,6 +279,8 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	if preset != nil {
 		e = EffectiveConfig{
 			ModelID:                 preset.ModelID,
+			MambaBackend:            preset.MambaBackend,
+			MambaCacheMode:          preset.MambaCacheMode,
 			KVCacheDtypeSkipLayers:  preset.KVCacheDtypeSkipLayers,
 			MaxNumSeqs:              preset.MaxNumSeqs,
 			LimitMmPerPrompt:        preset.LimitMmPerPrompt,
@@ -316,6 +321,12 @@ func ResolveLongContext(preset *vllmv1alpha1.LongContextPresetSpec, overrides *v
 	}
 
 	if overrides != nil {
+		if overrides.MambaBackend != nil {
+			e.MambaBackend = *overrides.MambaBackend
+		}
+		if overrides.MambaCacheMode != nil {
+			e.MambaCacheMode = *overrides.MambaCacheMode
+		}
 		if overrides.SpeculativeConfig != nil {
 			e.SpeculativeConfig = *overrides.SpeculativeConfig
 		}

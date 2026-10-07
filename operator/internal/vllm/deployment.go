@@ -558,6 +558,12 @@ func buildArgs(e EffectiveConfig) []string {
 	if e.KVCacheDtype != "" {
 		args = append(args, "--kv-cache-dtype", e.KVCacheDtype)
 	}
+	if e.MambaCacheMode != "" {
+		args = append(args, "--mamba-cache-mode", e.MambaCacheMode)
+	}
+	if e.MambaBackend != "" {
+		args = append(args, "--mamba-backend", e.MambaBackend)
+	}
 	if e.EnablePrefixCaching != nil && *e.EnablePrefixCaching {
 		args = append(args, "--enable-prefix-caching")
 	}

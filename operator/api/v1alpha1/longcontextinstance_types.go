@@ -71,6 +71,10 @@ type LongContextOverrides struct {
 	ChatTemplate *string `json:"chatTemplate,omitempty"`
 
 	SpeculativeConfig *string `json:"speculativeConfig,omitempty"`
+	// +kubebuilder:validation:Enum=all;align;none
+	MambaCacheMode *string `json:"mambaCacheMode,omitempty"`
+
+	MambaBackend *string `json:"mambaBackend,omitempty"`
 }
 
 // LongContextInstanceSpec is the desired state of a single long-context vLLM

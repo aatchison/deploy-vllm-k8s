@@ -184,6 +184,14 @@ spec:
                 description: LoraModules maps served adapter names to paths under
                   /models/.
                 type: string
+              mambaBackend:
+                type: string
+              mambaCacheMode:
+                enum:
+                - all
+                - align
+                - none
+                type: string
               maxLoraRank:
                 format: int32
                 minimum: 1

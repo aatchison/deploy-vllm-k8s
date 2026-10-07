@@ -135,6 +135,10 @@ type LongContextPresetSpec struct {
 	MaxNumSeqs int32 `json:"maxNumSeqs,omitempty"`
 
 	KVCacheDtypeSkipLayers string `json:"kvCacheDtypeSkipLayers,omitempty"`
+	// +kubebuilder:validation:Enum=all;align;none
+	MambaCacheMode string `json:"mambaCacheMode,omitempty"`
+
+	MambaBackend string `json:"mambaBackend,omitempty"`
 }
 
 // +kubebuilder:object:root=true
