@@ -33,7 +33,7 @@ Warning event. It does not advance `observedGeneration` for a refusal.
 
 CEL rejects `engram-ipc` on a preset or explicit profile override without a
 nonempty config in that same object. An explicit `engram-ipc` override must
-therefore repeat `overrides.engramConfig`, even if the preset already has it.
+repeat `overrides.engramConfig`, even if the preset already has it.
 CEL cannot dereference another CR. After merging, the controller also validates
 the effective profile, config, and namespace. Clearing an inherited config
 while retaining `engram-ipc` is refused. Invalid JSON, arrays, and `null` are
